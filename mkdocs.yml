@@ -22,7 +22,7 @@ theme:
       primary: deep purple
       accent: deep purple
       toggle:
-        icon: material/brightness-7 
+        icon: material/brightness-7
         name: Switch to dark mode
 
     - media: "(prefers-color-scheme: dark)"
@@ -55,8 +55,9 @@ nav:
     - Custom Endpoints: advanced/endpoint.md
     - Advanced CRUD Usage: advanced/crud.md
     - Advanced Filtering: advanced/filters.md
+    - Dependency-Based Filtering: advanced/dependency_filtering.md
     - Joining Models: advanced/joins.md
-  - API Reference: 
+  - API Reference:
     - Overview: api/overview.md
     - FastCRUD: api/fastcrud.md
     - EndpointCreator: api/endpoint_creator.md

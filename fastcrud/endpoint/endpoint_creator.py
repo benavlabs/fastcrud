@@ -324,7 +324,11 @@ class EndpointCreator:
     def _validate_filter_config(self, filter_config: FilterConfig) -> None:
         model_columns = self.crud.model_col_names
         supported_filters = self.crud._SUPPORTED_FILTERS
-        for key in filter_config.filters.keys():
+        for key, value in filter_config.filters.items():
+            # Skip validation for callable values as they will be resolved at runtime
+            if callable(value):
+                continue
+
             if "__" in key:
                 field_name, op = key.rsplit("__", 1)
                 if op not in supported_filters:

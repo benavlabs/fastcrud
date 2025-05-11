@@ -55,7 +55,7 @@ class FilterConfig(BaseModel):
     @field_validator("filters")
     def check_filter_types(cls, filters: dict[str, Any]) -> dict[str, Any]:
         for key, value in filters.items():
-            if not isinstance(value, (type(None), str, int, float, bool)):
+            if not (isinstance(value, (type(None), str, int, float, bool)) or callable(value)):
                 raise ValueError(f"Invalid default value for '{key}': {value}")
         return filters
 
@@ -67,7 +67,11 @@ class FilterConfig(BaseModel):
     def get_params(self) -> dict[str, Any]:
         params = {}
         for key, value in self.filters.items():
-            params[key] = Query(value)
+            if callable(value):
+                # For callable values, we'll use Depends
+                params[key] = Depends(value)
+            else:
+                params[key] = Query(value)
         return params
 
 
@@ -236,13 +240,23 @@ def _create_dynamic_filters(
 
     params = []
     for key, value in filter_config.filters.items():
-        params.append(
-            inspect.Parameter(
-                key,
-                inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                default=Query(value, alias=key),
+        if callable(value):
+            # For callable values, use Depends
+            params.append(
+                inspect.Parameter(
+                    key,
+                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                    default=Depends(value),
+                )
             )
-        )
+        else:
+            params.append(
+                inspect.Parameter(
+                    key,
+                    inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                    default=Query(value, alias=key),
+                )
+            )
 
     sig = inspect.Signature(params)
     setattr(filters, "__signature__", sig)
