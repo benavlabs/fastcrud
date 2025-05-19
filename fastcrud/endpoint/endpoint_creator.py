@@ -241,7 +241,6 @@ class EndpointCreator:
     def __init__(
         self,
         session: Callable,
-        model: ModelType,
         create_schema: Type[CreateSchemaType],
         update_schema: Type[UpdateSchemaType],
         crud: Optional[FastCRUD] = None,
@@ -262,13 +261,8 @@ class EndpointCreator:
         }
         self.primary_key_names = [pk.name for pk in self._primary_keys]
         self.session = session
-        self.crud = crud or FastCRUD(
-            model=model,
-            is_deleted_column=is_deleted_column,
-            deleted_at_column=deleted_at_column,
-            updated_at_column=updated_at_column,
-        )
-        self.model = model
+        self.crud = crud
+        self.model = self.crud.model
         self.create_schema = create_schema
         self.update_schema = update_schema
         self.delete_schema = delete_schema

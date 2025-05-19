@@ -531,7 +531,6 @@ def crud_router(
     endpoint_creator_class = endpoint_creator or EndpointCreator
     endpoint_creator_instance = endpoint_creator_class(
         session=session,
-        model=model,
         crud=crud,
         create_schema=create_schema,  # type: ignore
         update_schema=update_schema,  # type: ignore
