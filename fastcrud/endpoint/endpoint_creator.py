@@ -398,6 +398,9 @@ class EndpointCreator:
             items_per_page: Optional[int] = Query(
                 None, alias="itemsPerPage", description="Number of items per page"
             ),
+            sort: Optional[str] = Query(
+                None, description="Sort field(s) in format: 'field1,-field2' (prefix with - for descending)"
+            ),
             filters: dict = Depends(dynamic_filters),
         ) -> Union[dict[str, Any], PaginatedListResponse, ListResponse]:
             is_paginated = (page is not None) or (items_per_page is not None)
@@ -419,6 +422,21 @@ class EndpointCreator:
                 offset = 0
                 limit = 100
 
+            # Parse sort parameter
+            sort_columns = None
+            sort_orders = None
+            if sort:
+                sort_fields = sort.split(',')
+                sort_columns = []
+                sort_orders = []
+                for field in sort_fields:
+                    if field.startswith('-'):
+                        sort_columns.append(field[1:])
+                        sort_orders.append('desc')
+                    else:
+                        sort_columns.append(field)
+                        sort_orders.append('asc')
+
             if self.select_schema is not None:
                 crud_data = await self.crud.get_multi(
                     db,
@@ -426,6 +444,8 @@ class EndpointCreator:
                     limit=limit,  # type: ignore
                     schema_to_select=self.select_schema,
                     return_as_model=True,
+                    sort_columns=sort_columns,
+                    sort_orders=sort_orders,
                     **filters,
                 )
             else:
@@ -433,6 +453,8 @@ class EndpointCreator:
                     db,
                     offset=offset,  # type: ignore
                     limit=limit,  # type: ignore
+                    sort_columns=sort_columns,
+                    sort_orders=sort_orders,
                     **filters,
                 )
 
@@ -652,6 +674,8 @@ class EndpointCreator:
                     f"Read multiple {self.model.__name__} rows from the database.\n\n"
                     f"- Use page & itemsPerPage for paginated results\n"
                     f"- Use offset & limit for specific ranges\n"
+                    f"- Use sort parameter for sorting results (e.g., 'name' for ascending, '-name' for descending)\n"
+                    f"- Multiple sort fields can be specified with comma separation (e.g., 'name,-age')\n"
                     f"- Returns paginated response when using page/itemsPerPage\n"
                     f"- Returns simple list response when using offset/limit"
                 ),
