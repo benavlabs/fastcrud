@@ -1,5 +1,6 @@
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
+from types import SimpleNamespace
 from typing import Optional
 from datetime import datetime
 
@@ -689,3 +690,27 @@ def endpoint_creator(test_model, async_session) -> EndpointCreator:
             "read_multi": "get_multi",
         },
     )
+
+
+@pytest.fixture
+def fake_sqlalchemy_utils_column_no_python_type() -> SimpleNamespace:
+    fake_column = SimpleNamespace(
+        __module__="sqlalchemy_utils.anything",
+        type=SimpleNamespace(
+            __module__="sqlalchemy_utils.types.anything",
+            python_type=None,
+        ),
+    )
+    return fake_column
+
+
+@pytest.fixture
+def fake_sqlalchemy_utils_column_with_python_type() -> SimpleNamespace:
+    fake_column = SimpleNamespace(
+        __module__="sqlalchemy_utils.anything",
+        type=SimpleNamespace(
+            __module__="sqlalchemy_utils.types.anything",
+            python_type=str,
+        ),
+    )
+    return fake_column

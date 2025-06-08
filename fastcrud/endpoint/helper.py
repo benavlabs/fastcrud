@@ -117,6 +117,10 @@ def _get_python_type(column: Column) -> Optional[type]:
         direct_type: Optional[type] = column.type.python_type
         return direct_type
     except NotImplementedError:
+        if column.type.__module__.startswith("sqlalchemy_utils"):
+            # if the type is from sqlalchemy_utils and doesn't have a direct mapping to Python types, will be ignored
+            return None
+
         if hasattr(column.type, "impl") and hasattr(column.type.impl, "python_type"):
             if _is_uuid_type(column.type.impl):  # pragma: no cover
                 return UUID
