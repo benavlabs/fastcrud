@@ -202,6 +202,17 @@ class Task(Base):
     assignee = relationship("User", backref="tasks")
 
 
+class ModelWithOrgTest(Base):
+    __tablename__ = "test_with_org"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(32))
+    tier_id = Column(Integer)
+    category_id = Column(Integer, nullable=True, default=None)
+    organization_id = Column(Integer, nullable=True, default=None)
+    is_deleted = Column(Boolean, default=False)
+    deleted_at = Column(DateTime, nullable=True, default=None)
+
+
 class ModelWithCustomColumns(Base):
     __tablename__ = "test_custom"
 
@@ -488,6 +499,10 @@ def multi_pk_test_create_schema():
 @pytest.fixture
 def test_model_custom_columns():
     return ModelWithCustomColumns
+
+@pytest.fixture
+def test_model_with_org():
+    return ModelWithOrgTest
 
 
 async def test_read_dep():

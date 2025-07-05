@@ -593,6 +593,42 @@ app.include_router(
 )
 ```
 
+### Dependency-Based Filtering
+
+FastCRUD also supports dependency-based filtering, allowing you to automatically filter query results based on values from dependencies. This is particularly useful for implementing row-level access control, where users should only see data that belongs to their organization or tenant.
+
+```python
+from fastapi import Depends
+from fastcrud import crud_router, FilterConfig
+
+# Define a dependency that returns the user's organization ID
+async def get_auth_user():
+    # Your authentication logic here
+    return UserInfo(organization_id=123)
+
+async def get_org_id(auth: UserInfo = Depends(get_auth_user)):
+    return auth.organization_id
+
+# Create a router with dependency-based filtering
+epc_router = crud_router(
+    session=async_session,
+    model=ExternalProviderConfig,
+    create_schema=ExternalProviderConfigSchema,
+    update_schema=ExternalProviderConfigSchema,
+    path="/external_provider_configs",
+    filter_config=FilterConfig(
+        organization_id=get_org_id,  # This will be resolved at runtime
+    ),
+    tags=["external_provider_configs"],
+)
+
+app.include_router(epc_router)
+```
+
+In this example, the `get_org_id` dependency will be called for each request, and the returned value will be used to filter the results by `organization_id`.
+
+For more details on dependency-based filtering, see the [Dependency-Based Filtering](dependency_filtering.md) documentation.
+
 ### Using Filters in Requests
 
 Once filters are configured, you can use them in your API requests. Filters are passed as query parameters. Here's an example of how to use filters in a request to a paginated endpoint:
