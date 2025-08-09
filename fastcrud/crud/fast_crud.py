@@ -805,7 +805,10 @@ class FastCRUD(
             The created database object.
         """
         object_dict = object.model_dump()
-        db_object: ModelType = self.model(**object_dict)
+        db_object: ModelType = self.model()
+        # Set the fields on the model using setattr in case the model has `init=False`
+        for field, value in object_dict.items():
+            setattr(db_object, field, value)
         db.add(db_object)
         if commit:
             await db.commit()
