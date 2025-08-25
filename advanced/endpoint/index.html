@@ -666,6 +666,8 @@
       
         
       
+        
+      
     
     
     
@@ -1020,6 +1022,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#dependency-based-filtering" class="md-nav__link">
+    <span class="md-ellipsis">
+      Dependency-Based Filtering
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#using-filters-in-requests" class="md-nav__link">
     <span class="md-ellipsis">
       Using Filters in Requests
@@ -1041,6 +1052,66 @@
   <a href="#handling-invalid-filter-columns" class="md-nav__link">
     <span class="md-ellipsis">
       Handling Invalid Filter Columns
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sorting-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sorting Results
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sorting Results">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#basic-sorting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Basic Sorting
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#multi-field-sorting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Multi-field Sorting
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sorting-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sorting Format
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#error-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      Error Handling
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#combining-with-other-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Combining with Other Parameters
     </span>
   </a>
   
@@ -1102,6 +1173,27 @@
   
   <span class="md-ellipsis">
     Advanced Filtering
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../dependency_filtering/" class="md-nav__link">
+        
+  
+  <span class="md-ellipsis">
+    Dependency-Based Filtering
   </span>
   
 
@@ -1802,6 +1894,15 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#dependency-based-filtering" class="md-nav__link">
+    <span class="md-ellipsis">
+      Dependency-Based Filtering
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#using-filters-in-requests" class="md-nav__link">
     <span class="md-ellipsis">
       Using Filters in Requests
@@ -1823,6 +1924,66 @@
   <a href="#handling-invalid-filter-columns" class="md-nav__link">
     <span class="md-ellipsis">
       Handling Invalid Filter Columns
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#sorting-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sorting Results
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Sorting Results">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#basic-sorting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Basic Sorting
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#multi-field-sorting" class="md-nav__link">
+    <span class="md-ellipsis">
+      Multi-field Sorting
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#sorting-format" class="md-nav__link">
+    <span class="md-ellipsis">
+      Sorting Format
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#error-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      Error Handling
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#combining-with-other-parameters" class="md-nav__link">
+    <span class="md-ellipsis">
+      Combining with Other Parameters
     </span>
   </a>
   
@@ -1900,9 +2061,15 @@
 <li><code>limit</code> (optional): The maximum number of items to return.</li>
 <li><code>page</code> (optional): The page number, starting from 1.</li>
 <li><code>itemsPerPage</code> (optional): The number of items per page.</li>
+<li><code>sort</code> (optional): Sort results by one or more fields. Format: <code>field1,-field2</code> where <code>-</code> prefix indicates descending order.</li>
 </ul>
 </li>
-<li><strong>Example Request</strong>: <code>GET /items?offset=3&amp;limit=4</code>.</li>
+<li><strong>Example Requests</strong>: <ul>
+<li><code>GET /items?offset=3&amp;limit=4</code> (pagination)</li>
+<li><code>GET /items?sort=name</code> (sort by name ascending)</li>
+<li><code>GET /items?sort=-price,name</code> (sort by price descending, then name ascending)</li>
+</ul>
+</li>
 <li><strong>Example Return</strong>:
 <div class="language-javascript highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="s2">&quot;data&quot;</span><span class="o">:</span><span class="w"> </span><span class="p">[</span>
@@ -2403,37 +2570,103 @@ See <a href="https://github.com/igorbenav/fastcrud/issues/67">this issue</a> for
 </span><span id="__span-22-17"><a id="__codelineno-22-17" name="__codelineno-22-17" href="#__codelineno-22-17"></a>    <span class="p">),</span>
 </span><span id="__span-22-18"><a id="__codelineno-22-18" name="__codelineno-22-18" href="#__codelineno-22-18"></a><span class="p">)</span>
 </span></code></pre></div>
+<h3 id="dependency-based-filtering">Dependency-Based Filtering<a class="headerlink" href="#dependency-based-filtering" title="Permanent link">&para;</a></h3>
+<p>FastCRUD also supports dependency-based filtering, allowing you to automatically filter query results based on values from dependencies. This is particularly useful for implementing row-level access control, where users should only see data that belongs to their organization or tenant.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="kn">from</span> <span class="nn">fastapi</span> <span class="kn">import</span> <span class="n">Depends</span>
+</span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="kn">from</span> <span class="nn">fastcrud</span> <span class="kn">import</span> <span class="n">crud_router</span><span class="p">,</span> <span class="n">FilterConfig</span>
+</span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>
+</span><span id="__span-23-4"><a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="c1"># Define a dependency that returns the user&#39;s organization ID</span>
+</span><span id="__span-23-5"><a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="k">async</span> <span class="k">def</span> <span class="nf">get_auth_user</span><span class="p">():</span>
+</span><span id="__span-23-6"><a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a>    <span class="c1"># Your authentication logic here</span>
+</span><span id="__span-23-7"><a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a>    <span class="k">return</span> <span class="n">UserInfo</span><span class="p">(</span><span class="n">organization_id</span><span class="o">=</span><span class="mi">123</span><span class="p">)</span>
+</span><span id="__span-23-8"><a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>
+</span><span id="__span-23-9"><a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a><span class="k">async</span> <span class="k">def</span> <span class="nf">get_org_id</span><span class="p">(</span><span class="n">auth</span><span class="p">:</span> <span class="n">UserInfo</span> <span class="o">=</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_auth_user</span><span class="p">)):</span>
+</span><span id="__span-23-10"><a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a>    <span class="k">return</span> <span class="n">auth</span><span class="o">.</span><span class="n">organization_id</span>
+</span><span id="__span-23-11"><a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a>
+</span><span id="__span-23-12"><a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a><span class="c1"># Create a router with dependency-based filtering</span>
+</span><span id="__span-23-13"><a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a><span class="n">epc_router</span> <span class="o">=</span> <span class="n">crud_router</span><span class="p">(</span>
+</span><span id="__span-23-14"><a id="__codelineno-23-14" name="__codelineno-23-14" href="#__codelineno-23-14"></a>    <span class="n">session</span><span class="o">=</span><span class="n">async_session</span><span class="p">,</span>
+</span><span id="__span-23-15"><a id="__codelineno-23-15" name="__codelineno-23-15" href="#__codelineno-23-15"></a>    <span class="n">model</span><span class="o">=</span><span class="n">ExternalProviderConfig</span><span class="p">,</span>
+</span><span id="__span-23-16"><a id="__codelineno-23-16" name="__codelineno-23-16" href="#__codelineno-23-16"></a>    <span class="n">create_schema</span><span class="o">=</span><span class="n">ExternalProviderConfigSchema</span><span class="p">,</span>
+</span><span id="__span-23-17"><a id="__codelineno-23-17" name="__codelineno-23-17" href="#__codelineno-23-17"></a>    <span class="n">update_schema</span><span class="o">=</span><span class="n">ExternalProviderConfigSchema</span><span class="p">,</span>
+</span><span id="__span-23-18"><a id="__codelineno-23-18" name="__codelineno-23-18" href="#__codelineno-23-18"></a>    <span class="n">path</span><span class="o">=</span><span class="s2">&quot;/external_provider_configs&quot;</span><span class="p">,</span>
+</span><span id="__span-23-19"><a id="__codelineno-23-19" name="__codelineno-23-19" href="#__codelineno-23-19"></a>    <span class="n">filter_config</span><span class="o">=</span><span class="n">FilterConfig</span><span class="p">(</span>
+</span><span id="__span-23-20"><a id="__codelineno-23-20" name="__codelineno-23-20" href="#__codelineno-23-20"></a>        <span class="n">organization_id</span><span class="o">=</span><span class="n">get_org_id</span><span class="p">,</span>  <span class="c1"># This will be resolved at runtime</span>
+</span><span id="__span-23-21"><a id="__codelineno-23-21" name="__codelineno-23-21" href="#__codelineno-23-21"></a>    <span class="p">),</span>
+</span><span id="__span-23-22"><a id="__codelineno-23-22" name="__codelineno-23-22" href="#__codelineno-23-22"></a>    <span class="n">tags</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;external_provider_configs&quot;</span><span class="p">],</span>
+</span><span id="__span-23-23"><a id="__codelineno-23-23" name="__codelineno-23-23" href="#__codelineno-23-23"></a><span class="p">)</span>
+</span><span id="__span-23-24"><a id="__codelineno-23-24" name="__codelineno-23-24" href="#__codelineno-23-24"></a>
+</span><span id="__span-23-25"><a id="__codelineno-23-25" name="__codelineno-23-25" href="#__codelineno-23-25"></a><span class="n">app</span><span class="o">.</span><span class="n">include_router</span><span class="p">(</span><span class="n">epc_router</span><span class="p">)</span>
+</span></code></pre></div>
+<p>In this example, the <code>get_org_id</code> dependency will be called for each request, and the returned value will be used to filter the results by <code>organization_id</code>.</p>
+<p>For more details on dependency-based filtering, see the <a href="../dependency_filtering/">Dependency-Based Filtering</a> documentation.</p>
 <h3 id="using-filters-in-requests">Using Filters in Requests<a class="headerlink" href="#using-filters-in-requests" title="Permanent link">&para;</a></h3>
 <p>Once filters are configured, you can use them in your API requests. Filters are passed as query parameters. Here's an example of how to use filters in a request to a paginated endpoint:</p>
-<div class="language-http highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="err">GET /yourmodel?page=1&amp;itemsPerPage=3&amp;tier_id=1&amp;name=Alice</span>
+<div class="language-http highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="err">GET /yourmodel?page=1&amp;itemsPerPage=3&amp;tier_id=1&amp;name=Alice</span>
 </span></code></pre></div>
 <h3 id="custom-filter-validation">Custom Filter Validation<a class="headerlink" href="#custom-filter-validation" title="Permanent link">&para;</a></h3>
 <p>The <code>FilterConfig</code> class includes a validator to check filter types. If an invalid filter type is provided, a <code>ValueError</code> is raised. You can customize the validation logic by extending the <code>FilterConfig</code> class:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="kn">from</span> <span class="nn">fastcrud</span> <span class="kn">import</span> <span class="n">FilterConfig</span>
-</span><span id="__span-24-2"><a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">ValidationError</span>
-</span><span id="__span-24-3"><a id="__codelineno-24-3" name="__codelineno-24-3" href="#__codelineno-24-3"></a>
-</span><span id="__span-24-4"><a id="__codelineno-24-4" name="__codelineno-24-4" href="#__codelineno-24-4"></a><span class="k">class</span> <span class="nc">CustomFilterConfig</span><span class="p">(</span><span class="n">FilterConfig</span><span class="p">):</span>
-</span><span id="__span-24-5"><a id="__codelineno-24-5" name="__codelineno-24-5" href="#__codelineno-24-5"></a>    <span class="nd">@field_validator</span><span class="p">(</span><span class="s2">&quot;filters&quot;</span><span class="p">)</span>
-</span><span id="__span-24-6"><a id="__codelineno-24-6" name="__codelineno-24-6" href="#__codelineno-24-6"></a>    <span class="k">def</span> <span class="nf">check_filter_types</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">filters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
-</span><span id="__span-24-7"><a id="__codelineno-24-7" name="__codelineno-24-7" href="#__codelineno-24-7"></a>        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">filters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-</span><span id="__span-24-8"><a id="__codelineno-24-8" name="__codelineno-24-8" href="#__codelineno-24-8"></a>            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="kc">None</span><span class="p">),</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)):</span>
-</span><span id="__span-24-9"><a id="__codelineno-24-9" name="__codelineno-24-9" href="#__codelineno-24-9"></a>                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid default value for &#39;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&#39;: </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</span><span id="__span-24-10"><a id="__codelineno-24-10" name="__codelineno-24-10" href="#__codelineno-24-10"></a>        <span class="k">return</span> <span class="n">filters</span>
-</span><span id="__span-24-11"><a id="__codelineno-24-11" name="__codelineno-24-11" href="#__codelineno-24-11"></a>
-</span><span id="__span-24-12"><a id="__codelineno-24-12" name="__codelineno-24-12" href="#__codelineno-24-12"></a><span class="k">try</span><span class="p">:</span>
-</span><span id="__span-24-13"><a id="__codelineno-24-13" name="__codelineno-24-13" href="#__codelineno-24-13"></a>    <span class="c1"># Example of invalid filter configuration</span>
-</span><span id="__span-24-14"><a id="__codelineno-24-14" name="__codelineno-24-14" href="#__codelineno-24-14"></a>    <span class="n">invalid_filter_config</span> <span class="o">=</span> <span class="n">CustomFilterConfig</span><span class="p">(</span><span class="n">invalid_field</span><span class="o">=</span><span class="p">[])</span>
-</span><span id="__span-24-15"><a id="__codelineno-24-15" name="__codelineno-24-15" href="#__codelineno-24-15"></a><span class="k">except</span> <span class="n">ValidationError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span id="__span-24-16"><a id="__codelineno-24-16" name="__codelineno-24-16" href="#__codelineno-24-16"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="kn">from</span> <span class="nn">fastcrud</span> <span class="kn">import</span> <span class="n">FilterConfig</span>
+</span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a><span class="kn">from</span> <span class="nn">pydantic</span> <span class="kn">import</span> <span class="n">ValidationError</span>
+</span><span id="__span-25-3"><a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>
+</span><span id="__span-25-4"><a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="k">class</span> <span class="nc">CustomFilterConfig</span><span class="p">(</span><span class="n">FilterConfig</span><span class="p">):</span>
+</span><span id="__span-25-5"><a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a>    <span class="nd">@field_validator</span><span class="p">(</span><span class="s2">&quot;filters&quot;</span><span class="p">)</span>
+</span><span id="__span-25-6"><a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a>    <span class="k">def</span> <span class="nf">check_filter_types</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">filters</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+</span><span id="__span-25-7"><a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a>        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">filters</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+</span><span id="__span-25-8"><a id="__codelineno-25-8" name="__codelineno-25-8" href="#__codelineno-25-8"></a>            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="kc">None</span><span class="p">),</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">bool</span><span class="p">)):</span>
+</span><span id="__span-25-9"><a id="__codelineno-25-9" name="__codelineno-25-9" href="#__codelineno-25-9"></a>                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid default value for &#39;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&#39;: </span><span class="si">{</span><span class="n">value</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-25-10"><a id="__codelineno-25-10" name="__codelineno-25-10" href="#__codelineno-25-10"></a>        <span class="k">return</span> <span class="n">filters</span>
+</span><span id="__span-25-11"><a id="__codelineno-25-11" name="__codelineno-25-11" href="#__codelineno-25-11"></a>
+</span><span id="__span-25-12"><a id="__codelineno-25-12" name="__codelineno-25-12" href="#__codelineno-25-12"></a><span class="k">try</span><span class="p">:</span>
+</span><span id="__span-25-13"><a id="__codelineno-25-13" name="__codelineno-25-13" href="#__codelineno-25-13"></a>    <span class="c1"># Example of invalid filter configuration</span>
+</span><span id="__span-25-14"><a id="__codelineno-25-14" name="__codelineno-25-14" href="#__codelineno-25-14"></a>    <span class="n">invalid_filter_config</span> <span class="o">=</span> <span class="n">CustomFilterConfig</span><span class="p">(</span><span class="n">invalid_field</span><span class="o">=</span><span class="p">[])</span>
+</span><span id="__span-25-15"><a id="__codelineno-25-15" name="__codelineno-25-15" href="#__codelineno-25-15"></a><span class="k">except</span> <span class="n">ValidationError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span id="__span-25-16"><a id="__codelineno-25-16" name="__codelineno-25-16" href="#__codelineno-25-16"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="handling-invalid-filter-columns">Handling Invalid Filter Columns<a class="headerlink" href="#handling-invalid-filter-columns" title="Permanent link">&para;</a></h3>
 <p>FastCRUD ensures that filters are applied only to valid columns in your model. If an invalid filter column is specified, a <code>ValueError</code> is raised:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-25-1"><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="k">try</span><span class="p">:</span>
-</span><span id="__span-25-2"><a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>    <span class="c1"># Example of invalid filter column</span>
-</span><span id="__span-25-3"><a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>    <span class="n">invalid_filter_config</span> <span class="o">=</span> <span class="n">FilterConfig</span><span class="p">(</span><span class="n">non_existent_column</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
-</span><span id="__span-25-4"><a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-</span><span id="__span-25-5"><a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>  <span class="c1"># Output: Invalid filter column &#39;non_existent_column&#39;: not found in model</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-26-1"><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a><span class="k">try</span><span class="p">:</span>
+</span><span id="__span-26-2"><a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>    <span class="c1"># Example of invalid filter column</span>
+</span><span id="__span-26-3"><a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>    <span class="n">invalid_filter_config</span> <span class="o">=</span> <span class="n">FilterConfig</span><span class="p">(</span><span class="n">non_existent_column</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+</span><span id="__span-26-4"><a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a><span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+</span><span id="__span-26-5"><a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a>    <span class="nb">print</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>  <span class="c1"># Output: Invalid filter column &#39;non_existent_column&#39;: not found in model</span>
 </span></code></pre></div>
+<h2 id="sorting-results">Sorting Results<a class="headerlink" href="#sorting-results" title="Permanent link">&para;</a></h2>
+<p>FastCRUD automatically provides sorting functionality for the "read multiple" endpoint through the <code>sort</code> query parameter. This allows clients to control the ordering of returned results.</p>
+<h3 id="basic-sorting">Basic Sorting<a class="headerlink" href="#basic-sorting" title="Permanent link">&para;</a></h3>
+<p>Sort by a single field in ascending order:
+<div class="language-http highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="err">GET /items?sort=name</span>
+</span></code></pre></div></p>
+<p>Sort by a single field in descending order (use <code>-</code> prefix):
+<div class="language-http highlight"><pre><span></span><code><span id="__span-28-1"><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="err">GET /items?sort=-price</span>
+</span></code></pre></div></p>
+<h3 id="multi-field-sorting">Multi-field Sorting<a class="headerlink" href="#multi-field-sorting" title="Permanent link">&para;</a></h3>
+<p>Sort by multiple fields by separating them with commas:
+<div class="language-http highlight"><pre><span></span><code><span id="__span-29-1"><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a><span class="err">GET /items?sort=category,name</span>
+</span></code></pre></div></p>
+<p>Mix ascending and descending orders:
+<div class="language-http highlight"><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="err">GET /items?sort=category,-price,name</span>
+</span></code></pre></div>
+This sorts by:
+1. <code>category</code> (ascending)
+2. <code>price</code> (descending) 
+3. <code>name</code> (ascending)</p>
+<h3 id="sorting-format">Sorting Format<a class="headerlink" href="#sorting-format" title="Permanent link">&para;</a></h3>
+<p>The sort parameter accepts the following format:
+- Field names separated by commas: <code>field1,field2,field3</code>
+- Prefix with <code>-</code> for descending order: <code>-field1,field2,-field3</code>
+- No spaces around commas
+- Field names must match your model's column names</p>
+<h3 id="error-handling">Error Handling<a class="headerlink" href="#error-handling" title="Permanent link">&para;</a></h3>
+<p>If you specify an invalid column name that doesn't exist in your model, FastCRUD will return a 400 Bad Request error with details about the invalid column.</p>
+<h3 id="combining-with-other-parameters">Combining with Other Parameters<a class="headerlink" href="#combining-with-other-parameters" title="Permanent link">&para;</a></h3>
+<p>Sorting can be combined with pagination and filtering:</p>
+<div class="language-http highlight"><pre><span></span><code><span id="__span-31-1"><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="err">GET /items?sort=-created_at&amp;page=1&amp;itemsPerPage=10&amp;category=Books</span>
+</span></code></pre></div>
+<p>This example:
+- Sorts by <code>created_at</code> in descending order (newest first)
+- Returns the first page with 10 items per page<br />
+- Filters for items in the "Books" category</p>
 <h2 id="conclusion">Conclusion<a class="headerlink" href="#conclusion" title="Permanent link">&para;</a></h2>
 <p>The <code>EndpointCreator</code> class in FastCRUD offers flexibility and control over CRUD operations and custom endpoint creation. By extending this class or using the <code>included_methods</code> and <code>deleted_methods</code> parameters, you can tailor your API's functionality to your specific requirements, ensuring a more customizable and streamlined experience.</p>
 
