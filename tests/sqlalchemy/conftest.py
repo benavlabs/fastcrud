@@ -213,6 +213,24 @@ class ModelWithOrgTest(Base):
     deleted_at = Column(DateTime, nullable=True, default=None)
 
 
+# Models for testing joined model filtering
+class Company(Base):
+    __tablename__ = "company"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    industry = Column(String(50))
+    users = relationship("UserModel", back_populates="company")
+
+
+class UserModel(Base):
+    __tablename__ = "user_model"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    email = Column(String(100), unique=True)
+    company_id = Column(Integer, ForeignKey("company.id"))
+    company = relationship("Company", back_populates="users")
+
+
 class ModelWithCustomColumns(Base):
     __tablename__ = "test_custom"
 
@@ -328,6 +346,33 @@ class TaskRead(TaskReadSub):
     department: Optional[DepartmentRead]
     assignee: Optional[UserReadSub]
     client: Optional[ClientRead]
+
+
+# Schemas for joined model filtering tests
+class CompanySchema(BaseModel):
+    id: Optional[int] = None
+    name: str
+    industry: Optional[str] = None
+
+
+class CompanyRead(BaseModel):
+    id: int
+    name: str
+    industry: Optional[str] = None
+
+
+class UserModelSchema(BaseModel):
+    id: Optional[int] = None
+    name: str
+    email: str
+    company_id: Optional[int] = None
+
+
+class UserModelRead(BaseModel):
+    id: int
+    name: str
+    email: str
+    company_id: Optional[int] = None
 
 
 def is_docker_running() -> bool:  # pragma: no cover

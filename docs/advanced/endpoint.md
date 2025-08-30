@@ -326,6 +326,143 @@ app.include_router(endpoint_creator.router)
     `default_endpoint_names` for `EndpointCreator` were changed to empty strings in `0.15.0`.
     See [this issue](https://github.com/igorbenav/fastcrud/issues/67) for more details.
 
+## Joined Model Filtering
+
+FastCRUD supports filtering on related models using dot notation in filter configurations. This allows you to filter records based on attributes of joined models without manually writing complex queries.
+
+### Basic Joined Model Filtering
+
+You can filter records based on attributes of related models by using dot notation in your filter configuration:
+
+```python
+from fastapi import FastAPI
+from fastcrud import EndpointCreator, FilterConfig
+
+# Assuming you have User and Company models with a relationship
+app = FastAPI()
+
+endpoint_creator = EndpointCreator(
+    session=async_session,
+    model=User,
+    create_schema=CreateUserSchema,
+    update_schema=UpdateUserSchema,
+    filter_config=FilterConfig(
+        # Regular filters
+        name=None,
+        email=None,
+        # Joined model filters
+        **{
+            "company.name": None,           # Filter by company name
+            "company.industry": None,       # Filter by company industry
+            "company.founded_year": None,   # Filter by company founded year
+        }
+    ),
+)
+
+endpoint_creator.add_routes_to_router()
+app.include_router(endpoint_creator.router, prefix="/users")
+```
+
+### Using Joined Model Filters
+
+Once configured, you can use joined model filters in your API requests:
+
+```bash
+# Filter users by company name
+GET /users?company.name=TechCorp
+
+# Filter users by company industry
+GET /users?company.industry=Technology
+
+# Combine regular and joined filters
+GET /users?name=John&company.name=TechCorp
+
+# Use filter operators with joined models
+GET /users?company.founded_year__gte=2000
+```
+
+### Supported Filter Operators
+
+Joined model filters support all the same operators as regular filters:
+
+```python
+filter_config=FilterConfig(**{
+    "company.name__eq": None,           # Exact match
+    "company.name__ne": None,           # Not equal
+    "company.name__in": None,           # In list
+    "company.founded_year__gte": None,  # Greater than or equal
+    "company.founded_year__lt": None,   # Less than
+    "company.revenue__between": None,   # Between values
+})
+```
+
+### Multi-level Relationships
+
+You can filter through multiple levels of relationships:
+
+```python
+# Assuming User -> Company -> Address relationship
+filter_config=FilterConfig(**{
+    "company.address.city": None,
+    "company.address.country": None,
+})
+
+# Usage:
+# GET /users?company.address.city=San Francisco
+```
+
+### How It Works
+
+When you use joined model filters, FastCRUD automatically:
+
+1. **Detects joined filters**: Identifies filter keys containing dot notation
+2. **Validates relationships**: Ensures the relationship path exists in your models
+3. **Generates joins**: Automatically creates the necessary SQL joins
+4. **Applies filters**: Adds WHERE clauses for the joined model attributes
+
+The system generates efficient SQL queries like:
+
+```sql
+SELECT user.id, user.name, user.email, user.company_id,
+       company.id AS company_id_1, company.name AS company_name, company.industry
+FROM user
+LEFT OUTER JOIN company ON user.company_id = company.id
+WHERE company.name = 'TechCorp'
+```
+
+### Limitations
+
+- Currently supports single-relationship joins (one level of relationship at a time)
+- Complex many-to-many relationships may require custom implementation
+- Performance considerations apply for deeply nested relationships
+
+### Example Models
+
+Here's an example of models that work well with joined model filtering:
+
+```python
+from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy.orm import relationship
+from sqlalchemy.ext.declarative import declarative_base
+
+Base = declarative_base()
+
+class Company(Base):
+    __tablename__ = "company"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    industry = Column(String(50))
+    users = relationship("User", back_populates="company")
+
+class User(Base):
+    __tablename__ = "user"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100), nullable=False)
+    email = Column(String(100), unique=True)
+    company_id = Column(Integer, ForeignKey("company.id"))
+    company = relationship("Company", back_populates="users")
+```
+
 ## Extending `EndpointCreator`
 
 You can create a subclass of `EndpointCreator` and override or add new methods to define custom routes. Here's an example:
