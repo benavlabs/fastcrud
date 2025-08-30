@@ -1,6 +1,7 @@
 import inspect
 from uuid import UUID
 from typing import Optional, Union, Annotated, Sequence, Callable, TypeVar, Any
+import re
 
 from pydantic import BaseModel, Field
 from pydantic.functional_validators import field_validator
@@ -10,6 +11,7 @@ from sqlalchemy import Column, inspect as sa_inspect
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.types import TypeEngine
 from sqlalchemy.sql.elements import KeyedColumnElement
+from sqlalchemy.orm import RelationshipProperty
 
 from fastcrud.types import ModelType
 
@@ -75,6 +77,79 @@ class FilterConfig(BaseModel):
             else:
                 params[key] = Query(value)
         return params
+
+    def is_joined_filter(self, filter_key: str) -> bool:
+        """Check if a filter key represents a joined model filter (contains dot notation)."""
+        # Remove operator suffix if present (e.g., "user.company.name__eq" -> "user.company.name")
+        field_path = filter_key.split("__")[0] if "__" in filter_key else filter_key
+        return "." in field_path
+
+    def parse_joined_filter(self, filter_key: str) -> tuple[list[str], str, Optional[str]]:
+        """
+        Parse a joined filter key into its components.
+
+        Args:
+            filter_key: Filter key like "user.company.name" or "user.company.name__eq"
+
+        Returns:
+            tuple: (relationship_path, final_field, operator)
+            e.g., (["user", "company"], "name", "eq") or (["user", "company"], "name", None)
+        """
+        # Split by operator if present
+        if "__" in filter_key:
+            field_path, operator = filter_key.rsplit("__", 1)
+        else:
+            field_path, operator = filter_key, None
+
+        # Split the field path by dots
+        path_parts = field_path.split(".")
+        if len(path_parts) < 2:
+            raise ValueError(f"Invalid joined filter format: {filter_key}")
+
+        relationship_path = path_parts[:-1]
+        final_field = path_parts[-1]
+
+        return relationship_path, final_field, operator
+
+
+def _validate_joined_filter_path(model: ModelType, relationship_path: list[str], final_field: str) -> bool:
+    """
+    Validate that a joined filter path exists in the model relationships.
+
+    Args:
+        model: The base SQLAlchemy model
+        relationship_path: List of relationship names to traverse (e.g., ["user", "company"])
+        final_field: The final field name to filter on
+
+    Returns:
+        bool: True if the path is valid, False otherwise
+    """
+    current_model = model
+
+    # Traverse the relationship path
+    for relationship_name in relationship_path:
+        inspector = sa_inspect(current_model)
+        if inspector is None:
+            return False
+
+        # Check if the relationship exists
+        if not hasattr(inspector, 'relationships'):
+            return False
+
+        relationship = inspector.relationships.get(relationship_name)
+        if relationship is None:
+            return False
+
+        # Get the target model for this relationship
+        current_model = relationship.mapper.class_
+
+    # Check if the final field exists in the target model
+    final_inspector = sa_inspect(current_model)
+    if final_inspector is None:
+        return False
+
+    # Check if the field exists in the target model's columns
+    return hasattr(current_model, final_field) and hasattr(final_inspector.mapper, 'columns') and final_field in [col.name for col in final_inspector.mapper.columns]
 
 
 def _get_primary_key(
@@ -224,36 +299,49 @@ def _create_dynamic_filters(
     if filter_config is None:
         return lambda: {}
 
+    # Create a mapping from parameter names back to original filter keys
+    param_to_filter_key = {}
+    for original_key in filter_config.filters.keys():
+        param_name = original_key.replace(".", "_")
+        param_to_filter_key[param_name] = original_key
+
     def filters(
         **kwargs: Any,
     ) -> dict[str, Any]:
         filtered_params = {}
-        for key, value in kwargs.items():
+        for param_name, value in kwargs.items():
             if value is not None:
-                parse_func = column_types.get(key)
+                # Map parameter name back to original filter key
+                original_key = param_to_filter_key.get(param_name, param_name)
+                parse_func = column_types.get(original_key)
                 if parse_func:
                     try:
-                        filtered_params[key] = parse_func(value)
+                        filtered_params[original_key] = parse_func(value)
                     except (ValueError, TypeError):
-                        filtered_params[key] = value
+                        filtered_params[original_key] = value
                 else:
-                    filtered_params[key] = value
+                    filtered_params[original_key] = value
         return filtered_params
 
     params = []
     for key, value in filter_config.filters.items():
+        # Convert joined model filter keys to valid Python parameter names
+        # Replace dots with underscores for the parameter name
+        param_name = key.replace(".", "_")
+
         if callable(value):
             params.append(
                 inspect.Parameter(
-                    key,
+                    param_name,
                     inspect.Parameter.POSITIONAL_OR_KEYWORD,
                     default=Depends(value),
                 )
             )
         else:
+            # Use the original key (with dots) as the alias for the query parameter
             params.append(
                 inspect.Parameter(
-                    key,
+                    param_name,
                     inspect.Parameter.POSITIONAL_OR_KEYWORD,
                     default=Query(value, alias=key),
                 )

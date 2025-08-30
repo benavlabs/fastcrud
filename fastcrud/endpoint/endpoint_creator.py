@@ -31,6 +31,7 @@ from .helper import (
     _apply_model_pk,
     _create_dynamic_filters,
     _get_column_types,
+    _validate_joined_filter_path,
 )
 from ..paginated.schemas import create_list_response, create_paginated_response
 
@@ -314,19 +315,39 @@ class EndpointCreator:
             if callable(value):
                 continue
 
-            if "__" in key:
-                field_name, op = key.rsplit("__", 1)
-                if op not in supported_filters:
-                    raise ValueError(
-                        f"Invalid filter op '{op}': following filter ops are allowed: {supported_filters.keys()}"
-                    )
-            else:
-                field_name = key
+            # Check if this is a joined model filter
+            if filter_config.is_joined_filter(key):
+                try:
+                    relationship_path, final_field, operator = filter_config.parse_joined_filter(key)
 
-            if field_name not in model_columns:
-                raise ValueError(
-                    f"Invalid filter column '{key}': not found in model '{self.model.__name__}' columns"
-                )
+                    # Validate the operator if present
+                    if operator and operator not in supported_filters:
+                        raise ValueError(
+                            f"Invalid filter op '{operator}': following filter ops are allowed: {supported_filters.keys()}"
+                        )
+
+                    # Validate the joined filter path
+                    if not _validate_joined_filter_path(self.model, relationship_path, final_field):
+                        raise ValueError(
+                            f"Invalid joined filter '{key}': relationship path {'.'.join(relationship_path + [final_field])} not found in model '{self.model.__name__}'"
+                        )
+                except ValueError as e:
+                    raise ValueError(f"Invalid joined filter '{key}': {str(e)}")
+            else:
+                # Handle regular (non-joined) filters
+                if "__" in key:
+                    field_name, op = key.rsplit("__", 1)
+                    if op not in supported_filters:
+                        raise ValueError(
+                            f"Invalid filter op '{op}': following filter ops are allowed: {supported_filters.keys()}"
+                        )
+                else:
+                    field_name = key
+
+                if field_name not in model_columns:
+                    raise ValueError(
+                        f"Invalid filter column '{key}': not found in model '{self.model.__name__}' columns"
+                    )
 
     def _create_item(self):
         """Creates an endpoint for creating items in the database."""

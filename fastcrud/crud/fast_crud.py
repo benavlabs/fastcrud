@@ -514,6 +514,7 @@ class FastCRUD(
         Args:
             model: The model to apply filters to. Defaults to self.model
             **kwargs: Filter arguments in the format field_name__operator=value
+                     or joined_model.field_name__operator=value for joined model filters
 
         Returns:
             List of SQLAlchemy filter conditions
@@ -525,11 +526,22 @@ class FastCRUD(
             filters.extend(self._handle_multi_field_or_filter(model, kwargs.pop("_or")))
 
         for key, value in kwargs.items():
+            # Check if this is a joined model filter (contains dot notation)
+            if "." in key:
+                filters.extend(self._handle_joined_filter(key, value))
+                continue
+
             if "__" not in key:
                 filters.extend(self._handle_simple_filter(model, key, value))
                 continue
 
             field_name, operator = key.rsplit("__", 1)
+
+            # Check if the field_name contains dots (joined model filter with operator)
+            if "." in field_name:
+                filters.extend(self._handle_joined_filter(key, value))
+                continue
+
             model_column = self._get_column(model, field_name)
 
             if operator == "or":
@@ -651,6 +663,49 @@ class FastCRUD(
                 continue
 
         return [or_(*or_conditions)] if or_conditions else []
+
+    def _handle_joined_filter(self, filter_key: str, value: Any) -> list[ColumnElement]:
+        """Handle joined model filters (e.g., 'user.company.name' or 'user.company.name__eq')."""
+        # Parse the filter key to extract relationship path, field, and operator
+        if "__" in filter_key:
+            field_path, operator = filter_key.rsplit("__", 1)
+        else:
+            field_path, operator = filter_key, None
+
+        # Split the field path by dots
+        path_parts = field_path.split(".")
+        if len(path_parts) < 2:
+            raise ValueError(f"Invalid joined filter format: {filter_key}")
+
+        relationship_path = path_parts[:-1]
+        final_field = path_parts[-1]
+
+        # Navigate through the relationships to get the target column
+        current_model = self.model
+        for relationship_name in relationship_path:
+            # Get the relationship from the current model
+            relationship = getattr(current_model, relationship_name, None)
+            if relationship is None:
+                raise ValueError(f"Relationship '{relationship_name}' not found in model '{current_model.__name__}'")
+
+            # Get the target model for this relationship
+            if hasattr(relationship.property, 'mapper'):
+                current_model = relationship.property.mapper.class_
+            else:
+                raise ValueError(f"Invalid relationship '{relationship_name}' in model '{current_model.__name__}'")
+
+        # Get the final column from the target model
+        target_column = getattr(current_model, final_field, None)
+        if target_column is None:
+            raise ValueError(f"Column '{final_field}' not found in model '{current_model.__name__}'")
+
+        # Apply the filter with the appropriate operator
+        if operator is None:
+            # Simple equality filter
+            return [target_column == value]
+        else:
+            # Apply the specified operator
+            return self._handle_standard_filter(target_column, operator, value)
 
     def _get_column(
         self, model: Union[type[ModelType], AliasedClass], field_name: str
@@ -1319,6 +1374,45 @@ class FastCRUD(
 
         return total_count
 
+    def _detect_joined_filters(self, **kwargs: Any) -> tuple[dict[str, Any], dict[str, Any]]:
+        """
+        Detect and separate joined model filters from regular filters.
+
+        Returns:
+            tuple: (regular_filters, joined_filters_info)
+            joined_filters_info contains information about required joins
+        """
+        regular_filters = {}
+        joined_filters_info = {}
+
+        for key, value in kwargs.items():
+            if "." in key:
+                # This is a joined filter
+                # Parse the filter to extract relationship information
+                if "__" in key:
+                    field_path, operator = key.rsplit("__", 1)
+                else:
+                    field_path, operator = key, None
+
+                path_parts = field_path.split(".")
+                if len(path_parts) >= 2:
+                    relationship_name = path_parts[0]
+                    remaining_path = ".".join(path_parts[1:])
+
+                    if relationship_name not in joined_filters_info:
+                        joined_filters_info[relationship_name] = {}
+
+                    # Store the filter for this relationship
+                    filter_key = remaining_path + (f"__{operator}" if operator else "")
+                    joined_filters_info[relationship_name][filter_key] = value
+                else:
+                    # Invalid format, treat as regular filter
+                    regular_filters[key] = value
+            else:
+                regular_filters[key] = value
+
+        return regular_filters, joined_filters_info
+
     async def get_multi(
         self,
         db: AsyncSession,
@@ -1430,6 +1524,48 @@ class FastCRUD(
         """
         if (limit is not None and limit < 0) or offset < 0:
             raise ValueError("Limit and offset must be non-negative.")
+
+        # Detect if there are any joined model filters
+        regular_filters, joined_filters_info = self._detect_joined_filters(**kwargs)
+
+        # If there are joined filters, use get_multi_joined with automatic join configuration
+        if joined_filters_info:
+            # For now, we'll handle simple single-relationship joins
+            # More complex multi-relationship joins would require additional logic
+            if len(joined_filters_info) == 1:
+                relationship_name = list(joined_filters_info.keys())[0]
+                relationship_filters = joined_filters_info[relationship_name]
+
+                # Get the relationship from the model
+                relationship = getattr(self.model, relationship_name, None)
+                if relationship is None:
+                    raise ValueError(f"Relationship '{relationship_name}' not found in model '{self.model.__name__}'")
+
+                # Get the target model for this relationship
+                if hasattr(relationship.property, 'mapper'):
+                    join_model = relationship.property.mapper.class_
+                else:
+                    raise ValueError(f"Invalid relationship '{relationship_name}' in model '{self.model.__name__}'")
+
+                # Use get_multi_joined to handle the joined query
+                return await self.get_multi_joined(
+                    db=db,
+                    offset=offset,
+                    limit=limit,
+                    schema_to_select=schema_to_select,
+                    join_model=join_model,
+                    join_filters=relationship_filters,
+                    sort_columns=sort_columns,
+                    sort_orders=sort_orders,
+                    return_as_model=return_as_model,
+                    return_total_count=return_total_count,
+                    **regular_filters,
+                )
+            else:
+                # Multiple relationships - this would require more complex join configuration
+                # For now, fall back to the original behavior and let the joined filters be handled
+                # by the _handle_joined_filter method in _parse_filters
+                pass
 
         stmt = await self.select(
             schema_to_select=schema_to_select,
