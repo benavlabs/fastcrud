@@ -79,7 +79,7 @@ def _extract_matching_columns_from_schema(
 
     if schema:
         for field in schema.model_fields.keys():
-            if hasattr(model_or_alias, field):
+            if hasattr(model_or_alias, field) and field not in mapper.relationships:
                 column = getattr(model_or_alias, field)
                 if prefix is not None or use_temporary_prefix:
                     column_label = (
