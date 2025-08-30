@@ -2,6 +2,7 @@ import pytest
 from sqlalchemy import select
 from fastcrud.crud.fast_crud import FastCRUD
 from sqlalchemy.exc import MultipleResultsFound, NoResultFound
+from pydantic import BaseModel
 
 
 @pytest.mark.asyncio
@@ -195,3 +196,207 @@ async def test_delete_no_records_match_filters_raises_no_result_found(
 
     with pytest.raises(NoResultFound):
         await crud.delete(db=async_session, **non_matching_filter_criteria)
+
+
+# Test classes for new typing functionality
+class DeleteTestSchema(BaseModel):
+    id: int = None
+    name: str = None
+
+
+class DeleteTierSchema(BaseModel):
+    id: int = None
+    name: str = None
+
+
+# Tests for new filters parameter functionality
+@pytest.mark.asyncio
+async def test_delete_with_filters_schema(async_session, test_data, test_model):
+    """Test delete method with filters parameter using Pydantic schema."""
+    for item in test_data:
+        async_session.add(test_model(**item))
+    await async_session.commit()
+
+    crud = FastCRUD(test_model)
+    some_existing_id = test_data[0]["id"]
+
+    # Create delete filter schema
+    delete_filters = DeleteTestSchema(id=some_existing_id)
+
+    await crud.delete(db=async_session, filters=delete_filters)
+
+    soft_deleted_record = await async_session.execute(
+        select(test_model).where(test_model.id == some_existing_id)
+    )
+    soft_deleted = soft_deleted_record.scalar_one()
+    assert soft_deleted.is_deleted is True
+    assert soft_deleted.deleted_at is not None
+
+
+@pytest.mark.asyncio
+async def test_db_delete_with_filters_schema(async_session, test_data_tier, tier_model):
+    """Test db_delete method with filters parameter using Pydantic schema."""
+    for tier_item in test_data_tier:
+        async_session.add(tier_model(**tier_item))
+    await async_session.commit()
+
+    crud = FastCRUD(tier_model)
+    some_existing_id = test_data_tier[0]["id"]
+
+    # Create delete filter schema
+    delete_filters = DeleteTierSchema(id=some_existing_id)
+
+    await crud.db_delete(db=async_session, filters=delete_filters)
+
+    deleted_record = await async_session.execute(
+        select(tier_model).where(tier_model.id == some_existing_id)
+    )
+    assert deleted_record.scalar_one_or_none() is None
+
+
+@pytest.mark.asyncio
+async def test_delete_with_combined_filters(async_session, test_data, test_model):
+    """Test delete method with both filters schema and extra_filters."""
+    for item in test_data:
+        async_session.add(test_model(**item))
+    await async_session.commit()
+
+    crud = FastCRUD(test_model)
+    some_existing_id = test_data[0]["id"]
+    some_existing_name = test_data[0]["name"]
+
+    # Create delete filter schema with partial filters
+    delete_filters = DeleteTestSchema(id=some_existing_id)
+
+    # Add additional filters via extra_filters
+    await crud.delete(db=async_session, filters=delete_filters, name=some_existing_name)
+
+    soft_deleted_record = await async_session.execute(
+        select(test_model).where(test_model.id == some_existing_id)
+    )
+    soft_deleted = soft_deleted_record.scalar_one()
+    assert soft_deleted.is_deleted is True
+    assert soft_deleted.deleted_at is not None
+
+
+@pytest.mark.asyncio
+async def test_db_delete_with_combined_filters(async_session, test_data_tier, tier_model):
+    """Test db_delete method with both filters schema and extra_filters."""
+    for tier_item in test_data_tier:
+        async_session.add(tier_model(**tier_item))
+    await async_session.commit()
+
+    crud = FastCRUD(tier_model)
+    some_existing_id = test_data_tier[0]["id"]
+    some_existing_name = test_data_tier[0]["name"]
+
+    # Create delete filter schema with partial filters
+    delete_filters = DeleteTierSchema(id=some_existing_id)
+
+    # Add additional filters via extra_filters
+    await crud.db_delete(db=async_session, filters=delete_filters, name=some_existing_name)
+
+    deleted_record = await async_session.execute(
+        select(tier_model).where(tier_model.id == some_existing_id)
+    )
+    assert deleted_record.scalar_one_or_none() is None
+
+
+# Tests for safeguards against accidental deletion
+@pytest.mark.asyncio
+async def test_delete_no_filters_raises_value_error(async_session, test_data, test_model):
+    """Test that delete method raises ValueError when no filters are provided."""
+    for item in test_data:
+        async_session.add(test_model(**item))
+    await async_session.commit()
+
+    crud = FastCRUD(test_model)
+
+    with pytest.raises(ValueError, match="No filters provided"):
+        await crud.delete(db=async_session)
+
+
+@pytest.mark.asyncio
+async def test_db_delete_no_filters_raises_value_error(async_session, test_data_tier, tier_model):
+    """Test that db_delete method raises ValueError when no filters are provided."""
+    for tier_item in test_data_tier:
+        async_session.add(tier_model(**tier_item))
+    await async_session.commit()
+
+    crud = FastCRUD(tier_model)
+
+    with pytest.raises(ValueError, match="No filters provided"):
+        await crud.db_delete(db=async_session)
+
+
+@pytest.mark.asyncio
+async def test_delete_empty_filters_schema_raises_value_error(async_session, test_data, test_model):
+    """Test that delete method raises ValueError when empty filters schema is provided."""
+    for item in test_data:
+        async_session.add(test_model(**item))
+    await async_session.commit()
+
+    crud = FastCRUD(test_model)
+
+    # Create empty delete filter schema
+    delete_filters = DeleteTestSchema()
+
+    with pytest.raises(ValueError, match="No filters provided"):
+        await crud.delete(db=async_session, filters=delete_filters)
+
+
+@pytest.mark.asyncio
+async def test_db_delete_empty_filters_schema_raises_value_error(async_session, test_data_tier, tier_model):
+    """Test that db_delete method raises ValueError when empty filters schema is provided."""
+    for tier_item in test_data_tier:
+        async_session.add(tier_model(**tier_item))
+    await async_session.commit()
+
+    crud = FastCRUD(tier_model)
+
+    # Create empty delete filter schema
+    delete_filters = DeleteTierSchema()
+
+    with pytest.raises(ValueError, match="No filters provided"):
+        await crud.db_delete(db=async_session, filters=delete_filters)
+
+
+# Tests for backward compatibility
+@pytest.mark.asyncio
+async def test_delete_backward_compatibility_with_extra_filters(async_session, test_data, test_model):
+    """Test that delete method still works with only extra_filters (backward compatibility)."""
+    for item in test_data:
+        async_session.add(test_model(**item))
+    await async_session.commit()
+
+    crud = FastCRUD(test_model)
+    some_existing_id = test_data[0]["id"]
+
+    # Use only extra_filters (old way)
+    await crud.delete(db=async_session, id=some_existing_id)
+
+    soft_deleted_record = await async_session.execute(
+        select(test_model).where(test_model.id == some_existing_id)
+    )
+    soft_deleted = soft_deleted_record.scalar_one()
+    assert soft_deleted.is_deleted is True
+    assert soft_deleted.deleted_at is not None
+
+
+@pytest.mark.asyncio
+async def test_db_delete_backward_compatibility_with_extra_filters(async_session, test_data_tier, tier_model):
+    """Test that db_delete method still works with only extra_filters (backward compatibility)."""
+    for tier_item in test_data_tier:
+        async_session.add(tier_model(**tier_item))
+    await async_session.commit()
+
+    crud = FastCRUD(tier_model)
+    some_existing_id = test_data_tier[0]["id"]
+
+    # Use only extra_filters (old way)
+    await crud.db_delete(db=async_session, id=some_existing_id)
+
+    deleted_record = await async_session.execute(
+        select(tier_model).where(tier_model.id == some_existing_id)
+    )
+    assert deleted_record.scalar_one_or_none() is None
