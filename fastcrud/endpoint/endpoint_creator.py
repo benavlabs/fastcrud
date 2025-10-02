@@ -24,12 +24,16 @@ from ..paginated.response import paginated_response
 from .helper import (
     CRUDMethods,
     FilterConfig,
+    CreateConfig,
+    UpdateConfig,
     _extract_unique_columns,
     _get_primary_keys,
     _get_python_type,
     _inject_dependencies,
     _apply_model_pk,
     _create_dynamic_filters,
+    _create_auto_field_injector,
+    _create_modified_schema,
     _get_column_types,
     _validate_joined_filter_path,
 )
@@ -257,6 +261,8 @@ class EndpointCreator:
         endpoint_names: Optional[dict[str, str]] = None,
         filter_config: Optional[Union[FilterConfig, dict]] = None,
         select_schema: Optional[Type[SelectSchemaType]] = None,
+        create_config: Optional[CreateConfig] = None,
+        update_config: Optional[UpdateConfig] = None,
     ) -> None:
         self._primary_keys = _get_primary_keys(model)
         self._primary_keys_types = {
@@ -296,6 +302,8 @@ class EndpointCreator:
                 filter_config = FilterConfig(**filter_config)
             self._validate_filter_config(filter_config)
         self.filter_config = filter_config
+        self.create_config = create_config
+        self.update_config = update_config
         self.column_types = _get_column_types(model)
 
         if select_schema is not None:
@@ -347,10 +355,20 @@ class EndpointCreator:
 
     def _create_item(self):
         """Creates an endpoint for creating items in the database."""
+        auto_field_injector = _create_auto_field_injector(self.create_config)
+
+        request_schema: type[BaseModel] = self.create_schema
+        if self.create_config and self.create_config.exclude_from_schema:
+            request_schema = _create_modified_schema(
+                self.create_schema,
+                self.create_config.exclude_from_schema,
+                f"{self.create_schema.__name__}Modified"
+            )
 
         async def endpoint(
             db: AsyncSession = Depends(self.session),
-            item: self.create_schema = Body(...),  # type: ignore
+            item: BaseModel = Body(...),
+            auto_fields: dict = Depends(auto_field_injector),
         ):
             unique_columns = _extract_unique_columns(self.model)
 
@@ -364,7 +382,18 @@ class EndpointCreator:
                             f"Value {value} is already registered"
                         )
 
+            if auto_fields:
+                item_dict = item.model_dump()
+                item_dict.update(auto_fields)
+                db_object = self.model(**item_dict)
+                db.add(db_object)
+                await db.commit()
+                await db.refresh(db_object)
+                return db_object
+
             return await self.crud.create(db, item)
+
+        endpoint.__annotations__['item'] = request_schema
 
         return endpoint
 
@@ -489,14 +518,32 @@ class EndpointCreator:
 
     def _update_item(self):
         """Creates an endpoint for updating an existing item in the database."""
+        auto_field_injector = _create_auto_field_injector(self.update_config)
 
-        @_apply_model_pk(**self._primary_keys_types)
+        request_schema: type[BaseModel] = self.update_schema
+        if self.update_config and self.update_config.exclude_from_schema:
+            request_schema = _create_modified_schema(
+                self.update_schema,
+                self.update_config.exclude_from_schema,
+                f"{self.update_schema.__name__}Modified"
+            )
+
         async def endpoint(
-            item: self.update_schema = Body(...),  # type: ignore
+            item: BaseModel = Body(...),
             db: AsyncSession = Depends(self.session),
+            auto_fields: dict = Depends(auto_field_injector),
             **pkeys,
         ):
+            if auto_fields:
+                item_dict = item.model_dump(exclude_unset=True)
+                item_dict.update(auto_fields)
+                return await self.crud.update(db, item_dict, **pkeys)
+
             return await self.crud.update(db, item, **pkeys)
+
+        endpoint.__annotations__['item'] = request_schema
+
+        endpoint = _apply_model_pk(**self._primary_keys_types)(endpoint)
 
         return endpoint
 

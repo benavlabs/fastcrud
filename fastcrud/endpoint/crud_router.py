@@ -12,7 +12,7 @@ from fastcrud.types import (
     SelectSchemaType,
 )
 from .endpoint_creator import EndpointCreator
-from .helper import FilterConfig
+from .helper import FilterConfig, CreateConfig, UpdateConfig
 
 
 def crud_router(
@@ -40,6 +40,8 @@ def crud_router(
     endpoint_names: Optional[dict[str, str]] = None,
     filter_config: Optional[Union[FilterConfig, dict]] = None,
     select_schema: Optional[Type[SelectSchemaType]] = None,
+    create_config: Optional[CreateConfig] = None,
+    update_config: Optional[UpdateConfig] = None,
 ) -> APIRouter:
     """
     Creates and configures a FastAPI router with CRUD endpoints for a given model.
@@ -544,6 +546,8 @@ def crud_router(
         endpoint_names=endpoint_names,
         filter_config=filter_config,
         select_schema=select_schema,  # type: ignore
+        create_config=create_config,
+        update_config=update_config,
     )
 
     endpoint_creator_instance.add_routes_to_router(
