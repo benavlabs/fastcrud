@@ -2342,6 +2342,7 @@ Simple <code>_read_items</code> behaviour persists with no breaking changes.</p>
 <li><strong>Request Body</strong>: JSON object based on the <code>update_schema</code>.</li>
 <li><strong>Example Request</strong>: <code>PATCH /items/1</code> with JSON body.</li>
 <li><strong>Example Return</strong>: <code>None</code></li>
+<li>Note: If the target item is not found by ID, the generated endpoint returns a 404 Not Found with detail "Item not found".</li>
 </ul>
 <h3 id="delete">Delete<a class="headerlink" href="#delete" title="Permanent link">&para;</a></h3>
 <ul>
@@ -2351,6 +2352,7 @@ Simple <code>_read_items</code> behaviour persists with no breaking changes.</p>
 <li><strong>Path Parameters</strong>: <code>id</code> - The ID of the item to delete.</li>
 <li><strong>Example Request</strong>: <code>DELETE /items/1</code>.</li>
 <li><strong>Example Return</strong>: <code>None</code></li>
+<li>Note: If the target item is not found by ID, the generated endpoint returns a 404 Not Found with detail "Item not found".</li>
 </ul>
 <h3 id="db-delete-hard-delete">DB Delete (Hard Delete)<a class="headerlink" href="#db-delete-hard-delete" title="Permanent link">&para;</a></h3>
 <ul>
