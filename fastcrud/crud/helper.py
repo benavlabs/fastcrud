@@ -39,6 +39,26 @@ class JoinConfig(BaseModel):
             raise ValueError(f"Unsupported join type: {value}")
         return value
 
+    @field_validator("sort_columns")
+    def check_valid_sort_columns(cls, value):
+        if value is not None and not isinstance(value, (str, list)):
+            raise ValueError("sort_columns must be a string or a list of strings")
+        return value
+
+    @field_validator("sort_orders")
+    def check_valid_sort_orders(cls, value):
+        if value is not None:
+            if isinstance(value, str):
+                if value not in ["asc", "desc"]:
+                    raise ValueError("Invalid sort order: {value}. Only 'asc' or 'desc' are allowed.")
+            elif isinstance(value, list):
+                for order in value:
+                    if order not in ["asc", "desc"]:
+                        raise ValueError("Invalid sort order: {order}. Only 'asc' or 'desc' are allowed.")
+            else:
+                raise ValueError("sort_orders must be a string or a list of strings")
+        return value
+
 
 def _extract_matching_columns_from_schema(
     model: Union[ModelType, AliasedClass],
