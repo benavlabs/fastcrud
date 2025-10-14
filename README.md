@@ -16,8 +16,8 @@
 <a href="https://pypi.org/project/fastcrud/">
   <img src="https://img.shields.io/pypi/pyversions/fastcrud.svg?color=%2334D058" alt="Supported Python Versions"/>
 </a>
-<a href="https://codecov.io/gh/benavlabs/fastcrud" > 
-  <img src="https://codecov.io/gh/benavlabs/fastcrud/graph/badge.svg?token=J7XUP29RKU"/> 
+<a href="https://codecov.io/gh/benavlabs/fastcrud" >
+  <img src="https://codecov.io/gh/benavlabs/fastcrud/graph/badge.svg?token=J7XUP29RKU"/>
 </a>
 <a href="https://deepwiki.com/benavlabs/fastcrud">
   <img src="https://img.shields.io/badge/DeepWiki-1F2937.svg?logo=book&logoColor=white&labelColor=1F2937&color=34D058" alt="DeepWiki"/>
@@ -28,7 +28,7 @@
 <b>FastCRUD</b> is a Python package for <b>FastAPI</b>, offering robust async CRUD operations and flexible endpoint creation utilities, streamlined through advanced features like <b>auto-detected join</b> conditions, <b>dynamic sorting</b>, and offset and cursor <b>pagination</b>.
 </p>
 <p><b>Documentation</b>: <a href="https://benavlabs.github.io/fastcrud/">benavlabs.github.io/fastcrud</a></p>
-<p><b>Discord Community</b>: <a href="https://discord.gg/jhhbkxBmhj">Join our Discord server</a></p>
+<p><b>Discord Community</b>: <a href="https://discord.com/invite/TEmPs22gqB">Join our Discord server</a></p>
 
 <p><i>Also take a look at <a href="https://github.com/benavlabs/crudadmin">CRUDAdmin - Modern admin interface for FastAPI</a></i></p>
 <hr>
@@ -54,7 +54,7 @@
   <li><b>SQLAlchemy-Utils:</b> Optional, but recommended for additional SQLAlchemy utilities.</li>
 </ul>
 
-> **⚠️ Warning:**  
+> **⚠️ Warning:**
 > If you are using a non-native column type (such as those from `sqlalchemy-utils`) in your models, you may encounter a `NotImplementedError`. In such cases, you need to add a `python_type` attribute to your column type. For more details and a discussion on this issue, see [this pull request](https://github.com/kvesteri/sqlalchemy-utils/pull/779).
 
 

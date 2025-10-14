@@ -6,7 +6,7 @@ Connect with fellow developers, get support, and stay updated on the latest Fast
 
 Join our Discord community where developers gather to discuss FastAPI, CRUD operations, and modern web development.
 
-[**Join the FastCRUD Discord Server**](https://discord.gg/jhhbkxBmhj)
+[**Join the FastCRUD Discord Server**](https://discord.com/invite/TEmPs22gqB)
 
 ## Community Channels
 
@@ -66,7 +66,7 @@ Our Discord server includes several channels to help you connect, learn, and sha
 
 ## Quick Links
 
-- [Discord Server](https://discord.gg/jhhbkxBmhj)
+- [Discord Server](https://discord.com/invite/TEmPs22gqB)
 - [FastCRUD Documentation](https://benavlabs.github.io/fastcrud/)
 - [GitHub Repository](https://github.com/benavlabs/fastcrud)
 - [Benav Labs](https://benav.io)
