@@ -49,6 +49,221 @@ class CRUDMethods(BaseModel):
         return values
 
 
+class CreateConfig(BaseModel):
+    """
+    Configuration for create operations with automatic field injection.
+
+    Allows you to automatically inject fields before data is written to the database.
+    Perfect for:
+    - Adding user_id from authentication context
+    - Setting timestamps (created_at)
+    - Adding audit fields (created_by)
+    - Preventing clients from setting sensitive fields
+
+    Attributes:
+        auto_fields: Dictionary mapping field names to callables that provide values.
+                     The callables will be invoked (with dependency injection if needed)
+                     and their return values will be injected into the data.
+        exclude_from_schema: List of field names to exclude from the request schema.
+                            These fields won't appear in API documentation.
+
+    Examples:
+        Inject user_id and timestamps:
+        ```python
+        from datetime import datetime
+        from fastapi import Depends, Cookie
+        from fastcrud import crud_router, CreateConfig
+
+        # Functions that return values (can use Depends for DI)
+        async def get_current_user_id(session_token: str = Cookie(None)):
+            user = await verify_token(session_token)
+            return user.id
+
+        def get_current_timestamp():
+            return datetime.utcnow()
+
+        create_config = CreateConfig(
+            auto_fields={
+                "user_id": get_current_user_id,      # Injected from cookie
+                "created_by": get_current_user_id,   # Same user
+                "created_at": get_current_timestamp, # Timestamp
+            },
+            exclude_from_schema=["user_id", "created_by", "created_at"]
+        )
+
+        router = crud_router(
+            session=get_db,
+            model=Item,
+            create_schema=CreateItemSchema,  # Does NOT include auto fields
+            update_schema=UpdateItemSchema,
+            create_config=create_config,
+        )
+        ```
+    """
+
+    auto_fields: Annotated[dict[str, Callable[..., Any]], Field(default_factory=dict)]
+    exclude_from_schema: Annotated[list[str], Field(default_factory=list)]
+
+    @field_validator("auto_fields")
+    @classmethod
+    def check_auto_fields(
+        cls, auto_fields: dict[str, Callable[..., Any]]
+    ) -> dict[str, Callable[..., Any]]:
+        for key, value in auto_fields.items():
+            if not callable(value):
+                raise ValueError(
+                    f"auto_fields['{key}'] must be callable, got {type(value).__name__}"
+                )
+        return auto_fields
+
+
+class UpdateConfig(BaseModel):
+    """
+    Configuration for update operations with automatic field injection.
+
+    Allows you to automatically inject fields before data is written to the database.
+    Perfect for:
+    - Adding updated_by from authentication context
+    - Setting timestamps (updated_at)
+    - Preventing clients from modifying sensitive fields
+
+    Attributes:
+        auto_fields: Dictionary mapping field names to callables that provide values.
+                     The callables will be invoked (with dependency injection if needed)
+                     and their return values will be injected into the data.
+        exclude_from_schema: List of field names to exclude from the request schema.
+                            These fields won't appear in API documentation.
+
+    Examples:
+        Inject updated_by and timestamps:
+        ```python
+        from datetime import datetime
+        from fastapi import Depends, Cookie
+        from fastcrud import crud_router, UpdateConfig
+
+        # Functions that return values (can use Depends for DI)
+        async def get_current_user_id(session_token: str = Cookie(None)):
+            user = await verify_token(session_token)
+            return user.id
+
+        def get_current_timestamp():
+            return datetime.utcnow()
+
+        update_config = UpdateConfig(
+            auto_fields={
+                "updated_by": get_current_user_id,
+                "updated_at": get_current_timestamp,
+            },
+            exclude_from_schema=["updated_by", "updated_at", "user_id"]
+        )
+
+        router = crud_router(
+            session=get_db,
+            model=Item,
+            create_schema=CreateItemSchema,
+            update_schema=UpdateItemSchema,
+            update_config=update_config,
+        )
+        ```
+    """
+
+    auto_fields: Annotated[dict[str, Callable[..., Any]], Field(default_factory=dict)]
+    exclude_from_schema: Annotated[list[str], Field(default_factory=list)]
+
+    @field_validator("auto_fields")
+    @classmethod
+    def check_auto_fields(
+        cls, auto_fields: dict[str, Callable[..., Any]]
+    ) -> dict[str, Callable[..., Any]]:
+        for key, value in auto_fields.items():
+            if not callable(value):
+                raise ValueError(
+                    f"auto_fields['{key}'] must be callable, got {type(value).__name__}"
+                )
+        return auto_fields
+
+
+class DeleteConfig(BaseModel):
+    """
+    Configuration for delete operations with automatic field injection.
+
+    Allows you to automatically inject fields before an item is soft-deleted.
+    Perfect for:
+    - Adding deleted_by from authentication context
+    - Setting timestamps (deleted_at)
+    - Adding audit fields for compliance
+    - Soft delete tracking
+
+    Attributes:
+        auto_fields: Dictionary mapping field names to callables that provide values.
+                     The callables will be invoked (with dependency injection if needed)
+                     and their return values will be injected into the soft delete data.
+
+    Examples:
+        Inject deleted_by and timestamps for soft deletes:
+        ```python
+        from datetime import datetime
+        from fastapi import Depends, Cookie
+        from fastcrud import crud_router, DeleteConfig
+
+        # Functions that return values (can use Depends for DI)
+        async def get_current_user_id(session_token: str = Cookie(None)):
+            user = await verify_token(session_token)
+            return user.id
+
+        def get_current_timestamp():
+            return datetime.utcnow()
+
+        delete_config = DeleteConfig(
+            auto_fields={
+                "deleted_by": get_current_user_id,
+                "deleted_at": get_current_timestamp,
+            }
+        )
+
+        router = crud_router(
+            session=get_db,
+            model=Item,
+            create_schema=CreateItemSchema,
+            update_schema=UpdateItemSchema,
+            delete_config=delete_config,
+        )
+        ```
+
+        Authorization check before deletion:
+        ```python
+        async def check_can_delete(
+            session_token: str = Cookie(None),
+            item_id: int = Path(...)
+        ):
+            user = await verify_token(session_token)
+            if not user.can_delete:
+                raise HTTPException(403, "Not authorized to delete")
+            return user.id
+
+        delete_config = DeleteConfig(
+            auto_fields={
+                "deleted_by": check_can_delete,
+            }
+        )
+        ```
+    """
+
+    auto_fields: Annotated[dict[str, Callable[..., Any]], Field(default_factory=dict)]
+
+    @field_validator("auto_fields")
+    @classmethod
+    def check_auto_fields(
+        cls, auto_fields: dict[str, Callable[..., Any]]
+    ) -> dict[str, Callable[..., Any]]:
+        for key, value in auto_fields.items():
+            if not callable(value):
+                raise ValueError(
+                    f"auto_fields['{key}'] must be callable, got {type(value).__name__}"
+                )
+        return auto_fields
+
+
 class FilterConfig(BaseModel):
     filters: Annotated[dict[str, Any], Field(default={})]
 
@@ -289,6 +504,72 @@ def _apply_model_pk(**pkeys: dict[str, type]):
         return endpoint
 
     return wrapper
+
+
+def _create_auto_field_injector(
+    config: Optional[Union[CreateConfig, UpdateConfig, DeleteConfig]],
+) -> Callable[..., dict[str, Any]]:
+    """
+    Creates a dynamic dependency function that resolves auto_fields.
+
+    Similar to _create_dynamic_filters but for CreateConfig/UpdateConfig/DeleteConfig.
+    Returns a function that can be used with Depends() to inject auto field values.
+    """
+    if config is None or not config.auto_fields:
+        return lambda: {}
+
+    def auto_fields_resolver(**kwargs: Any) -> dict[str, Any]:
+        """Receives resolved dependency values and returns dict of field:value."""
+        return kwargs
+
+    params = []
+    for field_name, func in config.auto_fields.items():
+        params.append(
+            inspect.Parameter(
+                field_name,
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                default=Depends(func),
+            )
+        )
+
+    sig = inspect.Signature(params)
+    setattr(auto_fields_resolver, "__signature__", sig)
+
+    return auto_fields_resolver
+
+
+def _create_modified_schema(
+    original_schema: type[BaseModel],
+    exclude_fields: list[str],
+    schema_name: str = "ModifiedSchema",
+) -> type[BaseModel]:
+    """
+    Creates a new Pydantic schema with specified fields excluded.
+
+    Args:
+        original_schema: The original Pydantic schema
+        exclude_fields: List of field names to exclude
+        schema_name: Name for the new schema class
+
+    Returns:
+        A new Pydantic schema class without the excluded fields
+    """
+    if not exclude_fields:
+        return original_schema
+
+    from pydantic import create_model
+
+    field_definitions: dict[str, Any] = {}
+    for field_name, field_info in original_schema.model_fields.items():
+        if field_name not in exclude_fields:
+            field_definitions[field_name] = (field_info.annotation, field_info)
+
+    new_schema: type[BaseModel] = create_model(
+        schema_name,
+        **field_definitions,  # type: ignore[arg-type]
+    )
+
+    return new_schema
 
 
 def _create_dynamic_filters(
