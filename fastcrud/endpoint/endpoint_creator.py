@@ -1,14 +1,14 @@
 from typing import Type, Optional, Callable, Sequence, Union, Any, cast
 from enum import Enum
 
-from fastapi import Depends, Body, Query, APIRouter
+from fastapi import Depends, Body, APIRouter
 from pydantic import ValidationError, BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import NoResultFound
 
 
 from fastcrud.crud.fast_crud import FastCRUD
-from fastcrud.paginated import ListResponse, PaginatedListResponse
+from fastcrud.paginated import ListResponse, PaginatedListResponse, PaginatedRequestQuery
 from fastcrud.types import (
     CreateSchemaType,
     DeleteSchemaType,
@@ -406,29 +406,21 @@ class EndpointCreator:
         - Single field ascending: ?sort=field_name
         - Single field descending: ?sort=-field_name
         - Multiple fields: ?sort=field1,-field2 (field1 asc, field2 desc)
+
+        The query parameters are encapsulated in PaginatedRequestQuery schema,
+        which can be reused in custom endpoints.
         """
         dynamic_filters = _create_dynamic_filters(self.filter_config, self.column_types)
 
         async def endpoint(
             db: AsyncSession = Depends(self.session),
-            offset: Optional[int] = Query(
-                None, description="Offset for unpaginated queries"
-            ),
-            limit: Optional[int] = Query(
-                None, description="Limit for unpaginated queries"
-            ),
-            page: Optional[int] = Query(None, alias="page", description="Page number"),
-            items_per_page: Optional[int] = Query(
-                None, alias="itemsPerPage", description="Number of items per page"
-            ),
-            sort: Optional[str] = Query(
-                None,
-                description="Sort results by one or more fields. Format: 'field1,-field2' where '-' prefix indicates descending order. Example: 'name' (ascending), '-age' (descending), 'name,-age' (name ascending, then age descending).",
-            ),
+            query: PaginatedRequestQuery = Depends(),
             filters: dict = Depends(dynamic_filters),
         ) -> Union[dict[str, Any], PaginatedListResponse, ListResponse]:
-            is_paginated = (page is not None) or (items_per_page is not None)
-            has_offset_limit = (offset is not None) and (limit is not None)
+            is_paginated = (query.page is not None) or (query.items_per_page is not None)
+            has_offset_limit = (query.offset is not None) and (query.limit is not None)
+            default_offset = 0
+            default_limit = 100
 
             if is_paginated and has_offset_limit:
                 raise BadRequestException(
@@ -436,20 +428,21 @@ class EndpointCreator:
                 )
 
             if is_paginated:
-                if not page:
-                    page = 1
-                if not items_per_page:
-                    items_per_page = 10
+                page = query.page if query.page else 1
+                items_per_page = query.items_per_page if query.items_per_page else 10
                 offset = compute_offset(page=page, items_per_page=items_per_page)  # type: ignore
                 limit = items_per_page
             elif not has_offset_limit:
-                offset = 0
-                limit = 100
+                offset = default_offset
+                limit = default_limit
+            else:
+                offset = query.offset or default_offset
+                limit = query.limit or default_limit
 
             sort_columns: list[str] = []
             sort_orders: list[str] = []
-            if sort:
-                for s in sort.split(","):
+            if query.sort:
+                for s in query.sort.split(","):
                     s = s.strip()
                     if not s:
                         continue

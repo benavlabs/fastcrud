@@ -582,6 +582,89 @@ my_router = crud_router(
 app.include_router(my_router)
 ```
 
+## Reusing Pagination Query Parameters
+
+FastCRUD provides a `PaginatedRequestQuery` Pydantic model that encapsulates all query parameters used for pagination and sorting. This model can be reused in custom endpoints using FastAPI's `Depends()`, making it easy to maintain consistent pagination behavior across your API.
+
+### Using `PaginatedRequestQuery` in Custom Endpoints
+
+The `PaginatedRequestQuery` model includes all standard pagination parameters:
+- `offset` and `limit` for offset-based pagination
+- `page` and `items_per_page` (alias: `itemsPerPage`) for page-based pagination
+- `sort` for sorting by one or more fields
+
+Here's how to use it in a custom endpoint:
+
+```python
+from typing import Annotated
+from fastapi import Depends, APIRouter
+from fastcrud.paginated import PaginatedRequestQuery
+from sqlalchemy.ext.asyncio import AsyncSession
+
+router = APIRouter()
+
+@router.get("/custom/items")
+async def get_custom_items(
+    db: Annotated[AsyncSession, Depends(get_session)],
+    query: Annotated[PaginatedRequestQuery, Depends()],
+):
+    """Custom endpoint using the same pagination parameters as FastCRUD."""
+    # Access pagination parameters
+    if query.page is not None and query.items_per_page is not None:
+        # Page-based pagination
+        offset = (query.page - 1) * query.items_per_page
+        limit = query.items_per_page
+    else:
+        # Offset-based pagination
+        offset = query.offset
+        limit = query.limit
+
+    # Use offset and limit in your query
+    # ... your custom logic here
+
+    return {"offset": offset, "limit": limit, "sort": query.sort}
+```
+
+### Extending `PaginatedRequestQuery`
+
+You can also subclass `PaginatedRequestQuery` to add custom query parameters while maintaining all the standard pagination fields:
+
+```python
+from typing import Optional
+from pydantic import Field
+from fastcrud.paginated import PaginatedRequestQuery
+
+class CustomPaginatedQuery(PaginatedRequestQuery):
+    """Extended query with custom filter."""
+
+    status: Optional[str] = Field(None, description="Filter by status")
+    category: Optional[str] = Field(None, description="Filter by category")
+
+@router.get("/custom/filtered-items")
+async def get_filtered_items(
+    db: Annotated[AsyncSession, Depends(get_session)],
+    query: Annotated[CustomPaginatedQuery, Depends()],
+):
+    """Custom endpoint with additional filter parameters."""
+    # Access both standard pagination and custom parameters
+    return {
+        "page": query.page,
+        "items_per_page": query.items_per_page,
+        "status": query.status,
+        "category": query.category,
+    }
+```
+
+### Benefits
+
+Using `PaginatedRequestQuery` provides several advantages:
+
+- **Consistency**: All endpoints use the same pagination parameter names and behavior
+- **Reusability**: No need to redefine pagination parameters for each custom endpoint
+- **OpenAPI Documentation**: Automatic generation of proper API documentation with field descriptions
+- **Type Safety**: Full Pydantic validation for all query parameters
+- **Flexibility**: Easy to extend with custom parameters while maintaining standard pagination
+
 ## Custom Soft Delete
 
 To implement custom soft delete columns using `EndpointCreator` and `crud_router` in FastCRUD, you need to specify the names of the columns used for indicating deletion status and the deletion timestamp in your model. FastCRUD provides flexibility in handling soft deletes by allowing you to configure these column names directly when setting up CRUD operations or API endpoints.
