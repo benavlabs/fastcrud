@@ -40,6 +40,50 @@ class JoinConfig(BaseModel):
         return value
 
 
+class CountConfig(BaseModel):
+    """
+    Configuration for counting related objects in joined queries.
+
+    This allows you to annotate query results with counts of related objects,
+    particularly useful for many-to-many relationships. The count is implemented
+    as a scalar subquery, which means all records from the primary model will be
+    returned with their respective counts (including 0 for records with no related objects).
+
+    Attributes:
+        model: The SQLAlchemy model to count.
+        join_on: The join condition for the count query.
+        alias: Optional alias for the count column in the result. Defaults to "{model.__tablename__}_count".
+        filters: Optional filters to apply to the count query.
+
+    Example:
+        ```python
+        from fastcrud import FastCRUD, CountConfig
+
+        # Count videos for each search through a many-to-many relationship
+        count_config = CountConfig(
+            model=Video,
+            join_on=(Video.id == VideoSearchAssociation.video_id)
+                   & (VideoSearchAssociation.search_id == Search.id),
+            alias='videos_count'
+        )
+
+        search_crud = FastCRUD(Search)
+        results = await search_crud.get_multi_joined(
+            db=session,
+            counts_config=[count_config],
+        )
+        # Results will include 'videos_count' field for each search
+        # Example: [{"id": 1, "term": "cats", "videos_count": 5}, ...]
+        ```
+    """
+    model: Any
+    join_on: Any
+    alias: Optional[str] = None
+    filters: Optional[dict] = None
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+
 def _extract_matching_columns_from_schema(
     model: Union[ModelType, AliasedClass],
     schema: Optional[type[SelectSchemaType]],

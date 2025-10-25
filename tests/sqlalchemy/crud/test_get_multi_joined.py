@@ -610,7 +610,7 @@ async def test_get_multi_joined_missing_join_parameters(async_session):
     crud = FastCRUD(ModelTest)
     with pytest.raises(ValueError) as exc_info:
         await crud.get_multi_joined(db=async_session)
-    assert "You need one of join_model or joins_config" in str(exc_info.value)
+    assert "You need one of join_model, joins_config, or counts_config" in str(exc_info.value)
 
 
 @pytest.mark.asyncio

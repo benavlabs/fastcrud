@@ -45,6 +45,7 @@ from .helper import (
     _nest_multi_join_data,
     _handle_null_primary_key_multi_join,
     JoinConfig,
+    CountConfig,
 )
 
 from ..endpoint.helper import _get_primary_keys
@@ -1961,6 +1962,7 @@ class FastCRUD(
         sort_orders: Optional[Union[str, list[str]]] = None,
         return_as_model: bool = False,
         joins_config: Optional[list[JoinConfig]] = None,
+        counts_config: Optional[list[CountConfig]] = None,
         return_total_count: bool = True,
         relationship_type: Optional[str] = None,
         **kwargs: Any,
@@ -1987,6 +1989,7 @@ class FastCRUD(
             sort_orders: A single sort order (`"asc"` or `"desc"`) or a list of sort orders corresponding to the columns in `sort_columns`. If not provided, defaults to `"asc"` for each column.
             return_as_model: If `True`, converts the fetched data to Pydantic models based on `schema_to_select`. Defaults to `False`.
             joins_config: List of `JoinConfig` instances for specifying multiple joins. Each instance defines a model to join with, join condition, optional prefix for column names, schema for selecting specific columns, and join type.
+            counts_config: List of `CountConfig` instances for counting related objects. Each instance defines a model to count, join condition, and optional alias for the count column. Useful for many-to-many relationships.
             return_total_count: If `True`, also returns the total count of rows with the selected filters. Useful for pagination.
             relationship_type: Specifies the relationship type, such as `"one-to-one"` or `"one-to-many"`. Used to determine how to nest the joined data. If `None`, uses `"one-to-one"`.
             **kwargs: Filters to apply to the primary query, including advanced comparison operators for refined searching.
@@ -2235,6 +2238,37 @@ class FastCRUD(
             )
             # Expect 'posts' to be nested as a list of dictionaries under each user
             ```
+
+            Example using counts_config to count related objects (e.g., many-to-many relationships):
+
+            ```python
+            from fastcrud import FastCRUD, CountConfig
+
+            search_crud = FastCRUD(Search)
+
+            # Count videos for each search through a many-to-many relationship
+            results = await search_crud.get_multi_joined(
+                db=session,
+                counts_config=[
+                    CountConfig(
+                        model=Video,
+                        join_on=(Video.id == VideoSearchAssociation.video_id)
+                               & (VideoSearchAssociation.search_id == Search.id),
+                        alias='videos_count'
+                    )
+                ],
+            )
+            # Results will include 'videos_count' field for each search
+            # Example result:
+            # {
+            #     "data": [
+            #         {"id": 1, "term": "cats", "videos_count": 5},
+            #         {"id": 2, "term": "dogs", "videos_count": 3},
+            #         {"id": 3, "term": "birds", "videos_count": 0}
+            #     ],
+            #     "total_count": 3
+            # }
+            ```
         """
         if joins_config and (
             join_model
@@ -2247,8 +2281,8 @@ class FastCRUD(
             raise ValueError(
                 "Cannot use both single join parameters and joins_config simultaneously."
             )
-        elif not joins_config and not join_model:
-            raise ValueError("You need one of join_model or joins_config.")
+        elif not joins_config and not join_model and not counts_config:
+            raise ValueError("You need one of join_model, joins_config, or counts_config.")
 
         if (limit is not None and limit < 0) or offset < 0:
             raise ValueError("Limit and offset must be non-negative.")
@@ -2284,6 +2318,24 @@ class FastCRUD(
         stmt = self._prepare_and_apply_joins(
             stmt=stmt, joins_config=join_definitions, use_temporary_prefix=nest_joins
         )
+
+        # Apply counts if counts_config is provided
+        if counts_config:
+            for count in counts_config:
+                count_model = count.model
+                count_alias = count.alias or f"{count_model.__tablename__}_count"
+
+                # Create a scalar subquery for the count
+                count_subquery = select(func.count(count_model.id)).where(count.join_on)
+
+                # Apply filters if provided
+                if count.filters:
+                    count_filters = self._parse_filters(model=count_model, **count.filters)
+                    if count_filters:
+                        count_subquery = count_subquery.filter(*count_filters)
+
+                # Add the count column as a scalar subquery
+                stmt = stmt.add_columns(count_subquery.scalar_subquery().label(count_alias))
 
         primary_filters = self._parse_filters(**kwargs)
         if primary_filters:
