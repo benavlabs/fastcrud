@@ -851,6 +851,15 @@ class FastCRUD(
             if joined_model_filters:
                 stmt = stmt.filter(*joined_model_filters)
 
+            if join.sort_columns:
+                for idx, column_name in enumerate(join.sort_columns):
+                    column = getattr(model, column_name, None)
+                    if not column:
+                        raise ArgumentError(f"Invalid column name: {column_name}")
+
+                    order = join.sort_orders[idx] if join.sort_orders else "asc"
+                    stmt = stmt.order_by(asc(column) if order == "asc" else desc(column))
+
         return stmt
 
     async def create(
