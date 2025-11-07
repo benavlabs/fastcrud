@@ -1,0 +1,2072 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Powerful CRUD methods and automatic endpoint creation for FastAPI.">
+      
+      
+        <meta name="author" content="Igor Magalhaes">
+      
+      
+        <link rel="canonical" href="https://github.com/igorbenav/fastcrud/why-fastcrud/">
+      
+      
+        <link rel="prev" href="..">
+      
+      
+        <link rel="next" href="../usage/overview/">
+      
+      
+      <link rel="icon" href="../assets/logo.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.6.22">
+    
+    
+      
+        <title>Why FastCRUD? - FastCRUD</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.84d31ad4.min.css">
+      
+        
+        <link rel="stylesheet" href="../assets/stylesheets/palette.06af60db.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Ubuntu:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Ubuntu";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/_mkdocstrings.css">
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+  
+
+
+  
+  
+
+<script id="__analytics">function __md_analytics(){function e(){dataLayer.push(arguments)}window.dataLayer=window.dataLayer||[],e("js",new Date),e("config",""),document.addEventListener("DOMContentLoaded",(function(){document.forms.search&&document.forms.search.query.addEventListener("blur",(function(){this.value&&e("event","search",{search_term:this.value})}));document$.subscribe((function(){var t=document.forms.feedback;if(void 0!==t)for(var a of t.querySelectorAll("[type=submit]"))a.addEventListener("click",(function(a){a.preventDefault();var n=document.location.pathname,d=this.getAttribute("data-md-value");e("event","feedback",{page:n,data:d}),t.firstElementChild.disabled=!0;var r=t.querySelector(".md-feedback__note [data-md-value='"+d+"']");r&&(r.hidden=!1)})),t.hidden=!1})),location$.subscribe((function(t){e("config","",{page_path:t.pathname})}))}));var t=document.createElement("script");t.async=!0,t.src="https://www.googletagmanager.com/gtag/js?id=",document.getElementById("__analytics").insertAdjacentElement("afterEnd",t)}</script>
+  
+    <script>"undefined"!=typeof __md_analytics&&__md_analytics()</script>
+  
+
+    
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="deep-purple">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#why-fastcrud" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+<header class="md-header" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="FastCRUD" class="md-header__button md-logo" aria-label="FastCRUD" data-md-component="logo">
+      
+  <img src="../assets/logo.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            FastCRUD
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Why FastCRUD?
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: light)" data-md-color-scheme="default" data-md-color-primary="deep-purple" data-md-color-accent="deep-purple"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="(prefers-color-scheme: dark)" data-md-color-scheme="slate" data-md-color-primary="deep-purple" data-md-color-accent="deep-purple"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/igorbenav/fastcrud" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    igorbenav/fastcrud
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+            
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href=".." class="md-tabs__link">
+        
+  
+  
+    
+  
+  FastCRUD
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Why FastCRUD?
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../usage/overview/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Usage
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../advanced/overview/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Advanced
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../api/overview/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  API Reference
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../showcase/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Showcase
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../community/overview/" class="md-tabs__link">
+          
+  
+  
+    
+  
+  Community
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../changelog/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Changelog
+
+      </a>
+    </li>
+  
+
+      
+    </ul>
+  </div>
+</nav>
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="FastCRUD" class="md-nav__button md-logo" aria-label="FastCRUD" data-md-component="logo">
+      
+  <img src="../assets/logo.png" alt="logo">
+
+    </a>
+    FastCRUD
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/igorbenav/fastcrud" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    igorbenav/fastcrud
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    FastCRUD
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    Why FastCRUD?
+    
+  </span>
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    Why FastCRUD?
+    
+  </span>
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-problems-we-actually-face" class="md-nav__link">
+    <span class="md-ellipsis">
+      The Problems We Actually Face
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The Problems We Actually Face">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#problem-1-the-boilerplate-explosion" class="md-nav__link">
+    <span class="md-ellipsis">
+      Problem 1: The Boilerplate Explosion
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#problem-2-the-repository-pattern-overhead" class="md-nav__link">
+    <span class="md-ellipsis">
+      Problem 2: The Repository Pattern Overhead
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-fastcrud-actually-gives-you" class="md-nav__link">
+    <span class="md-ellipsis">
+      What FastCRUD Actually Gives You
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-fastcrud-actually-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      How FastCRUD Actually Works
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-fastcrud-isnt-the-right-tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      When FastCRUD Isn't the Right Tool
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="When FastCRUD Isn&#39;t the Right Tool">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#project-fit-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Project Fit Analysis
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#growing-with-your-project" class="md-nav__link">
+    <span class="md-ellipsis">
+      Growing With Your Project
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Growing With Your Project">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#start-simple-get-it-working" class="md-nav__link">
+    <span class="md-ellipsis">
+      Start Simple: Get It Working
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#add-business-logic-when-you-need-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      Add Business Logic When You Need It
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#extract-services-for-complex-logic" class="md-nav__link">
+    <span class="md-ellipsis">
+      Extract Services for Complex Logic
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#add-domain-repositories-for-complex-queries" class="md-nav__link">
+    <span class="md-ellipsis">
+      Add Domain Repositories for Complex Queries
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Usage
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            Usage
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../usage/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../usage/endpoint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Automatic Endpoints
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../usage/crud/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    CRUD Utilities
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Advanced
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            Advanced
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../advanced/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../advanced/endpoint/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Custom Endpoints
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../advanced/crud/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Advanced CRUD Usage
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../advanced/filters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Advanced Filtering
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../advanced/dependency_filtering/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Dependency-Based Filtering
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../advanced/joins/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Joining Models
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../advanced/response_keys/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Response Key Configuration
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    API Reference
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            API Reference
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/fastcrud/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    FastCRUD
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/endpoint_creator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    EndpointCreator
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/crud_router/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    crud_router
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/paginated/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    paginated
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../showcase/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Showcase
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    Community
+    
+  </span>
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            Community
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../community/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Overview
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../community/architecture/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Architecture
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../community/CONTRIBUTING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Contributing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../community/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Discord Community
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../community/CONTRIBUTING/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Contributing
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../community/showcase_submission/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Showcase Submission
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../community/CODE_OF_CONDUCT/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Code of Conduct
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../community/LICENSE/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    License
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    Changelog
+    
+  </span>
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#the-problems-we-actually-face" class="md-nav__link">
+    <span class="md-ellipsis">
+      The Problems We Actually Face
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="The Problems We Actually Face">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#problem-1-the-boilerplate-explosion" class="md-nav__link">
+    <span class="md-ellipsis">
+      Problem 1: The Boilerplate Explosion
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#problem-2-the-repository-pattern-overhead" class="md-nav__link">
+    <span class="md-ellipsis">
+      Problem 2: The Repository Pattern Overhead
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-fastcrud-actually-gives-you" class="md-nav__link">
+    <span class="md-ellipsis">
+      What FastCRUD Actually Gives You
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-fastcrud-actually-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      How FastCRUD Actually Works
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#when-fastcrud-isnt-the-right-tool" class="md-nav__link">
+    <span class="md-ellipsis">
+      When FastCRUD Isn't the Right Tool
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="When FastCRUD Isn&#39;t the Right Tool">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#project-fit-analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      Project Fit Analysis
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#growing-with-your-project" class="md-nav__link">
+    <span class="md-ellipsis">
+      Growing With Your Project
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Growing With Your Project">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#start-simple-get-it-working" class="md-nav__link">
+    <span class="md-ellipsis">
+      Start Simple: Get It Working
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#add-business-logic-when-you-need-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      Add Business Logic When You Need It
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#extract-services-for-complex-logic" class="md-nav__link">
+    <span class="md-ellipsis">
+      Extract Services for Complex Logic
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#add-domain-repositories-for-complex-queries" class="md-nav__link">
+    <span class="md-ellipsis">
+      Add Domain Repositories for Complex Queries
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="why-fastcrud">Why FastCRUD?<a class="headerlink" href="#why-fastcrud" title="Permanent link">&para;</a></h1>
+<p><strong>When, how, and why to choose FastCRUD for your FastAPI applications.</strong></p>
+<p>You've found FastCRUD. Maybe you're tired of writing the same CRUD code over and over. Maybe you want a clean repository pattern without the boilerplate. Maybe you're just curious what this library actually does.</p>
+<p>This is an honest discussion about the problems FastCRUD solves and when it makes sense for your project.</p>
+<h2 id="the-problems-we-actually-face">The Problems We Actually Face<a class="headerlink" href="#the-problems-we-actually-face" title="Permanent link">&para;</a></h2>
+<p>Building APIs with FastAPI and SQLAlchemy is powerful, but it comes with two distinct pain points that hit different developers at different times:</p>
+<h3 id="problem-1-the-boilerplate-explosion">Problem 1: The Boilerplate Explosion<a class="headerlink" href="#problem-1-the-boilerplate-explosion" title="Permanent link">&para;</a></h3>
+<p>Every model needs the same operations. Every endpoint follows the same pattern. Here's what you need to write for get, get_multi, create, update, delete - for each model:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Without FastCRUD</label><label for="__tabbed_1_2">With FastCRUD</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/users&quot;</span><span class="p">)</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">async</span> <span class="k">def</span> <span class="nf">get_users</span><span class="p">(</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="n">db</span><span class="p">:</span> <span class="n">AsyncSession</span> <span class="o">=</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_session</span><span class="p">),</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">skip</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">name</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">email</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">created_after</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">datetime</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">sort_by</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;created_at&quot;</span><span class="p">,</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>    <span class="n">sort_order</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;desc&quot;</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="p">):</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>    <span class="n">query</span> <span class="o">=</span> <span class="n">select</span><span class="p">(</span><span class="n">User</span><span class="p">)</span>
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>
+</span><span id="__span-0-14"><a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>    <span class="c1"># Manual filtering</span>
+</span><span id="__span-0-15"><a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>    <span class="k">if</span> <span class="n">name</span><span class="p">:</span>
+</span><span id="__span-0-16"><a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>        <span class="n">query</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">User</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">ilike</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;%</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">%&quot;</span><span class="p">))</span>
+</span><span id="__span-0-17"><a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>    <span class="k">if</span> <span class="n">email</span><span class="p">:</span>
+</span><span id="__span-0-18"><a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>        <span class="n">query</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">User</span><span class="o">.</span><span class="n">email</span> <span class="o">==</span> <span class="n">email</span><span class="p">)</span>
+</span><span id="__span-0-19"><a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>    <span class="k">if</span> <span class="n">created_after</span><span class="p">:</span>
+</span><span id="__span-0-20"><a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>        <span class="n">query</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">User</span><span class="o">.</span><span class="n">created_at</span> <span class="o">&gt;=</span> <span class="n">created_after</span><span class="p">)</span>
+</span><span id="__span-0-21"><a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>
+</span><span id="__span-0-22"><a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>    <span class="c1"># Manual sorting</span>
+</span><span id="__span-0-23"><a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>    <span class="k">if</span> <span class="n">sort_order</span> <span class="o">==</span> <span class="s2">&quot;desc&quot;</span><span class="p">:</span>
+</span><span id="__span-0-24"><a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>        <span class="n">query</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="n">desc</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">User</span><span class="p">,</span> <span class="n">sort_by</span><span class="p">)))</span>
+</span><span id="__span-0-25"><a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>    <span class="k">else</span><span class="p">:</span>
+</span><span id="__span-0-26"><a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>        <span class="n">query</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">order_by</span><span class="p">(</span><span class="nb">getattr</span><span class="p">(</span><span class="n">User</span><span class="p">,</span> <span class="n">sort_by</span><span class="p">))</span>
+</span><span id="__span-0-27"><a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>
+</span><span id="__span-0-28"><a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>    <span class="c1"># Manual pagination</span>
+</span><span id="__span-0-29"><a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>    <span class="n">query</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">offset</span><span class="p">(</span><span class="n">skip</span><span class="p">)</span><span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="n">limit</span><span class="p">)</span>
+</span><span id="__span-0-30"><a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>
+</span><span id="__span-0-31"><a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>    <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
+</span><span id="__span-0-32"><a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>    <span class="n">users</span> <span class="o">=</span> <span class="n">result</span><span class="o">.</span><span class="n">scalars</span><span class="p">()</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+</span><span id="__span-0-33"><a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>
+</span><span id="__span-0-34"><a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>    <span class="k">return</span> <span class="p">[</span><span class="n">UserResponse</span><span class="o">.</span><span class="n">model_validate</span><span class="p">(</span><span class="n">user</span><span class="p">)</span> <span class="k">for</span> <span class="n">user</span> <span class="ow">in</span> <span class="n">users</span><span class="p">]</span>
+</span><span id="__span-0-35"><a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>
+</span><span id="__span-0-36"><a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a><span class="nd">@app</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;/users&quot;</span><span class="p">)</span>
+</span><span id="__span-0-37"><a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a><span class="k">async</span> <span class="k">def</span> <span class="nf">create_user</span><span class="p">():</span>
+</span><span id="__span-0-38"><a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>    <span class="c1"># ... another 15-20 lines of manual validation and creation</span>
+</span><span id="__span-0-39"><a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>
+</span><span id="__span-0-40"><a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a><span class="nd">@app</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;/users/</span><span class="si">{user_id}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-0-41"><a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a><span class="k">async</span> <span class="k">def</span> <span class="nf">get_user</span><span class="p">():</span>
+</span><span id="__span-0-42"><a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>    <span class="c1"># ... another 10-15 lines</span>
+</span><span id="__span-0-43"><a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>
+</span><span id="__span-0-44"><a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a><span class="nd">@app</span><span class="o">.</span><span class="n">patch</span><span class="p">(</span><span class="s2">&quot;/users/</span><span class="si">{user_id}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-0-45"><a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a><span class="k">async</span> <span class="k">def</span> <span class="nf">update_user</span><span class="p">():</span>
+</span><span id="__span-0-46"><a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>    <span class="c1"># ... another 20-25 lines</span>
+</span><span id="__span-0-47"><a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>
+</span><span id="__span-0-48"><a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a><span class="nd">@app</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="s2">&quot;/users/</span><span class="si">{user_id}</span><span class="s2">&quot;</span><span class="p">)</span>
+</span><span id="__span-0-49"><a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a><span class="k">async</span> <span class="k">def</span> <span class="nf">delete_user</span><span class="p">():</span>
+</span><span id="__span-0-50"><a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a>    <span class="c1"># ... another 10-15 lines</span>
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">user_router</span> <span class="o">=</span> <span class="n">crud_router</span><span class="p">(</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">session</span><span class="o">=</span><span class="n">get_session</span><span class="p">,</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="n">model</span><span class="o">=</span><span class="n">User</span><span class="p">,</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">create_schema</span><span class="o">=</span><span class="n">CreateUserSchema</span><span class="p">,</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">update_schema</span><span class="o">=</span><span class="n">UpdateUserSchema</span><span class="p">,</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>    <span class="n">path</span><span class="o">=</span><span class="s2">&quot;/users&quot;</span><span class="p">,</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>    <span class="n">tags</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Users&quot;</span><span class="p">]</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="p">)</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="n">app</span><span class="o">.</span><span class="n">include_router</span><span class="p">(</span><span class="n">user_router</span><span class="p">)</span>
+</span></code></pre></div>
+</div>
+</div>
+</div>
+<p>The FastCRUD version gives you filtering, sorting, pagination, and all CRUD operations automatically. Not everyone needs automatic endpoints, though.</p>
+<h3 id="problem-2-the-repository-pattern-overhead">Problem 2: The Repository Pattern Overhead<a class="headerlink" href="#problem-2-the-repository-pattern-overhead" title="Permanent link">&para;</a></h3>
+<p>Maybe you don't want automatic endpoints. Maybe you have complex business logic. You still need a clean way to access your data without writing the same queries repeatedly.</p>
+<p>Traditional repository pattern means writing interfaces and implementations for every model:</p>
+<div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Traditional Repository</label><label for="__tabbed_2_2">FastCRUD Repository</label></div>
+<div class="tabbed-content">
+<div class="tabbed-block">
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># The interface</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">class</span> <span class="nc">IUserRepository</span><span class="p">(</span><span class="n">ABC</span><span class="p">):</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="nd">@abstractmethod</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">get_by_email</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">email</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">User</span><span class="p">]:</span> <span class="o">...</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>    <span class="nd">@abstractmethod</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">get_active_users</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">User</span><span class="p">]:</span> <span class="o">...</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>    <span class="nd">@abstractmethod</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">search_users</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">User</span><span class="p">]:</span> <span class="o">...</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="c1"># The implementation</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="k">class</span> <span class="nc">UserRepository</span><span class="p">(</span><span class="n">IUserRepository</span><span class="p">):</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">:</span> <span class="n">AsyncSession</span><span class="p">):</span>
+</span><span id="__span-2-15"><a id="__codelineno-2-15" name="__codelineno-2-15" href="#__codelineno-2-15"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">db</span> <span class="o">=</span> <span class="n">db</span>
+</span><span id="__span-2-16"><a id="__codelineno-2-16" name="__codelineno-2-16" href="#__codelineno-2-16"></a>
+</span><span id="__span-2-17"><a id="__codelineno-2-17" name="__codelineno-2-17" href="#__codelineno-2-17"></a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">get_by_email</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">email</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">User</span><span class="p">]:</span>
+</span><span id="__span-2-18"><a id="__codelineno-2-18" name="__codelineno-2-18" href="#__codelineno-2-18"></a>        <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="n">select</span><span class="p">(</span><span class="n">User</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">User</span><span class="o">.</span><span class="n">email</span> <span class="o">==</span> <span class="n">email</span><span class="p">))</span>
+</span><span id="__span-2-19"><a id="__codelineno-2-19" name="__codelineno-2-19" href="#__codelineno-2-19"></a>        <span class="k">return</span> <span class="n">result</span><span class="o">.</span><span class="n">scalar_one_or_none</span><span class="p">()</span>
+</span><span id="__span-2-20"><a id="__codelineno-2-20" name="__codelineno-2-20" href="#__codelineno-2-20"></a>
+</span><span id="__span-2-21"><a id="__codelineno-2-21" name="__codelineno-2-21" href="#__codelineno-2-21"></a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">get_active_users</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">limit</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">User</span><span class="p">]:</span>
+</span><span id="__span-2-22"><a id="__codelineno-2-22" name="__codelineno-2-22" href="#__codelineno-2-22"></a>        <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+</span><span id="__span-2-23"><a id="__codelineno-2-23" name="__codelineno-2-23" href="#__codelineno-2-23"></a>            <span class="n">select</span><span class="p">(</span><span class="n">User</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">User</span><span class="o">.</span><span class="n">is_active</span> <span class="o">==</span> <span class="kc">True</span><span class="p">)</span><span class="o">.</span><span class="n">limit</span><span class="p">(</span><span class="n">limit</span><span class="p">)</span>
+</span><span id="__span-2-24"><a id="__codelineno-2-24" name="__codelineno-2-24" href="#__codelineno-2-24"></a>        <span class="p">)</span>
+</span><span id="__span-2-25"><a id="__codelineno-2-25" name="__codelineno-2-25" href="#__codelineno-2-25"></a>        <span class="k">return</span> <span class="n">result</span><span class="o">.</span><span class="n">scalars</span><span class="p">()</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+</span><span id="__span-2-26"><a id="__codelineno-2-26" name="__codelineno-2-26" href="#__codelineno-2-26"></a>
+</span><span id="__span-2-27"><a id="__codelineno-2-27" name="__codelineno-2-27" href="#__codelineno-2-27"></a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">search_users</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">User</span><span class="p">]:</span>
+</span><span id="__span-2-28"><a id="__codelineno-2-28" name="__codelineno-2-28" href="#__codelineno-2-28"></a>        <span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">db</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span>
+</span><span id="__span-2-29"><a id="__codelineno-2-29" name="__codelineno-2-29" href="#__codelineno-2-29"></a>            <span class="n">select</span><span class="p">(</span><span class="n">User</span><span class="p">)</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">User</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">ilike</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;%</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">%&quot;</span><span class="p">))</span>
+</span><span id="__span-2-30"><a id="__codelineno-2-30" name="__codelineno-2-30" href="#__codelineno-2-30"></a>        <span class="p">)</span>
+</span><span id="__span-2-31"><a id="__codelineno-2-31" name="__codelineno-2-31" href="#__codelineno-2-31"></a>        <span class="k">return</span> <span class="n">result</span><span class="o">.</span><span class="n">scalars</span><span class="p">()</span><span class="o">.</span><span class="n">all</span><span class="p">()</span>
+</span></code></pre></div>
+</div>
+<div class="tabbed-block">
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># You automatically get get_multi, get, create, update, delete, etc.</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">crud_users</span> <span class="o">=</span> <span class="n">FastCRUD</span><span class="p">(</span><span class="n">User</span><span class="p">)</span>
+</span></code></pre></div>
+</div>
+</div>
+</div>
+<p>FastCRUD gives you a pre-built repository with advanced features like filtering operators (<code>name__icontains</code>), joins, and pagination. You focus on domain-specific methods, not query construction.</p>
+<h2 id="what-fastcrud-actually-gives-you">What FastCRUD Actually Gives You<a class="headerlink" href="#what-fastcrud-actually-gives-you" title="Permanent link">&para;</a></h2>
+<p>Beyond eliminating boilerplate, FastCRUD gives you features you don't even know you'll need - thoroughly tested and maintained. Here are three that take a lot of time and effort to keep reimplementing and maintaining across different codebases:</p>
+<p><strong>Advanced filtering with 20+ operators</strong>. Instead of writing manual <code>WHERE</code> clauses for every search field, you get Django-style filtering that works across relationships:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">users</span> <span class="o">=</span> <span class="k">await</span> <span class="n">user_crud</span><span class="o">.</span><span class="n">get_multi</span><span class="p">(</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>    <span class="n">db</span><span class="p">,</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>    <span class="n">created_at__gte</span><span class="o">=</span><span class="n">last_week</span><span class="p">,</span>        <span class="c1"># Greater than or equal</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>    <span class="n">tier__name__in</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;pro&quot;</span><span class="p">,</span> <span class="s2">&quot;enterprise&quot;</span><span class="p">],</span>  <span class="c1"># Joined model filtering</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>    <span class="n">email__icontains</span><span class="o">=</span><span class="s2">&quot;@company.com&quot;</span><span class="p">,</span>  <span class="c1"># Case-insensitive search</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>    <span class="n">is_active</span><span class="o">=</span><span class="kc">True</span>                    <span class="c1"># Simple equality</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="p">)</span>
+</span></code></pre></div>
+<p><strong>Automatic joins with proper nesting</strong>. No more writing complex join logic or dealing with flat, denormalized results. FastCRUD detects relationships and gives you properly nested objects:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">users</span> <span class="o">=</span> <span class="k">await</span> <span class="n">user_crud</span><span class="o">.</span><span class="n">get_multi_joined</span><span class="p">(</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>    <span class="n">db</span><span class="p">,</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    <span class="n">joins_config</span><span class="o">=</span><span class="p">[</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>        <span class="n">JoinConfig</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">Profile</span><span class="p">,</span> <span class="n">join_prefix</span><span class="o">=</span><span class="s2">&quot;profile_&quot;</span><span class="p">),</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>        <span class="n">JoinConfig</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">Order</span><span class="p">,</span> <span class="n">join_prefix</span><span class="o">=</span><span class="s2">&quot;orders_&quot;</span><span class="p">,</span> <span class="n">relationship_type</span><span class="o">=</span><span class="s2">&quot;one-to-many&quot;</span><span class="p">)</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>    <span class="p">],</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>    <span class="n">nest_joins</span><span class="o">=</span><span class="kc">True</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="p">)</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="c1"># Returns: [{&quot;id&quot;: 1, &quot;name&quot;: &quot;John&quot;, &quot;profile&quot;: {...}, &quot;orders&quot;: [{...}, {...}]}]</span>
+</span></code></pre></div>
+<p><strong>Cursor-based pagination for large datasets</strong>. Offset pagination falls apart after page 1000 - it gets slower and slower. Cursor pagination stays fast regardless of dataset size, which is crucial for infinite scroll interfaces:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">user_crud</span><span class="o">.</span><span class="n">get_multi_by_cursor</span><span class="p">(</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>    <span class="n">db</span><span class="p">,</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>    <span class="n">cursor</span><span class="o">=</span><span class="n">last_seen_id</span><span class="p">,</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">limit</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>    <span class="n">sort_columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;created_at&quot;</span><span class="p">]</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="p">)</span>
+</span></code></pre></div>
+<p>These features come with built-in optimizations - no N+1 queries, protection against SQL injection, and performance that stays consistent even with large datasets.</p>
+<p>Most teams start with <code>crud_router</code> for basic models - users, products, categories - to get automatic endpoints quickly. As the application grows, they replace specific endpoints with custom business logic while keeping the standard operations automated.</p>
+<p>A typical e-commerce API might use FastCRUD for product catalog management and user administration, but write custom SQLAlchemy for complex inventory calculations or recommendation algorithms. The accounting system uses automatic CRUD for managing vendors and invoices, but implements custom logic for financial reporting and tax calculations.</p>
+<p>This mixed approach works because you're not forced to choose one pattern for everything. FastCRUD handles the repetitive database access while you focus on the domain-specific complexity that actually matters for your business.</p>
+<h2 id="how-fastcrud-actually-works">How FastCRUD Actually Works<a class="headerlink" href="#how-fastcrud-actually-works" title="Permanent link">&para;</a></h2>
+<p>FastCRUD gives you three levels of abstraction that work together:</p>
+<pre class="mermaid"><code>graph TB
+    A[crud_router] --&gt; B[FastCRUD Class]
+    B --&gt; C[SQLAlchemy]
+
+    A --&gt; D["Automatic Endpoints&lt;br/&gt;Zero Code"]
+    B --&gt; E["Repository Pattern&lt;br/&gt;Custom Logic"]
+    C --&gt; F["Raw Queries&lt;br/&gt;Maximum Control"]
+</code></pre>
+<p>You can use any combination. Most projects end up using all three for different scenarios.</p>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Use This</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Admin panels, internal tools</strong></td>
+<td><code>crud_router</code></td>
+<td>Need full CRUD quickly, minimal customization</td>
+</tr>
+<tr>
+<td><strong>Standard API endpoints</strong></td>
+<td><code>crud_router</code></td>
+<td>Consistent patterns, automatic documentation</td>
+</tr>
+<tr>
+<td><strong>Custom business logic</strong></td>
+<td><code>FastCRUD</code> class</td>
+<td>Need validation, workflows, but want advanced features</td>
+</tr>
+<tr>
+<td><strong>Complex domain operations</strong></td>
+<td><code>FastCRUD</code> + custom code</td>
+<td>Mix repository pattern with specialized queries</td>
+</tr>
+<tr>
+<td><strong>Performance-critical queries</strong></td>
+<td>Raw SQLAlchemy</td>
+<td>Hand-optimized for specific requirements</td>
+</tr>
+<tr>
+<td><strong>Complex aggregations</strong></td>
+<td>Raw SQLAlchemy</td>
+<td>Reporting queries that don't fit CRUD patterns</td>
+</tr>
+</tbody>
+</table>
+<p>Most applications use a mix. <code>crud_router</code> for simple models, <code>FastCRUD</code> class for business logic, raw SQLAlchemy for complex queries.</p>
+<h2 id="when-fastcrud-isnt-the-right-tool">When FastCRUD Isn't the Right Tool<a class="headerlink" href="#when-fastcrud-isnt-the-right-tool" title="Permanent link">&para;</a></h2>
+<p>Not every project is a good fit for FastCRUD. Adding it comes with real trade-offs. The Django-style filtering syntax (<code>__gt</code>, <code>__in</code>, <code>__between</code>) is different from raw SQLAlchemy - your team needs time to learn it. There's an abstraction layer between your code and the database, which usually doesn't matter for performance but adds complexity when debugging query issues. You're also adding a dependency with its own update cycle.</p>
+<p>But most teams find these trade-offs acceptable for the productivity gains, especially since you can always drop down to raw SQLAlchemy when you need complete control. The key is thinking through your specific situation systematically:</p>
+<pre class="mermaid"><code>graph TD
+    A[Your Project] --&gt; B{Mostly standard CRUD?}
+    B --&gt;|Yes| C[Great fit - use crud_router]
+    B --&gt;|Mixed| D{Performance critical?}
+    B --&gt;|No| E[Poor fit - use selectively]
+
+    D --&gt;|Yes| F[Use selectively for non-critical parts]
+    D --&gt;|No| G[Good fit - start with FastCRUD]
+
+    C --&gt; H[Expand gradually as needed]
+    G --&gt; H
+    F --&gt; I[FastCRUD for admin, custom SQL for core]
+    E --&gt; I
+
+    H --&gt; J[Drop to custom code when FastCRUD doesn't fit]
+    I --&gt; J</code></pre>
+<p><strong>Start small and expand gradually.</strong> Pick a simple model - users, products, categories - and implement it with <code>crud_router</code>. See how it feels. Check the generated OpenAPI docs. Run some queries and see if performance is acceptable.</p>
+<p><strong>Think like an engineer.</strong> Even if your application seems like a poor fit overall, FastCRUD might help with parts of it. That analytics platform still needs user management. The performance-critical trading system probably has configuration tables. Use the right tool for each specific problem.</p>
+<h3 id="project-fit-analysis">Project Fit Analysis<a class="headerlink" href="#project-fit-analysis" title="Permanent link">&para;</a></h3>
+<p>Different project types benefit differently from FastCRUD. Here's what we've seen work well and what doesn't:</p>
+<table>
+<thead>
+<tr>
+<th>Project Type</th>
+<th>FastCRUD Fit</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Modular monoliths</strong></td>
+<td>Excellent</td>
+<td>Consistent patterns across modules, shared infrastructure</td>
+</tr>
+<tr>
+<td><strong>Admin dashboards</strong></td>
+<td>Excellent</td>
+<td>Standard CRUD with filtering, minimal custom logic</td>
+</tr>
+<tr>
+<td><strong>REST APIs</strong></td>
+<td>Very good</td>
+<td>Consistent endpoints, pagination, OpenAPI docs</td>
+</tr>
+<tr>
+<td><strong>Microservices</strong></td>
+<td>Very good</td>
+<td>Each service has focused CRUD operations</td>
+</tr>
+<tr>
+<td><strong>Analytics platforms</strong></td>
+<td>Mixed</td>
+<td>Good for user/config management, poor for reporting queries</td>
+</tr>
+<tr>
+<td><strong>Workflow engines</strong></td>
+<td>Poor</td>
+<td>State transitions, complex business rules</td>
+</tr>
+<tr>
+<td><strong>High-frequency trading</strong></td>
+<td>Poor</td>
+<td>Hand-optimized queries, microsecond performance</td>
+</tr>
+</tbody>
+</table>
+<p>Most applications fall somewhere in the middle. You have standard user management, product catalogs, order processing alongside specialized business logic. FastCRUD handles the standard parts while you write custom code for the complex domain-specific operations.</p>
+<div class="admonition note">
+<p class="admonition-title">When to rethink FastCRUD</p>
+<p><strong>Analytics Applications</strong> - Complex aggregations don't fit CRUD patterns, but user/config management does</p>
+<p><strong>Performance-Critical Systems</strong> - Core queries need optimization, but admin interfaces can use FastCRUD</p>
+<p><strong>Explicit-Everything Teams</strong> - May prefer custom code, but can use FastCRUD for rapid prototyping</p>
+<p><strong>Domain-Driven Design</strong> - Complex aggregates need custom code, but simple entities work fine</p>
+<p><strong>Non-CRUD APIs</strong> - Main workflows don't benefit, but supporting data operations do</p>
+</div>
+<p>Even in these scenarios, FastCRUD might still help with parts of your application. That analytics platform still needs user management. The performance-critical trading system probably has configuration tables. Think like an engineer - use the right tool for each specific problem, not an all-or-nothing approach.</p>
+<h2 id="growing-with-your-project">Growing With Your Project<a class="headerlink" href="#growing-with-your-project" title="Permanent link">&para;</a></h2>
+<p>You don't have to architect everything perfectly from day one. FastCRUD lets you start simple and evolve your approach as requirements become clearer.</p>
+<h3 id="start-simple-get-it-working">Start Simple: Get It Working<a class="headerlink" href="#start-simple-get-it-working" title="Permanent link">&para;</a></h3>
+<p>When you're building an MVP or just getting started, use <code>crud_router</code> for everything. Your entire API becomes a few lines of code:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Three files get you a complete API</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="c1"># models.py - Your SQLAlchemy models</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="c1"># schemas.py - Your Pydantic schemas  </span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># main.py - Everything else</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="n">user_router</span> <span class="o">=</span> <span class="n">crud_router</span><span class="p">(</span><span class="n">session</span><span class="o">=</span><span class="n">get_session</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="n">User</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="n">product_router</span> <span class="o">=</span> <span class="n">crud_router</span><span class="p">(</span><span class="n">session</span><span class="o">=</span><span class="n">get_session</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="n">Product</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="n">order_router</span> <span class="o">=</span> <span class="n">crud_router</span><span class="p">(</span><span class="n">session</span><span class="o">=</span><span class="n">get_session</span><span class="p">,</span> <span class="n">model</span><span class="o">=</span><span class="n">Order</span><span class="p">,</span> <span class="o">...</span><span class="p">)</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="n">app</span><span class="o">.</span><span class="n">include_router</span><span class="p">(</span><span class="n">user_router</span><span class="p">)</span>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="n">app</span><span class="o">.</span><span class="n">include_router</span><span class="p">(</span><span class="n">product_router</span><span class="p">)</span>
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="n">app</span><span class="o">.</span><span class="n">include_router</span><span class="p">(</span><span class="n">order_router</span><span class="p">)</span>
+</span></code></pre></div>
+<p>This gets you automatic CRUD endpoints, filtering, pagination, and OpenAPI documentation. Great for validating your idea quickly.</p>
+<h3 id="add-business-logic-when-you-need-it">Add Business Logic When You Need It<a class="headerlink" href="#add-business-logic-when-you-need-it" title="Permanent link">&para;</a></h3>
+<p>As your application grows, business requirements emerge that don't fit standard CRUD patterns. Maybe order creation needs inventory validation and confirmation emails. Instead of replacing everything, you just add custom endpoints while keeping the automatic ones:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nd">@app</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;/orders/&quot;</span><span class="p">)</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="k">async</span> <span class="k">def</span> <span class="nf">create_order</span><span class="p">(</span><span class="n">order_data</span><span class="p">:</span> <span class="n">OrderCreateSchema</span><span class="p">,</span> <span class="n">db</span><span class="p">:</span> <span class="n">AsyncSession</span> <span class="o">=</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_session</span><span class="p">)):</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">order_crud</span> <span class="o">=</span> <span class="n">FastCRUD</span><span class="p">(</span><span class="n">Order</span><span class="p">)</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    <span class="c1"># Custom business logic</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>    <span class="k">if</span> <span class="ow">not</span> <span class="k">await</span> <span class="n">validate_inventory</span><span class="p">(</span><span class="n">order_data</span><span class="o">.</span><span class="n">items</span><span class="p">):</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>        <span class="k">raise</span> <span class="n">HTTPException</span><span class="p">(</span><span class="mi">400</span><span class="p">,</span> <span class="s2">&quot;Insufficient inventory&quot;</span><span class="p">)</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>    <span class="c1"># Still use FastCRUD for reliable database operations</span>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>    <span class="n">order</span> <span class="o">=</span> <span class="k">await</span> <span class="n">order_crud</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">order_data</span><span class="p">)</span>
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>
+</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a>    <span class="c1"># More custom logic</span>
+</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a>    <span class="k">await</span> <span class="n">send_order_confirmation</span><span class="p">(</span><span class="n">order</span><span class="p">)</span>
+</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>
+</span><span id="__span-8-15"><a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>    <span class="k">return</span> <span class="n">order</span>
+</span></code></pre></div>
+<p>Your simple endpoints like user management keep working unchanged. You only customize what needs custom behavior.</p>
+<h3 id="extract-services-for-complex-logic">Extract Services for Complex Logic<a class="headerlink" href="#extract-services-for-complex-logic" title="Permanent link">&para;</a></h3>
+<p>When your custom endpoints start getting complicated, move the business logic to service classes. FastCRUD stays as your data access layer:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">class</span> <span class="nc">OrderService</span><span class="p">:</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">order_crud</span> <span class="o">=</span> <span class="n">FastCRUD</span><span class="p">(</span><span class="n">Order</span><span class="p">)</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">inventory_service</span> <span class="o">=</span> <span class="n">InventoryService</span><span class="p">()</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">create_order</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">:</span> <span class="n">AsyncSession</span><span class="p">,</span> <span class="n">order_data</span><span class="p">:</span> <span class="n">OrderCreateSchema</span><span class="p">):</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">inventory_service</span><span class="o">.</span><span class="n">reserve_items</span><span class="p">(</span><span class="n">order_data</span><span class="o">.</span><span class="n">items</span><span class="p">)</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>        <span class="n">order</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">order_crud</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">order_data</span><span class="p">)</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>        <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">send_confirmation_email</span><span class="p">(</span><span class="n">order</span><span class="p">)</span>
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>        <span class="k">return</span> <span class="n">order</span>
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>
+</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="c1"># Your endpoints stay clean</span>
+</span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="nd">@app</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="s2">&quot;/orders/&quot;</span><span class="p">)</span>
+</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="k">async</span> <span class="k">def</span> <span class="nf">create_order</span><span class="p">(</span><span class="n">order_data</span><span class="p">:</span> <span class="n">OrderCreateSchema</span><span class="p">,</span> <span class="n">db</span><span class="p">:</span> <span class="n">AsyncSession</span> <span class="o">=</span> <span class="n">Depends</span><span class="p">(</span><span class="n">get_session</span><span class="p">)):</span>
+</span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>    <span class="n">service</span> <span class="o">=</span> <span class="n">OrderService</span><span class="p">()</span>
+</span><span id="__span-9-16"><a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a>    <span class="k">return</span> <span class="k">await</span> <span class="n">service</span><span class="o">.</span><span class="n">create_order</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">order_data</span><span class="p">)</span>
+</span></code></pre></div>
+<p>This gives you clean separation - business logic in services, data access through FastCRUD, HTTP handling in endpoints.</p>
+<h3 id="add-domain-repositories-for-complex-queries">Add Domain Repositories for Complex Queries<a class="headerlink" href="#add-domain-repositories-for-complex-queries" title="Permanent link">&para;</a></h3>
+<p>For sophisticated domains, wrap FastCRUD in repositories that expose domain-specific operations:</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">class</span> <span class="nc">UserRepository</span><span class="p">:</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">crud</span> <span class="o">=</span> <span class="n">FastCRUD</span><span class="p">(</span><span class="n">User</span><span class="p">)</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    <span class="k">async</span> <span class="k">def</span> <span class="nf">find_enterprise_admins</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">db</span><span class="p">:</span> <span class="n">AsyncSession</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="n">User</span><span class="p">]:</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a>        <span class="k">return</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">crud</span><span class="o">.</span><span class="n">get_multi_joined</span><span class="p">(</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>            <span class="n">db</span><span class="p">,</span>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>            <span class="n">joins_config</span><span class="o">=</span><span class="p">[</span><span class="n">JoinConfig</span><span class="p">(</span><span class="n">model</span><span class="o">=</span><span class="n">Company</span><span class="p">,</span> <span class="n">join_prefix</span><span class="o">=</span><span class="s2">&quot;company_&quot;</span><span class="p">)],</span>
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>            <span class="n">role</span><span class="o">=</span><span class="s2">&quot;admin&quot;</span><span class="p">,</span>
+</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>            <span class="n">company__tier</span><span class="o">=</span><span class="s2">&quot;enterprise&quot;</span>
+</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>        <span class="p">)</span>
+</span></code></pre></div>
+<p>Each step builds naturally on the previous one. You start with automatic endpoints, add custom logic where needed, organize complex behavior into services, and create domain-specific interfaces for sophisticated queries. You never throw away working code - you just add layers when they provide value.</p>
+<hr />
+<p>Ready to see it in action? </p>
+<div style="text-align: center; margin-top: 30px;">
+    <a href="usage/overview/" class="md-button md-button--primary">
+        Get Started with FastCRUD →
+    </a>
+</div>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      <script id="__config" type="application/json">{"base": "..", "features": ["navigation.instant", "navigation.instant.prefetch", "navigation.tabs", "navigation.indexes", "search.suggest", "content.code.copy"], "search": "../assets/javascripts/workers/search.973d3a69.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.f55a23d4.min.js"></script>
+      
+    
+  </body>
+</html>
