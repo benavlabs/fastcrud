@@ -1,4 +1,6 @@
 import pytest
+from typing import Optional
+from pydantic import BaseModel
 from sqlalchemy import and_
 from fastcrud import FastCRUD, JoinConfig, aliased
 from ...sqlmodel.conftest import (
@@ -22,6 +24,22 @@ from ...sqlmodel.conftest import (
     UserReadSub,
     TaskRead,
 )
+
+
+# Schema that includes joined fields for testing
+class JoinedTestTier(BaseModel):
+    name: str
+    tier_id: int
+    tier_name: str
+
+
+# Flattened schema for task with joined fields
+class TaskWithJoinedData(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    assignee_name: Optional[str] = None
+    department_name: Optional[str] = None
 
 
 @pytest.mark.asyncio
@@ -714,3 +732,156 @@ async def test_get_joined_nested_data_none_dict(async_session):
     assert task3_result["client"] is None, "Task 3 should have no client."
     assert task3_result["department"] is None, "Task 3 should have no department."
     assert task3_result["assignee"] is None, "Task 3 should have no assignee."
+
+
+@pytest.mark.asyncio
+async def test_get_joined_return_as_model_true_sqlmodel(
+    async_session, test_data, test_data_tier
+):
+    """Test get_joined with return_as_model=True returns Pydantic model instance (SQLModel)."""
+    for tier_item in test_data_tier:
+        async_session.add(TierModel(**tier_item))
+    await async_session.commit()
+
+    for user_item in test_data:
+        async_session.add(ModelTest(**user_item))
+    await async_session.commit()
+
+    crud = FastCRUD(ModelTest)
+    result = await crud.get_joined(
+        db=async_session,
+        join_model=TierModel,
+        join_prefix="tier_",
+        schema_to_select=JoinedTestTier,
+        join_schema_to_select=TierSchemaTest,
+        return_as_model=True,
+    )
+
+    assert result is not None
+    assert isinstance(
+        result, JoinedTestTier
+    ), "Result should be a JoinedTestTier Pydantic model instance"
+    assert hasattr(result, "name"), "Result should have name attribute"
+    assert hasattr(result, "tier_name"), "Result should have tier_name attribute"
+    assert result.tier_name is not None, "tier_name should have a value"
+
+
+@pytest.mark.asyncio
+async def test_get_joined_return_as_model_false_sqlmodel(
+    async_session, test_data, test_data_tier
+):
+    """Test get_joined with return_as_model=False returns dict (default behavior, SQLModel)."""
+    for tier_item in test_data_tier:
+        async_session.add(TierModel(**tier_item))
+    await async_session.commit()
+
+    for user_item in test_data:
+        async_session.add(ModelTest(**user_item))
+    await async_session.commit()
+
+    crud = FastCRUD(ModelTest)
+    result = await crud.get_joined(
+        db=async_session,
+        join_model=TierModel,
+        join_prefix="tier_",
+        schema_to_select=ReadSchemaTest,
+        join_schema_to_select=TierSchemaTest,
+        return_as_model=False,
+    )
+
+    assert result is not None
+    assert isinstance(result, dict), "Result should be a dictionary"
+    assert "name" in result
+    assert "tier_name" in result
+
+
+@pytest.mark.asyncio
+async def test_get_joined_return_as_model_without_schema_raises_error_sqlmodel(
+    async_session, test_data, test_data_tier
+):
+    """Test get_joined with return_as_model=True but no schema raises ValueError (SQLModel)."""
+    for tier_item in test_data_tier:
+        async_session.add(TierModel(**tier_item))
+    await async_session.commit()
+
+    for user_item in test_data:
+        async_session.add(ModelTest(**user_item))
+    await async_session.commit()
+
+    crud = FastCRUD(ModelTest)
+    with pytest.raises(ValueError) as exc_info:
+        await crud.get_joined(
+            db=async_session,
+            join_model=TierModel,
+            join_prefix="tier_",
+            return_as_model=True,  # Missing schema_to_select
+        )
+
+    assert "schema_to_select must be provided when return_as_model is True" in str(
+        exc_info.value
+    )
+
+
+@pytest.mark.asyncio
+async def test_get_joined_return_as_model_with_joins_config_sqlmodel(async_session):
+    """Test get_joined with return_as_model=True using joins_config (SQLModel)."""
+    # Create test data
+    department = Department(name="Engineering")
+    async_session.add(department)
+    await async_session.flush()
+
+    user = User(
+        name="John Doe",
+        username="john",
+        email="john@example.com",
+        department_id=department.id,
+    )
+    async_session.add(user)
+    await async_session.flush()
+
+    task = Task(
+        name="Test Task",
+        description="Test Task",
+        assignee_id=user.id,
+        department_id=department.id,
+    )
+    async_session.add(task)
+    await async_session.commit()
+
+    # Test with joins_config and return_as_model=True
+    task_crud = FastCRUD(Task)
+    joins_config = [
+        JoinConfig(
+            model=User,
+            join_on=Task.assignee_id == User.id,
+            join_prefix="assignee_",
+            schema_to_select=UserReadSub,
+            join_type="left",
+        ),
+        JoinConfig(
+            model=Department,
+            join_on=Task.department_id == Department.id,
+            join_prefix="department_",
+            schema_to_select=DepartmentRead,
+            join_type="left",
+        ),
+    ]
+
+    result = await task_crud.get_joined(
+        db=async_session,
+        id=task.id,
+        schema_to_select=TaskWithJoinedData,
+        joins_config=joins_config,
+        return_as_model=True,
+    )
+
+    assert result is not None
+    assert isinstance(
+        result, TaskWithJoinedData
+    ), "Result should be a TaskWithJoinedData Pydantic model instance"
+    assert hasattr(result, "description"), "Result should have description attribute"
+    assert result.description == "Test Task"
+    assert hasattr(
+        result, "assignee_name"
+    ), "Result should have assignee_name attribute"
+    assert result.assignee_name == "John Doe"
