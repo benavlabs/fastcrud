@@ -236,17 +236,13 @@ user_model = await user_crud.get_joined(
 # Result: UserWithTier(id=1, name="Example", tier_id=1, tier_name="Free")
 ```
 
-!!! TIP "Schema Design for Joined Data"
+!!! NOTE "`return_as_model` Usage Notes"
 
-    When using `return_as_model=True`, ensure your schema includes all the fields that will be present in the flattened result, including joined fields with their prefixes.
-
-!!! NOTE "Required Parameters"
-
-    When `return_as_model=True`, the `schema_to_select` parameter is required. FastCRUD will raise a `ValueError` if you try to use `return_as_model=True` without providing a schema.
-
-!!! WARNING "join_prefix and return_as_model Compatibility"
-
-    When using `return_as_model=True` with `nest_joins=True`, ensure that your `join_prefix` (minus trailing "_") matches the field name in your Pydantic schema. Otherwise, FastCRUD will raise a `ValueError` with clear guidance on how to fix the mismatch.
+    **Required Parameters**: When `return_as_model=True`, the `schema_to_select` parameter is required. FastCRUD will raise a `ValueError` if you try to use `return_as_model=True` without providing a schema.
+    
+    **Schema Design**: Ensure your schema includes all the fields that will be present in the flattened result, including joined fields with their prefixes.
+    
+    **Nested Joins Compatibility**: When using `return_as_model=True` with `nest_joins=True`, ensure that your `join_prefix` (minus trailing "_") matches the field name in your Pydantic schema. Otherwise, FastCRUD will raise a `ValueError` with clear guidance on how to fix the mismatch.
     
     **❌ This will raise an error:**
     ```python
