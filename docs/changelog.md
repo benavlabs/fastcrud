@@ -5,6 +5,38 @@
 The Changelog documents all notable changes made to FastCRUD. This includes new features, bug fixes, and improvements. It's organized by version and date, providing a clear history of the library's development.
 ___
 
+## [0.19.2] - Nov 15, 2025
+
+#### Added
+- **get_joined Method Overloads** by [@igorbenav](https://github.com/igorbenav)
+  - Added missing `@overload` signatures for `get_joined()` method to support proper type inference
+  - Added `return_as_model` parameter for converting joined results to Pydantic models
+  - Enhanced type safety: returns `SelectSchemaType` when `return_as_model=True`, `dict` when `False`
+  - Consistent API with other CRUD methods like `get()`, `update()`, etc.
+
+#### Improved  
+- **create Method Performance and Consistency** by [@igorbenav](https://github.com/igorbenav)
+  - Removed unnecessary database round-trip by eliminating redundant `get()` call after creation
+  - Added deprecation warnings for upcoming API consistency changes in next major version
+  - Fixed type hints to match actual implementation behavior (removed incorrect `None` return type)
+
+#### Deprecated
+- **create Method Behavior Changes** (Warnings Added)
+  - `create()` without `schema_to_select` will return `None` instead of SQLAlchemy model in next major version
+  - `create()` with `schema_to_select` will properly respect `return_as_model` parameter in next major version
+  - These changes align `create()` behavior with `update()` and other CRUD methods for consistency
+
+#### Fixed
+- **Type Safety Issues** by [@igorbenav](https://github.com/igorbenav)
+  - Fixed `get_joined()` method type annotations to properly reflect actual return types
+  - Corrected `create()` method type hints to remove impossible `None` return type
+  - Enhanced test coverage with 8 new comprehensive tests for `get_joined` return type variations
+
+#### Breaking Changes  
+⚠️ **None** - This release maintains full backward compatibility with 0.19.1. Deprecation warnings provide clear migration path for next major version.
+
+___
+
 ## [0.19.1] - Nov 10, 2025
 
 #### Improved

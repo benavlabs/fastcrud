@@ -128,6 +128,15 @@ create(
 new_item = await item_crud.create(db, CreateItemSchema(name="New Item"))
 ```
 
+!!! WARNING "Deprecated Behavior"
+
+    **Upcoming Changes in Next Major Version**: The `create()` method currently behaves inconsistently compared to other CRUD methods like `update()`. It will change:
+    
+    - **Currently without `schema_to_select`**: Returns SQLAlchemy model → **Will return `None`**
+    - **Currently with `schema_to_select`**: Bypasses `return_as_model` parameter → **Will respect `return_as_model` like other methods**
+    
+    This makes `create()` consistent with `update()` behavior. Current usage patterns will trigger deprecation warnings. See [changelog](../changelog.md#0192---nov-15-2025) for details.
+
 !!! WARNING
 
     Note that naive `datetime` such as `datetime.utcnow` is not supported by `FastCRUD` as it was [deprecated](https://github.com/python/cpython/pull/103858).
