@@ -1988,6 +1988,15 @@
 <div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">new_item</span> <span class="o">=</span> <span class="k">await</span> <span class="n">item_crud</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">CreateItemSchema</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;New Item&quot;</span><span class="p">))</span>
 </span></code></pre></div>
 <div class="admonition warning">
+<p class="admonition-title">Deprecated Behavior</p>
+<p><strong>Upcoming Changes in Next Major Version</strong>: The <code>create()</code> method currently behaves inconsistently compared to other CRUD methods like <code>update()</code>. It will change:</p>
+<ul>
+<li><strong>Currently without <code>schema_to_select</code></strong>: Returns SQLAlchemy model → <strong>Will return <code>None</code></strong></li>
+<li><strong>Currently with <code>schema_to_select</code></strong>: Bypasses <code>return_as_model</code> parameter → <strong>Will respect <code>return_as_model</code> like other methods</strong></li>
+</ul>
+<p>This makes <code>create()</code> consistent with <code>update()</code> behavior. Current usage patterns will trigger deprecation warnings. See <a href="../../changelog/#0192---nov-15-2025">changelog</a> for details.</p>
+</div>
+<div class="admonition warning">
 <p class="admonition-title">Warning</p>
 <p>Note that naive <code>datetime</code> such as <code>datetime.utcnow</code> is not supported by <code>FastCRUD</code> as it was <a href="https://github.com/python/cpython/pull/103858">deprecated</a>.</p>
 <p>Use timezone aware <code>datetime</code>, such as <code>datetime.now(UTC)</code> instead.</p>
