@@ -1,5 +1,6 @@
 from typing import Any, Generic, Union, Optional, Callable, overload, Literal, cast
 from datetime import datetime, timezone
+import warnings
 
 from sqlalchemy import (
     select,
@@ -508,7 +509,7 @@ class FastCRUD(
         commit: bool = True,
         schema_to_select: None = None,
         return_as_model: Literal[False] = False,
-    ) -> Optional[dict[str, Any]]: ...
+    ) -> ModelType: ...
 
     @overload
     async def create(
@@ -519,7 +520,7 @@ class FastCRUD(
         commit: bool = True,
         schema_to_select: type[SelectSchemaType],
         return_as_model: Literal[False] = False,
-    ) -> Optional[dict[str, Any]]: ...
+    ) -> dict[str, Any]: ...
 
     @overload
     async def create(
@@ -530,7 +531,7 @@ class FastCRUD(
         commit: bool = True,
         schema_to_select: Optional[type[SelectSchemaType]] = None,
         return_as_model: bool = False,
-    ) -> Union[ModelType, SelectSchemaType, dict[str, Any], None]: ...
+    ) -> Union[ModelType, SelectSchemaType, dict[str, Any]]: ...
 
     async def create(
         self,
@@ -539,7 +540,7 @@ class FastCRUD(
         commit: bool = True,
         schema_to_select: Optional[type[SelectSchemaType]] = None,
         return_as_model: bool = False,
-    ) -> Union[ModelType, SelectSchemaType, dict, None]:
+    ) -> Union[ModelType, SelectSchemaType, dict]:
         """
         Create a new record in the database.
 
@@ -573,17 +574,34 @@ class FastCRUD(
             await db.flush()
             await db.refresh(db_object)
 
-        if schema_to_select:
-            if not self._primary_keys:
-                raise ValueError("Cannot fetch created record without a primary key.")
-
-            pks = {pk.name: getattr(db_object, pk.name) for pk in self._primary_keys}
-            return await self.get(
-                db=db,
-                schema_to_select=schema_to_select,
-                return_as_model=return_as_model,
-                **pks,
+        # Add deprecation warnings for upcoming behavior changes
+        if not schema_to_select:
+            warnings.warn(
+                "create() without schema_to_select will return None instead of the SQLAlchemy model "
+                "in the next major version for consistency with other CRUD methods. "
+                "Provide schema_to_select to get data back. "
+                "Return type will change from Union[ModelType, SelectSchemaType, dict] to Optional[Union[SelectSchemaType, dict]].",
+                DeprecationWarning,
+                stacklevel=2,
             )
+        elif schema_to_select and not return_as_model:
+            warnings.warn(
+                "create() with schema_to_select will default to returning dict "
+                "in the next major version for consistency with other CRUD methods. "
+                "Return type will change from Union[ModelType, SelectSchemaType, dict] to Optional[Union[SelectSchemaType, dict]].",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+        if schema_to_select:
+            # Convert db_object to dict following same pattern as get() method
+            data_dict = {
+                col.key: getattr(db_object, col.key)
+                for col in db_object.__table__.columns
+            }
+            if not return_as_model:
+                return data_dict
+            return schema_to_select(**data_dict)
 
         return db_object
 
