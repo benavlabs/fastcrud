@@ -201,9 +201,48 @@ This works for both `get_joined` and `get_multi_joined`.
 
     Note that the final `"_"` in the passed `"tier_"` is stripped.
 
-!!! WARNING "join_prefix and return_as_model Compatibility"
+#### Returning Pydantic Models with `return_as_model`
 
-    When using `return_as_model=True` with `nest_joins=True`, ensure that your `join_prefix` (minus trailing "_") matches the field name in your Pydantic schema. Otherwise, FastCRUD will raise a `ValueError` with clear guidance on how to fix the mismatch.
+By default, `get_joined` returns dictionaries containing the joined data. However, you can use the `return_as_model` parameter to get Pydantic model instances instead:
+
+```python
+# Using a schema that includes joined fields
+class UserWithTier(BaseModel):
+    id: int
+    name: str
+    tier_id: int
+    tier_name: str
+
+# Returns a dictionary (default behavior)
+user_dict = await user_crud.get_joined(
+    db=db,
+    join_model=Tier,
+    join_prefix="tier_",
+    schema_to_select=UserWithTier,
+    return_as_model=False,  # Default
+    id=1,
+)
+# Result: {"id": 1, "name": "Example", "tier_id": 1, "tier_name": "Free"}
+
+# Returns a Pydantic model instance
+user_model = await user_crud.get_joined(
+    db=db,
+    join_model=Tier,
+    join_prefix="tier_",
+    schema_to_select=UserWithTier,
+    return_as_model=True,
+    id=1,
+)
+# Result: UserWithTier(id=1, name="Example", tier_id=1, tier_name="Free")
+```
+
+!!! NOTE "`return_as_model` Usage Notes"
+
+    **Required Parameters**: When `return_as_model=True`, the `schema_to_select` parameter is required. FastCRUD will raise a `ValueError` if you try to use `return_as_model=True` without providing a schema.
+    
+    **Schema Design**: Ensure your schema includes all the fields that will be present in the flattened result, including joined fields with their prefixes.
+    
+    **Nested Joins Compatibility**: When using `return_as_model=True` with `nest_joins=True`, ensure that your `join_prefix` (minus trailing "_") matches the field name in your Pydantic schema. Otherwise, FastCRUD will raise a `ValueError` with clear guidance on how to fix the mismatch.
     
     **❌ This will raise an error:**
     ```python

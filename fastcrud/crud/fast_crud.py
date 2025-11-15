@@ -1,5 +1,6 @@
 from typing import Any, Generic, Union, Optional, Callable, overload, Literal, cast
 from datetime import datetime, timezone
+import warnings
 
 from sqlalchemy import (
     select,
@@ -508,7 +509,7 @@ class FastCRUD(
         commit: bool = True,
         schema_to_select: None = None,
         return_as_model: Literal[False] = False,
-    ) -> Optional[dict[str, Any]]: ...
+    ) -> ModelType: ...
 
     @overload
     async def create(
@@ -519,7 +520,7 @@ class FastCRUD(
         commit: bool = True,
         schema_to_select: type[SelectSchemaType],
         return_as_model: Literal[False] = False,
-    ) -> Optional[dict[str, Any]]: ...
+    ) -> dict[str, Any]: ...
 
     @overload
     async def create(
@@ -530,7 +531,7 @@ class FastCRUD(
         commit: bool = True,
         schema_to_select: Optional[type[SelectSchemaType]] = None,
         return_as_model: bool = False,
-    ) -> Union[ModelType, SelectSchemaType, dict[str, Any], None]: ...
+    ) -> Union[ModelType, SelectSchemaType, dict[str, Any]]: ...
 
     async def create(
         self,
@@ -539,7 +540,7 @@ class FastCRUD(
         commit: bool = True,
         schema_to_select: Optional[type[SelectSchemaType]] = None,
         return_as_model: bool = False,
-    ) -> Union[ModelType, SelectSchemaType, dict, None]:
+    ) -> Union[ModelType, SelectSchemaType, dict]:
         """
         Create a new record in the database.
 
@@ -573,17 +574,34 @@ class FastCRUD(
             await db.flush()
             await db.refresh(db_object)
 
-        if schema_to_select:
-            if not self._primary_keys:
-                raise ValueError("Cannot fetch created record without a primary key.")
-
-            pks = {pk.name: getattr(db_object, pk.name) for pk in self._primary_keys}
-            return await self.get(
-                db=db,
-                schema_to_select=schema_to_select,
-                return_as_model=return_as_model,
-                **pks,
+        # Add deprecation warnings for upcoming behavior changes
+        if not schema_to_select:
+            warnings.warn(
+                "create() without schema_to_select will return None instead of the SQLAlchemy model "
+                "in the next major version for consistency with other CRUD methods. "
+                "Provide schema_to_select to get data back. "
+                "Return type will change from Union[ModelType, SelectSchemaType, dict] to Optional[Union[SelectSchemaType, dict]].",
+                DeprecationWarning,
+                stacklevel=2,
             )
+        elif schema_to_select and not return_as_model:
+            warnings.warn(
+                "create() with schema_to_select will default to returning dict "
+                "in the next major version for consistency with other CRUD methods. "
+                "Return type will change from Union[ModelType, SelectSchemaType, dict] to Optional[Union[SelectSchemaType, dict]].",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+        if schema_to_select:
+            # Convert db_object to dict following same pattern as get() method
+            data_dict = {
+                col.key: getattr(db_object, col.key)
+                for col in db_object.__table__.columns
+            }
+            if not return_as_model:
+                return data_dict
+            return schema_to_select(**data_dict)
 
         return db_object
 
@@ -1383,10 +1401,13 @@ class FastCRUD(
 
         return response
 
+    @overload
     async def get_joined(
         self,
         db: AsyncSession,
-        schema_to_select: Optional[type[SelectSchemaType]] = None,
+        *,
+        schema_to_select: type[SelectSchemaType],
+        return_as_model: Literal[True],
         join_model: Optional[ModelType] = None,
         join_on: Optional[Union[Join, BinaryExpression]] = None,
         join_prefix: Optional[str] = None,
@@ -1398,7 +1419,85 @@ class FastCRUD(
         nest_joins: bool = False,
         relationship_type: Optional[str] = None,
         **kwargs: Any,
-    ) -> Optional[dict[str, Any]]:
+    ) -> Optional[SelectSchemaType]: ...
+
+    @overload
+    async def get_joined(
+        self,
+        db: AsyncSession,
+        *,
+        schema_to_select: None = None,
+        return_as_model: Literal[False] = False,
+        join_model: Optional[ModelType] = None,
+        join_on: Optional[Union[Join, BinaryExpression]] = None,
+        join_prefix: Optional[str] = None,
+        join_schema_to_select: Optional[type[SelectSchemaType]] = None,
+        join_type: str = "left",
+        alias: Optional[AliasedClass] = None,
+        join_filters: Optional[dict] = None,
+        joins_config: Optional[list[JoinConfig]] = None,
+        nest_joins: bool = False,
+        relationship_type: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Optional[dict[str, Any]]: ...
+
+    @overload
+    async def get_joined(
+        self,
+        db: AsyncSession,
+        *,
+        schema_to_select: type[SelectSchemaType],
+        return_as_model: Literal[False] = False,
+        join_model: Optional[ModelType] = None,
+        join_on: Optional[Union[Join, BinaryExpression]] = None,
+        join_prefix: Optional[str] = None,
+        join_schema_to_select: Optional[type[SelectSchemaType]] = None,
+        join_type: str = "left",
+        alias: Optional[AliasedClass] = None,
+        join_filters: Optional[dict] = None,
+        joins_config: Optional[list[JoinConfig]] = None,
+        nest_joins: bool = False,
+        relationship_type: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Optional[dict[str, Any]]: ...
+
+    @overload
+    async def get_joined(
+        self,
+        db: AsyncSession,
+        *,
+        schema_to_select: Optional[type[SelectSchemaType]] = None,
+        return_as_model: bool = False,
+        join_model: Optional[ModelType] = None,
+        join_on: Optional[Union[Join, BinaryExpression]] = None,
+        join_prefix: Optional[str] = None,
+        join_schema_to_select: Optional[type[SelectSchemaType]] = None,
+        join_type: str = "left",
+        alias: Optional[AliasedClass] = None,
+        join_filters: Optional[dict] = None,
+        joins_config: Optional[list[JoinConfig]] = None,
+        nest_joins: bool = False,
+        relationship_type: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Optional[Union[dict[str, Any], SelectSchemaType]]: ...
+
+    async def get_joined(
+        self,
+        db: AsyncSession,
+        schema_to_select: Optional[type[SelectSchemaType]] = None,
+        return_as_model: bool = False,
+        join_model: Optional[ModelType] = None,
+        join_on: Optional[Union[Join, BinaryExpression]] = None,
+        join_prefix: Optional[str] = None,
+        join_schema_to_select: Optional[type[SelectSchemaType]] = None,
+        join_type: str = "left",
+        alias: Optional[AliasedClass] = None,
+        join_filters: Optional[dict] = None,
+        joins_config: Optional[list[JoinConfig]] = None,
+        nest_joins: bool = False,
+        relationship_type: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Optional[Union[dict[str, Any], SelectSchemaType]]:
         """
         Fetches a single record with one or multiple joins on other models. If `join_on` is not provided, the method attempts
         to automatically detect the join condition using foreign key relationships. For multiple joins, use `joins_config` to
@@ -1409,6 +1508,7 @@ class FastCRUD(
         Args:
             db: The SQLAlchemy async session.
             schema_to_select: Pydantic schema for selecting specific columns from the primary model. Required if `return_as_model` is True.
+            return_as_model: If `True`, returns data as a Pydantic model instance based on `schema_to_select`. Defaults to `False`.
             join_model: The model to join with.
             join_on: SQLAlchemy Join object for specifying the `ON` clause of the join. If `None`, the join condition is auto-detected based on foreign keys.
             join_prefix: Optional prefix to be added to all columns of the joined model. If `None`, no prefix is added.
@@ -1422,7 +1522,10 @@ class FastCRUD(
             **kwargs: Filters to apply to the primary model query, supporting advanced comparison operators for refined searching.
 
         Returns:
-            A dictionary representing the joined record, or `None` if no record matches the criteria.
+            A dictionary or Pydantic model instance representing the joined record, or `None` if no record matches the criteria:
+
+            - When `return_as_model=True` and `schema_to_select` is provided: `Optional[SelectSchemaType]`
+            - When `return_as_model=False`: `Optional[Dict[str, Any]]`
 
         Raises:
             ValueError: If both single join parameters and `joins_config` are used simultaneously.
@@ -1690,7 +1793,19 @@ class FastCRUD(
             else:
                 data_list = []
 
-        return process_joined_data(data_list, join_definitions, nest_joins, self.model)
+        processed_data = process_joined_data(
+            data_list, join_definitions, nest_joins, self.model
+        )
+
+        if processed_data is None or not return_as_model:
+            return processed_data
+
+        if not schema_to_select:
+            raise ValueError(
+                "schema_to_select must be provided when return_as_model is True."
+            )
+
+        return schema_to_select(**processed_data)
 
     @overload
     async def get_multi_joined(
