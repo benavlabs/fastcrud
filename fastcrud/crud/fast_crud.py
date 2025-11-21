@@ -1,6 +1,5 @@
 from typing import Any, Generic, Union, Optional, Callable, overload, Literal, cast
 from datetime import datetime, timezone
-import warnings
 
 from sqlalchemy import (
     select,
@@ -509,7 +508,7 @@ class FastCRUD(
         commit: bool = True,
         schema_to_select: None = None,
         return_as_model: Literal[False] = False,
-    ) -> ModelType: ...
+    ) -> None: ...
 
     @overload
     async def create(
@@ -531,7 +530,7 @@ class FastCRUD(
         commit: bool = True,
         schema_to_select: Optional[type[SelectSchemaType]] = None,
         return_as_model: bool = False,
-    ) -> Union[ModelType, SelectSchemaType, dict[str, Any]]: ...
+    ) -> Union[None, SelectSchemaType, dict[str, Any]]: ...
 
     async def create(
         self,
@@ -540,7 +539,7 @@ class FastCRUD(
         commit: bool = True,
         schema_to_select: Optional[type[SelectSchemaType]] = None,
         return_as_model: bool = False,
-    ) -> Union[ModelType, SelectSchemaType, dict]:
+    ) -> Union[None, SelectSchemaType, dict[str, Any]]:
         """
         Create a new record in the database.
 
@@ -552,11 +551,10 @@ class FastCRUD(
             return_as_model: If `True`, returns data as an instance of `schema_to_select`.
 
         Returns:
-            The created database object, or a Pydantic model if `schema_to_select` is provided:
-
+            The created database record or None:
+            - When `schema_to_select` is None: `None` (v0.20.0 behavior)
             - When `return_as_model=True` and `schema_to_select` is provided: `SelectSchemaType`
             - When `return_as_model=False` and `schema_to_select` is provided: `Dict[str, Any]`
-            - When `schema_to_select` is not provided: `ModelType` (the raw SQLAlchemy model)
         """
         if return_as_model and not schema_to_select:
             raise ValueError(
@@ -574,36 +572,15 @@ class FastCRUD(
             await db.flush()
             await db.refresh(db_object)
 
-        # Add deprecation warnings for upcoming behavior changes
         if not schema_to_select:
-            warnings.warn(
-                "create() without schema_to_select will return None instead of the SQLAlchemy model "
-                "in the next major version for consistency with other CRUD methods. "
-                "Provide schema_to_select to get data back. "
-                "Return type will change from Union[ModelType, SelectSchemaType, dict] to Optional[Union[SelectSchemaType, dict]].",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        elif schema_to_select and not return_as_model:
-            warnings.warn(
-                "create() with schema_to_select will default to returning dict "
-                "in the next major version for consistency with other CRUD methods. "
-                "Return type will change from Union[ModelType, SelectSchemaType, dict] to Optional[Union[SelectSchemaType, dict]].",
-                DeprecationWarning,
-                stacklevel=2,
-            )
+            return None
 
-        if schema_to_select:
-            # Convert db_object to dict following same pattern as get() method
-            data_dict = {
-                col.key: getattr(db_object, col.key)
-                for col in db_object.__table__.columns
-            }
-            if not return_as_model:
-                return data_dict
-            return schema_to_select(**data_dict)
-
-        return db_object
+        data_dict = {
+            col.key: getattr(db_object, col.key) for col in db_object.__table__.columns
+        }
+        if not return_as_model:
+            return data_dict
+        return schema_to_select(**data_dict)
 
     async def select(
         self,
@@ -860,9 +837,11 @@ class FastCRUD(
             **_pks,
         )
         if db_instance is None:
-            db_instance = await self.create(db, instance)  # type: ignore
-            db_instance = schema_to_select.model_validate(  # type: ignore
-                db_instance, from_attributes=True
+            db_instance = await self.create(
+                db,
+                instance,  # type: ignore
+                schema_to_select=schema_to_select,  # type: ignore
+                return_as_model=return_as_model,
             )
         else:
             await self.update(db, instance)  # type: ignore

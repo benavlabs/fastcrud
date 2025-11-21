@@ -374,7 +374,13 @@ class EndpointCreator:
                     )
 
     def _create_item(self) -> Callable[..., Awaitable[Any]]:
-        """Creates an endpoint for creating items in the database."""
+        """Creates an endpoint for creating items in the database.
+
+        Returns:
+            - When auto_fields are used: SQLAlchemy model instance (legacy behavior)
+            - When select_schema is provided: dict or Pydantic model of the created item
+            - When select_schema is None: None (v0.20.0 behavior)
+        """
         auto_field_injector = create_auto_field_injector(self.create_config)
 
         request_schema: type[BaseModel] = self.create_schema
@@ -411,7 +417,7 @@ class EndpointCreator:
                 await db.refresh(db_object)
                 return db_object
 
-            return await self.crud.create(db, item)
+            return await self.crud.create(db, item, schema_to_select=self.select_schema)
 
         endpoint.__annotations__["item"] = request_schema
 
