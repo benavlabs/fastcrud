@@ -460,7 +460,7 @@ wheels = [
 
 [[package]]
 name = "fastcrud"
-version = "0.17.1"
+version = "0.19.2"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
