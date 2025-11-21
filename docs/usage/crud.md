@@ -99,8 +99,24 @@ order_crud = FastCRUD(Order)
 Then you just pick the method you need and use it like this:
 
 ```python
-# Creating a new record
-new_record = await item_crud.create(db_session, create_schema_instance)
+# Creating a new record (v0.20.0: returns None without schema_to_select)
+result = await item_crud.create(db_session, create_schema_instance)
+# result is None
+
+# To get created data back as dict:
+new_record = await item_crud.create(
+    db_session, 
+    create_schema_instance, 
+    schema_to_select=YourReadSchema
+)
+
+# To get created data back as Pydantic model:
+new_record = await item_crud.create(
+    db_session, 
+    create_schema_instance, 
+    schema_to_select=YourReadSchema,
+    return_as_model=True
+)
 ```
 
 More on available methods below.
@@ -125,17 +141,36 @@ create(
 **Usage Example**: Creates an item with name `"New Item"`.
 
 ```python
-new_item = await item_crud.create(db, CreateItemSchema(name="New Item"))
+# v0.20.0: Returns None without schema_to_select
+result = await item_crud.create(db, CreateItemSchema(name="New Item"))
+# result is None
+
+# To get the created item data back as a dict:
+new_item_dict = await item_crud.create(
+    db, 
+    CreateItemSchema(name="New Item"), 
+    schema_to_select=ReadItemSchema
+)
+# new_item_dict is a dict with the created item data
+
+# To get the created item data back as a Pydantic model:
+new_item_model = await item_crud.create(
+    db, 
+    CreateItemSchema(name="New Item"), 
+    schema_to_select=ReadItemSchema,
+    return_as_model=True
+)
+# new_item_model is a ReadItemSchema instance
 ```
 
-!!! WARNING "Deprecated Behavior"
+!!! INFO "v0.20.0 Behavior"
 
-    **Upcoming Changes in Next Major Version**: The `create()` method currently behaves inconsistently compared to other CRUD methods like `update()`. It will change:
+    **Changes Completed in v0.20.0**: The `create()` method now behaves consistently with other CRUD methods like `update()`. Changes made:
     
-    - **Currently without `schema_to_select`**: Returns SQLAlchemy model → **Will return `None`**
-    - **Currently with `schema_to_select`**: Bypasses `return_as_model` parameter → **Will respect `return_as_model` like other methods**
+    - **Without `schema_to_select`**: Now returns `None` (was SQLAlchemy model)
+    - **With `schema_to_select`**: Returns created data immediately - dict by default, Pydantic model if `return_as_model=True`
     
-    This makes `create()` consistent with `update()` behavior. Current usage patterns will trigger deprecation warnings. See [changelog](../changelog.md#0192---nov-15-2025) for details.
+    **Recommended**: Always use `schema_to_select` to get the created data back in one operation. This is more efficient than separate create + get calls.
 
 !!! WARNING
 

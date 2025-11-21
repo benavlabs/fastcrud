@@ -378,7 +378,7 @@ class EndpointCreator:
 
         Returns:
             - When auto_fields are used: SQLAlchemy model instance (legacy behavior)
-            - When select_schema is provided: dict or Pydantic model of the created item
+            - When select_schema is provided: dict by default, or Pydantic model if return_as_model=True (recommended - gets data back in one call)
             - When select_schema is None: None (v0.20.0 behavior)
         """
         auto_field_injector = create_auto_field_injector(self.create_config)
