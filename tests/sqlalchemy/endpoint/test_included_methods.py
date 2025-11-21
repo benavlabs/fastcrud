@@ -5,7 +5,12 @@ from fastcrud import FastCRUD, crud_router
 
 @pytest.mark.asyncio
 async def test_included_methods(
-    client: TestClient, async_session, test_model, create_schema, update_schema
+    client: TestClient,
+    async_session,
+    test_model,
+    create_schema,
+    update_schema,
+    read_schema,
 ):
     custom_router = crud_router(
         session=lambda: async_session,
@@ -13,6 +18,7 @@ async def test_included_methods(
         crud=FastCRUD(test_model),
         create_schema=create_schema,
         update_schema=update_schema,
+        select_schema=read_schema,  # v0.20.0: provide select_schema to get data back from create
         included_methods=["create", "read"],
         path="/test_custom",
         tags=["Test"],

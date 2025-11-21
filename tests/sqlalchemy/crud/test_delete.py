@@ -1,4 +1,5 @@
 import pytest
+from typing import Optional
 from sqlalchemy import select
 from fastcrud.crud.fast_crud import FastCRUD
 from sqlalchemy.exc import MultipleResultsFound, NoResultFound
@@ -200,13 +201,13 @@ async def test_delete_no_records_match_filters_raises_no_result_found(
 
 # Test classes for new typing functionality
 class DeleteTestSchema(BaseModel):
-    id: int = None
-    name: str = None
+    id: Optional[int] = None
+    name: Optional[str] = None
 
 
 class DeleteTierSchema(BaseModel):
-    id: int = None
-    name: str = None
+    id: Optional[int] = None
+    name: Optional[str] = None
 
 
 # Tests for new filters parameter functionality
