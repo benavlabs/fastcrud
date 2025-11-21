@@ -145,6 +145,7 @@ def create_dynamic_filters(
                 inspect.Parameter(
                     param_name,
                     inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                    annotation=column_types.get(param_name) or inspect.Parameter.empty,
                     default=Query(value, alias=key),
                 )
             )

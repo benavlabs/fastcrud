@@ -7,6 +7,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import (
     Column,
+    Float,
     Integer,
     String,
     ForeignKey,
@@ -211,6 +212,15 @@ class ModelWithOrgTest(Base):
     organization_id = Column(Integer, nullable=True, default=None)
     is_deleted = Column(Boolean, default=False)
     deleted_at = Column(DateTime, nullable=True, default=None)
+
+
+class ModelWithTypes(Base):
+    __tablename__ = "test_with_types"
+    id = Column(Integer, primary_key=True)
+    str_param = Column(String(32))
+    int_param = Column(Integer)
+    float_param = Column(Float)
+    bool_param = Column(Boolean)
 
 
 # Models for testing joined model filtering
@@ -549,6 +559,11 @@ def test_model_custom_columns():
 @pytest.fixture
 def test_model_with_org():
     return ModelWithOrgTest
+
+
+@pytest.fixture
+def test_model_with_types():
+    return ModelWithTypes
 
 
 async def test_read_dep():
