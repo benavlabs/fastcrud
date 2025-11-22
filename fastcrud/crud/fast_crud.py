@@ -1,5 +1,6 @@
 from typing import Any, Generic, Sequence, overload, Literal, cast
 from datetime import datetime, timezone
+from collections.abc import Mapping
 
 from sqlalchemy import (
     select,
@@ -15,6 +16,7 @@ from sqlalchemy.engine.row import Row
 from sqlalchemy.orm.util import AliasedClass
 from sqlalchemy.sql.elements import BinaryExpression
 from sqlalchemy.sql.selectable import Select
+from sqlalchemy import inspect as sa_inspect
 
 from fastcrud.types import (
     CreateSchemaType,
@@ -27,6 +29,14 @@ from fastcrud.types import (
     GetMultiResponseDict,
     UpsertMultiResponseModel,
     UpsertMultiResponseDict,
+)
+from .bulk_operations import (
+    BulkDeleteManager,
+    BulkDeleteSummary,
+    BulkInsertManager,
+    BulkInsertSummary,
+    BulkUpdateManager,
+    BulkUpdateSummary
 )
 
 from ..core import (
@@ -567,7 +577,7 @@ class FastCRUD(
             )
 
         object_dict = object.model_dump()
-        db_object: ModelType = self.model(**object_dict)
+        db_object: ModelType = self._build_with_nested(self.model, object_dict)
         db.add(db_object)
 
         if commit:
@@ -586,6 +596,114 @@ class FastCRUD(
         if not return_as_model:
             return data_dict
         return schema_to_select(**data_dict)
+
+    def _build_with_nested(self, model_cls: type[ModelType], data: dict[str, Any]) -> ModelType:
+        """Build a SQLAlchemy model instance from flat and nested payload data.
+
+        This helper uses SQLAlchemy's mapper inspection to detect relationship attributes
+        and recursively construct related model instances when nested structured data is
+        provided for those attributes.
+
+        Only keys that correspond to relationship names on the model are treated as
+        candidates for nested creation. All other keys remain part of the base
+        constructor kwargs, preserving the previous flat create behaviour.
+        """
+        mapper = sa_inspect(model_cls)
+        # Work on a shallow copy so we can safely pop relationship keys.
+        payload: dict[str, Any] = dict(data)
+        relationship_values: dict[str, Any] = {}
+
+        for rel in mapper.relationships:
+            key = rel.key
+            if key not in payload:
+                continue
+            raw_value = payload[key]
+            if not self._is_nested_payload(raw_value):
+                # Leave scalar FK / plain values as-is for backward compatibility.
+                continue
+
+            relationship_values[key] = self._build_related(rel, raw_value)
+            # Remove from constructor kwargs so SQLAlchemy doesn't see a dict/list here.
+            payload.pop(key, None)
+
+        instance: ModelType = model_cls(**payload)
+        for key, value in relationship_values.items():
+            setattr(instance, key, value)
+        return instance
+
+    def _is_nested_payload(self, value: Any) -> bool:
+        """Return True if value looks like nested relationship data.
+
+        We treat the following as nested payloads:
+
+        * Pydantic BaseModel instances
+        * Mapping / dict objects
+        * Lists / tuples whose items are themselves nested payloads
+        """
+        from pydantic import BaseModel  # Local import to avoid hard dependency at module import time
+
+        if isinstance(value, BaseModel):
+            return True
+        if isinstance(value, Mapping):
+            return True
+        if isinstance(value, (list, tuple)) and value:
+            # Consider it nested if at least one element is structured.
+            return any(self._is_nested_payload(item) for item in value)
+        return False
+
+    def _to_dict(self, value: Any) -> dict[str, Any]:
+        """Normalize supported nested payload types to a plain dict.
+
+        Raises a TypeError if the value cannot be converted, providing a clear
+        error message specific to nested relationship handling.
+        """
+        from pydantic import BaseModel
+
+        if isinstance(value, BaseModel):
+            return value.model_dump()
+        if isinstance(value, Mapping):
+            # Shallow copy to avoid mutating user-provided mappings.
+            return dict(value)
+        raise TypeError(
+            "Unsupported nested relationship payload type: " f"{type(value)!r}. "
+            "Expected a Pydantic model or mapping."
+        )
+
+    def _build_related(self, rel: Any, raw_value: Any) -> Any:
+        """Construct related model instance(s) for a relationship.
+
+        For `uselist=False` relationships, a single related instance is built.
+        For `uselist=True` relationships, a list of related instances is built.
+        """
+        target_model = rel.mapper.class_
+
+        # Many/one-to-one style: scalar related object.
+        if not rel.uselist:
+            data = self._to_dict(raw_value)
+            return self._build_with_nested(target_model, data)
+
+        # Collection relationships.
+        if raw_value is None:
+            return []
+        if not isinstance(raw_value, (list, tuple)):
+            raise TypeError(
+                "Nested payload for relationship '"
+                + rel.key
+                + "' must be a list or tuple when uselist=True."
+            )
+
+        related_items: list[Any] = []
+        for idx, item in enumerate(raw_value):
+            try:
+                item_dict = self._to_dict(item)
+            except TypeError as exc:  # pragma: no cover - defensive, surfaced to caller
+                raise TypeError(
+                    f"Unsupported nested payload type at index {idx} "
+                    f"for relationship '{rel.key}': {exc}"
+                ) from exc
+            related_items.append(self._build_with_nested(target_model, item_dict))
+
+        return related_items
 
     async def select(
         self,
@@ -3085,3 +3203,268 @@ class FastCRUD(
             await db.execute(delete_stmt)
         if commit:
             await db.commit()
+
+    async def insert_multi(
+        self,
+        db: AsyncSession,
+        objects: List[Union[CreateSchemaType, dict[str, Any]]],
+        *,
+        batch_size: int = 1000,
+        commit: bool = True,
+        allow_partial_success: bool = True,
+        return_summary: bool = False,
+        schema_to_select: Optional[type[SelectSchemaType]] = None,
+        return_as_model: bool = False,
+    ) -> Union["BulkInsertSummary", List[Union[dict[str, Any], SelectSchemaType]]]:
+        """
+        Insert multiple objects efficiently with batch processing.
+
+        Args:
+            db: The database session to use for the operation.
+            objects: List of objects to insert (Pydantic models or dictionaries).
+            batch_size: Number of objects to insert per batch. Defaults to 1000.
+            commit: If True, commits the transaction immediately. Defaults to True.
+            allow_partial_success: If True, continues processing even if some batches fail. Defaults to True.
+            return_summary: If True, returns a detailed summary of the operation. Defaults to False.
+            schema_to_select: Optional Pydantic schema for selecting specific columns from inserted records.
+            return_as_model: If True, converts inserted records to Pydantic models based on schema_to_select.
+
+        Returns:
+            When return_summary=True: BulkInsertSummary with detailed operation results
+            When return_summary=False: List of inserted records (as dicts or Pydantic models)
+
+        Examples:
+            Bulk insert multiple users:
+
+            ```python
+            users_data = [
+                CreateUserSchema(name="Alice", email="alice@example.com"),
+                CreateUserSchema(name="Bob", email="bob@example.com"),
+                CreateUserSchema(name="Charlie", email="charlie@example.com")
+            ]
+
+            # Simple bulk insert
+            inserted_users = await user_crud.insert_multi(db, users_data)
+
+            # Bulk insert with summary
+            summary = await user_crud.insert_multi(
+                db,
+                users_data,
+                return_summary=True,
+                batch_size=500
+            )
+            print(f"Inserted {summary.successful_count} users")
+            ```
+
+            Bulk insert from dictionaries:
+
+            ```python
+            user_dicts = [
+                {"name": "Alice", "email": "alice@example.com"},
+                {"name": "Bob", "email": "bob@example.com"}
+            ]
+
+            inserted_users = await user_crud.insert_multi(db, user_dicts)
+            ```
+
+            Bulk insert with Pydantic model conversion:
+
+            ```python
+            inserted_users = await user_crud.insert_multi(
+                db,
+                users_data,
+                schema_to_select=ReadUserSchema,
+                return_as_model=True
+            )
+            # Returns: List[ReadUserSchema]
+            ```
+        """
+        insert_manager = BulkInsertManager()
+        return await insert_manager.insert_multi(
+            db=db,
+            model_class=self.model,
+            objects=objects,
+            batch_size=batch_size,
+            commit=commit,
+            allow_partial_success=allow_partial_success,
+            return_summary=return_summary,
+            schema_to_select=schema_to_select,
+            return_as_model=return_as_model,
+        )
+
+    async def update_multi(
+        self,
+        db: AsyncSession,
+        objects: List[Union[UpdateSchemaType, dict[str, Any]]],
+        *,
+        batch_size: int = 1000,
+        commit: bool = True,
+        allow_partial_success: bool = True,
+        return_summary: bool = False,
+        schema_to_select: Optional[type[SelectSchemaType]] = None,
+        return_as_model: bool = False,
+    ) -> Union["BulkUpdateSummary", List[Union[dict[str, Any], SelectSchemaType]]]:
+        """
+        Update multiple objects efficiently with batch processing.
+
+        Args:
+            db: The database session to use for the operation.
+            objects: List of objects to update (Pydantic models or dictionaries).
+                     Each object must include primary key information for identification.
+            batch_size: Number of objects to update per batch. Defaults to 1000.
+            commit: If True, commits the transaction immediately. Defaults to True.
+            allow_partial_success: If True, continues processing even if some batches fail. Defaults to True.
+            return_summary: If True, returns a detailed summary of the operation. Defaults to False.
+            schema_to_select: Optional Pydantic schema for selecting specific columns from updated records.
+            return_as_model: If True, converts updated records to Pydantic models based on schema_to_select.
+
+        Returns:
+            When return_summary=True: BulkUpdateSummary with detailed operation results
+            When return_summary=False: List of updated records (as dicts or Pydantic models)
+
+        Examples:
+            Bulk update multiple users:
+
+            ```python
+            updates = [
+                {"id": 1, "email": "alice_new@example.com", "is_active": True},
+                {"id": 2, "email": "bob_new@example.com", "is_active": False},
+                UpdateUserSchema(id=3, email="charlie_new@example.com", role="admin")
+            ]
+
+            # Simple bulk update
+            updated_users = await user_crud.update_multi(db, updates)
+
+            # Bulk update with summary
+            summary = await user_crud.update_multi(
+                db,
+                updates,
+                return_summary=True,
+                batch_size=500
+            )
+            print(f"Updated {summary.successful_count} users")
+            print(f"Not found: {summary.not_found_count}")
+            ```
+
+            Bulk update with Pydantic model conversion:
+
+            ```python
+            updated_users = await user_crud.update_multi(
+                db,
+                updates,
+                schema_to_select=ReadUserSchema,
+                return_as_model=True
+            )
+            # Returns: List[ReadUserSchema]
+            ```
+
+            Note: Each object in the list must contain primary key information
+            to identify which record to update. For models with composite primary keys,
+            all key fields must be included.
+        """
+        update_manager = BulkUpdateManager()
+        return await update_manager.update_multi(
+            db=db,
+            model_class=self.model,
+            objects=objects,
+            batch_size=batch_size,
+            commit=commit,
+            allow_partial_success=allow_partial_success,
+            return_summary=return_summary,
+            schema_to_select=schema_to_select,
+            return_as_model=return_as_model,
+        )
+
+    async def delete_multi(
+        self,
+        db: AsyncSession,
+        *,
+        allow_multiple: bool = True,
+        batch_size: int = 1000,
+        commit: bool = True,
+        allow_partial_success: bool = True,
+        return_summary: bool = False,
+        soft_delete: Optional[bool] = None,
+        **filters: Any,
+    ) -> Union["BulkDeleteSummary", int]:
+        """
+        Delete multiple objects efficiently with batch processing.
+
+        Args:
+            db: The database session to use for the operation.
+            allow_multiple: If True, allows deletion of multiple records. Defaults to True.
+            batch_size: Number of records to process per batch. Defaults to 1000.
+            commit: If True, commits the transaction immediately. Defaults to True.
+            allow_partial_success: If True, continues processing even if some batches fail. Defaults to True.
+            return_summary: If True, returns a detailed summary of the operation. Defaults to False.
+            soft_delete: If True, performs soft delete. Auto-detected from model if not specified.
+            **filters: Filter conditions for deletion.
+
+        Returns:
+            When return_summary=True: BulkDeleteSummary with detailed operation results
+            When return_summary=False: Count of deleted records
+
+        Examples:
+            Bulk delete inactive users:
+
+            ```python
+            # Soft delete all inactive users
+            deleted_count = await user_crud.delete_multi(
+                db,
+                is_active=False,
+                soft_delete=True
+            )
+
+            # Bulk delete with summary
+            summary = await user_crud.delete_multi(
+                db,
+                status="archived",
+                return_summary=True,
+                batch_size=500
+            )
+            print(f"Deleted {summary.successful_count} users")
+            print(f"Soft deleted: {summary.soft_deleted_count}")
+            ```
+
+            Bulk delete with date filters:
+
+            ```python
+            # Delete users who haven't logged in for over a year
+            deleted_count = await user_crud.delete_multi(
+                db,
+                last_login__lt=datetime.now() - timedelta(days=365),
+                soft_delete=True
+            )
+            ```
+
+            Hard delete old records:
+
+            ```python
+            # Permanently delete test records older than 30 days
+            summary = await user_crud.delete_multi(
+                db,
+                is_test=True,
+                created_at__lt=datetime.now() - timedelta(days=30),
+                soft_delete=False,
+                return_summary=True
+            )
+            print(f"Hard deleted {summary.hard_deleted_count} test records")
+            ```
+
+            Note: At least one filter condition must be provided to prevent
+            accidental deletion of all records.
+        """
+        delete_manager = BulkDeleteManager()
+        return await delete_manager.delete_multi(
+            db=db,
+            model_class=self.model,
+            allow_multiple=allow_multiple,
+            batch_size=batch_size,
+            commit=commit,
+            allow_partial_success=allow_partial_success,
+            return_summary=return_summary,
+            is_deleted_column=self.is_deleted_column,
+            soft_delete=soft_delete,
+            **filters,
+        )
+
