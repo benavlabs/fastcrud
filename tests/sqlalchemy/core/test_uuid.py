@@ -50,7 +50,7 @@ class UUIDType(TypeDecorator):
 
 class UUIDModel(Base):
     __tablename__ = "uuid_test"
-    id = Column(UUIDType(), primary_key=True, default=uuid4)
+    id = Column(UUIDType(), primary_key=True, default=uuid4)  # type: ignore
     name = Column(String(255))
 
 
@@ -77,7 +77,7 @@ class CustomUUID(TypeDecorator):
 
 class CustomUUIDModel(Base):
     __tablename__ = "custom_uuid_test"
-    id = Column(CustomUUID(), primary_key=True, default=uuid4)
+    id = Column(CustomUUID(), primary_key=True, default=uuid4)  # type: ignore
     name = Column(String(255))
 
 

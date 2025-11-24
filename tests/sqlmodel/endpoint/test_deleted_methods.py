@@ -32,7 +32,7 @@ async def test_deleted_methods(
         },
     )
 
-    client.app.include_router(custom_router)
+    client.app.include_router(custom_router)  # type: ignore
 
     response = client.post(
         "/test_custom/create", json={"name": "Test Item", "tier_id": 1}

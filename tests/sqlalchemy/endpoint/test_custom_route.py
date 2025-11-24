@@ -16,7 +16,7 @@ def test_add_custom_route(client: TestClient, endpoint_creator: EndpointCreator)
         description="This is a test for the custom route.",
     )
 
-    client.app.include_router(endpoint_creator.router)
+    client.app.include_router(endpoint_creator.router)  # type: ignore
 
     response = client.get("/custom_test/test-custom-route?foo=bar")
     assert response.status_code == 200
@@ -39,11 +39,11 @@ def test_add_custom_route_include_in_schema_false(
         description="This is a hidden test for the custom route.",
     )
 
-    client.app.include_router(endpoint_creator.router)
+    client.app.include_router(endpoint_creator.router)  # type: ignore
 
     response = client.get("/custom_test/hidden-custom-route?foo=hidden")
     assert response.status_code == 200
     assert response.json() == {"foo": "hidden"}
 
-    openapi_schema = client.app.openapi()
+    openapi_schema = client.app.openapi()  # type: ignore
     assert "/custom_test/hidden-custom-route" not in str(openapi_schema)

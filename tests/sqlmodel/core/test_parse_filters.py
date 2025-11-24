@@ -61,7 +61,7 @@ async def test_parse_filters_between_condition(test_model):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("operator", ("in", "not_in", "between"))
 async def test_parse_filters_raises_exception(test_model, operator: str):
-    fast_crud = FastCRUD(test_model)
+    fast_crud: FastCRUD = FastCRUD(test_model)
     with pytest.raises(ValueError) as exc:
         if operator == "in":
             fast_crud._filter_processor.parse_filters(category_id__in=1)

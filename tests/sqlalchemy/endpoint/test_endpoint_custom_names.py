@@ -48,7 +48,7 @@ async def test_endpoint_custom_names(
         tags=["TestCustomNames"],
     )
 
-    client.app.include_router(custom_router)
+    client.app.include_router(custom_router)  # type: ignore
 
     create_path, read_path, read_multi_path = endpoint_paths
 

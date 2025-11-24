@@ -34,7 +34,7 @@ async def test_endpoint_custom_names(
         tags=["TestCustomNames"],
     )
 
-    client.app.include_router(custom_router)
+    client.app.include_router(custom_router)  # type: ignore
 
     create_response = client.post(
         "/test_custom_names/add", json={"name": "Custom Endpoint Item", "tier_id": 1}

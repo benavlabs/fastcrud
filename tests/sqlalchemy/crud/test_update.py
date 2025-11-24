@@ -225,7 +225,7 @@ async def test_update_auto_updates_updated_at(async_session, test_data):
         ),
         pytest.param(
             {"schema_to_select": UpdateSchemaTest, "return_as_model": True},
-            UpdateSchemaTest(id=1, name="Updated Name"),
+            UpdateSchemaTest(name="Updated Name"),
             id="model",
         ),
         pytest.param(
@@ -246,7 +246,7 @@ async def test_update_auto_updates_updated_at(async_session, test_data):
                 "schema_to_select": UpdateSchemaTest,
                 "return_as_model": True,
             },
-            {"data": [UpdateSchemaTest(id=1, name="Updated Name")]},
+            {"data": [UpdateSchemaTest(name="Updated Name")]},
             id="multiple_model",
         ),
     ],

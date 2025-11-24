@@ -15,7 +15,7 @@ from fastcrud.core import PaginatedRequestQuery
 
 
 @pytest.fixture
-def custom_app(async_session):
+def custom_app(async_session) -> FastAPI:
     """Create a FastAPI app with custom endpoints using PaginatedRequestQuery."""
     app = FastAPI()
 
@@ -210,7 +210,7 @@ def test_openapi_schema_includes_query_params(custom_client):
         assert "schema" in param or "content" in param
 
 
-def test_subclassing_paginated_request_query():
+def test_subclassing_paginated_request_query() -> None:
     """Test that PaginatedRequestQuery can be subclassed for custom extensions."""
     from typing import Optional
     from pydantic import Field
@@ -223,7 +223,14 @@ def test_subclassing_paginated_request_query():
         )
 
     # Test instantiation
-    query = CustomPaginatedQuery(page=1, items_per_page=10, custom_filter="active")
+    query = CustomPaginatedQuery(
+        page=1,
+        itemsPerPage=10,
+        offset=None,
+        limit=None,
+        sort=None,
+        custom_filter="active",
+    )
 
     assert query.page == 1
     assert query.items_per_page == 10

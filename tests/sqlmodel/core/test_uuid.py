@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import Column, String
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.types import TypeDecorator
+from pydantic import ConfigDict
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlmodel import Field, SQLModel
@@ -11,7 +12,6 @@ from sqlmodel import Field, SQLModel
 from fastcrud import crud_router, FastCRUD
 from fastcrud import FilterConfig
 from fastcrud.core import create_dynamic_filters
-from pydantic import ConfigDict
 
 
 class UUIDType(TypeDecorator):
@@ -88,19 +88,19 @@ class UUIDSchema(SQLModel):
     id: UUID
     name: str
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)  # type: ignore[assignment]
 
 
 class CreateUUIDSchema(SQLModel):
     name: str
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)  # type: ignore[assignment]
 
 
 class UpdateUUIDSchema(SQLModel):
     name: str
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)  # type: ignore[assignment]
 
 
 @pytest.fixture
