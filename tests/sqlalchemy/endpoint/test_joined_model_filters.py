@@ -45,7 +45,7 @@ async def setup_test_data(async_session):
 
 
 @pytest.fixture
-def user_app_with_joined_filters(async_session):
+def user_app_with_joined_filters(async_session) -> FastAPI:
     """Create FastAPI app with UserModel endpoints that support joined model filtering."""
     app = FastAPI()
 
@@ -69,7 +69,7 @@ def user_app_with_joined_filters(async_session):
 
 
 @pytest.fixture
-def company_app_with_joined_filters(async_session):
+def company_app_with_joined_filters(async_session) -> FastAPI:
     """Create FastAPI app with Company endpoints that support joined model filtering."""
     app = FastAPI()
 

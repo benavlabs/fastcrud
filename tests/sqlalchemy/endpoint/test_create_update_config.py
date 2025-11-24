@@ -64,7 +64,8 @@ async def test_create_with_auto_fields(
     create_config = CreateConfig(
         auto_fields={
             "tier_id": lambda: 1,  # Auto-inject tier_id
-        }
+        },
+        exclude_from_schema=[],
     )
 
     router = crud_router(
@@ -77,7 +78,7 @@ async def test_create_with_auto_fields(
         tags=["Test"],
     )
 
-    client.app.include_router(router)
+    client.app.include_router(router)  # type: ignore
 
     # Create item WITHOUT tier_id in payload (should be auto-injected)
     response = client.post("/test_auto", json={"name": "Auto Item"})
@@ -110,7 +111,8 @@ async def test_update_with_auto_fields(
     update_config = UpdateConfig(
         auto_fields={
             "tier_id": lambda: 2,  # Auto-update tier_id
-        }
+        },
+        exclude_from_schema=[],
     )
 
     router = crud_router(
@@ -123,7 +125,7 @@ async def test_update_with_auto_fields(
         tags=["Test"],
     )
 
-    client.app.include_router(router)
+    client.app.include_router(router)  # type: ignore
 
     # Update item WITHOUT tier_id in payload (should be auto-injected)
     response = client.patch(
@@ -162,7 +164,7 @@ async def test_create_without_config_still_works(
         tags=["Test"],
     )
 
-    client.app.include_router(router)
+    client.app.include_router(router)  # type: ignore
 
     # Normal create with all fields
     response = client.post("/test_normal", json={"name": "Normal Item", "tier_id": 1})
@@ -188,7 +190,8 @@ async def test_create_config_multiple_auto_fields(
         auto_fields={
             "tier_id": lambda: 3,
             "name": lambda: "Auto Generated Name",
-        }
+        },
+        exclude_from_schema=[],
     )
 
     router = crud_router(
@@ -201,7 +204,7 @@ async def test_create_config_multiple_auto_fields(
         tags=["Test"],
     )
 
-    client.app.include_router(router)
+    client.app.include_router(router)  # type: ignore
 
     # Create item with empty payload - all fields auto-injected
     response = client.post("/test_multi_auto", json={})
@@ -241,7 +244,7 @@ async def test_create_with_exclude_from_schema(
         tags=["Test"],
     )
 
-    client.app.include_router(router)
+    client.app.include_router(router)  # type: ignore
 
     # Create item WITHOUT tier_id in payload (should work because it's excluded)
     response = client.post("/test_exclude", json={"name": "Excluded Test"})
@@ -288,7 +291,7 @@ async def test_update_with_exclude_from_schema(
         tags=["Test"],
     )
 
-    client.app.include_router(router)
+    client.app.include_router(router)  # type: ignore
 
     # Update item WITHOUT tier_id in payload
     response = client.patch(
@@ -338,7 +341,7 @@ async def test_delete_with_auto_fields(
         deleted_at_column="deleted_at",
     )
 
-    client.app.include_router(router)
+    client.app.include_router(router)  # type: ignore
 
     # Soft delete the item
     response = client.delete(f"/test_delete_auto/{item_id}")
@@ -380,7 +383,7 @@ async def test_delete_without_config_still_works(
         deleted_at_column="deleted_at",
     )
 
-    client.app.include_router(router)
+    client.app.include_router(router)  # type: ignore
 
     # Normal soft delete
     response = client.delete(f"/test_delete_normal/{item_id}")
@@ -432,7 +435,7 @@ async def test_delete_config_multiple_auto_fields(
         deleted_at_column="deleted_at",
     )
 
-    client.app.include_router(router)
+    client.app.include_router(router)  # type: ignore
 
     # Soft delete with multiple auto fields
     response = client.delete(f"/test_delete_multi/{item_id}")

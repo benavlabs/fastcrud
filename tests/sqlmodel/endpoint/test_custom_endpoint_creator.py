@@ -1,4 +1,4 @@
-from typing import Optional, Callable
+from typing import Optional, Callable, Sequence
 
 import pytest
 from fastapi.testclient import TestClient
@@ -16,14 +16,14 @@ class CustomEndpointCreator(EndpointCreator):
 
     def add_routes_to_router(
         self,
-        create_deps: list[Callable] = [],
-        read_deps: list[Callable] = [],
-        read_multi_deps: list[Callable] = [],
-        update_deps: list[Callable] = [],
-        delete_deps: list[Callable] = [],
-        db_delete_deps: list[Callable] = [],
-        included_methods: Optional[list[str]] = None,
-        deleted_methods: Optional[list[str]] = None,
+        create_deps: Sequence[Callable] = [],
+        read_deps: Sequence[Callable] = [],
+        read_multi_deps: Sequence[Callable] = [],
+        update_deps: Sequence[Callable] = [],
+        delete_deps: Sequence[Callable] = [],
+        db_delete_deps: Sequence[Callable] = [],
+        included_methods: Optional[Sequence[str]] = None,
+        deleted_methods: Optional[Sequence[str]] = None,
     ):
         super().add_routes_to_router(
             create_deps,
@@ -67,7 +67,7 @@ async def test_custom_endpoint_creator(
         },
     )
 
-    client.app.include_router(custom_router)
+    client.app.include_router(custom_router)  # type: ignore
 
     response = client.get("/custom")
     assert response.status_code == 200

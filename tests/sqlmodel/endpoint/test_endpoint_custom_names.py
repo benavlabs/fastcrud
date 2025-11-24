@@ -12,6 +12,7 @@ async def test_endpoint_custom_names(
     test_model,
     create_schema,
     update_schema,
+    read_schema,
 ):
     for item in test_data:
         async_session.add(test_model(**item))
@@ -27,12 +28,13 @@ async def test_endpoint_custom_names(
         model=test_model,
         create_schema=create_schema,
         update_schema=update_schema,
+        select_schema=read_schema,  # v0.20.0: provide select_schema to get data back from create
         endpoint_names=custom_endpoint_names,
         path="/test_custom_names",
         tags=["TestCustomNames"],
     )
 
-    client.app.include_router(custom_router)
+    client.app.include_router(custom_router)  # type: ignore
 
     create_response = client.post(
         "/test_custom_names/add", json={"name": "Custom Endpoint Item", "tier_id": 1}

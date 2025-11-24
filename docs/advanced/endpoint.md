@@ -10,6 +10,11 @@ FastCRUD automates the creation of CRUD (Create, Read, Update, Delete) endpoints
 - **Description**: Creates a new item in the database.
 - **Request Body**: JSON object based on the `create_schema`.
 - **Example Request**: `POST /items` with JSON body.
+- **Response**: 
+  - When `select_schema` is provided: Returns the created item data immediately (dict by default, Pydantic model if configured)
+  - When no `select_schema`: Returns `null` (v0.20.0 behavior)
+  - When auto fields are used: Returns SQLAlchemy model (legacy compatibility)
+- **Tip**: Use `select_schema` to get the created data back without additional API calls
 
 ### Read
 
@@ -586,8 +591,8 @@ app.include_router(my_router)
 
 FastCRUD provides a `PaginatedRequestQuery` Pydantic model that encapsulates all query parameters used for pagination and sorting. This model can be reused in custom endpoints using FastAPI's `Depends()`, making it easy to maintain consistent pagination behavior across your API.
 
-!!! warning "Import Path Change"
-    Until version 0.18.x, pagination utilities were imported from `fastcrud.paginated`. Starting from version 0.19.0, this import path is deprecated and will be completely removed in version 0.20.0. Please update your imports to use `from fastcrud import PaginatedRequestQuery` instead.
+!!! warning "Import Path Changed in v0.20.0"
+    Until version 0.18.x, pagination utilities were imported from `fastcrud.paginated`. Starting from version 0.19.0, this import path was deprecated and was completely removed in version 0.20.0. Please update your imports to use `from fastcrud import PaginatedRequestQuery` instead.
 
 ### Using `PaginatedRequestQuery` in Custom Endpoints
 
@@ -713,8 +718,8 @@ Using `PaginatedRequestQuery` provides several advantages:
 
 FastCRUD also provides a `CursorPaginatedRequestQuery` Pydantic model for cursor-based pagination. This model is ideal for large datasets and infinite scrolling features, as it provides consistent results even when data is being modified.
 
-!!! warning "Import Path Change"
-    Until version 0.18.x, pagination utilities were imported from `fastcrud.paginated`. Starting from version 0.19.0, this import path is deprecated and will be completely removed in version 0.20.0. Please update your imports to use `from fastcrud import CursorPaginatedRequestQuery` instead.
+!!! warning "Import Path Changed in v0.20.0"
+    Until version 0.18.x, pagination utilities were imported from `fastcrud.paginated`. Starting from version 0.19.0, this import path was deprecated and was completely removed in version 0.20.0. Please update your imports to use `from fastcrud import CursorPaginatedRequestQuery` instead.
 
 ### Using `CursorPaginatedRequestQuery` in Custom Endpoints
 

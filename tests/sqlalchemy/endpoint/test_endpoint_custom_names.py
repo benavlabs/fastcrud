@@ -29,6 +29,7 @@ async def test_endpoint_custom_names(
     test_model,
     create_schema,
     update_schema,
+    read_schema,
     custom_endpoint_names,
     endpoint_paths,
 ):
@@ -41,12 +42,13 @@ async def test_endpoint_custom_names(
         model=test_model,
         create_schema=create_schema,
         update_schema=update_schema,
+        select_schema=read_schema,  # v0.20.0: provide select_schema to get data back from create
         endpoint_names=custom_endpoint_names,
         path="/test_custom_names",
         tags=["TestCustomNames"],
     )
 
-    client.app.include_router(custom_router)
+    client.app.include_router(custom_router)  # type: ignore
 
     create_path, read_path, read_multi_path = endpoint_paths
 

@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import Column, String
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.types import TypeDecorator
+from pydantic import ConfigDict
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlmodel import Field, SQLModel
@@ -11,7 +12,6 @@ from sqlmodel import Field, SQLModel
 from fastcrud import crud_router, FastCRUD
 from fastcrud import FilterConfig
 from fastcrud.core import create_dynamic_filters
-from pydantic import ConfigDict
 
 
 class UUIDType(TypeDecorator):
@@ -88,19 +88,19 @@ class UUIDSchema(SQLModel):
     id: UUID
     name: str
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)  # type: ignore[assignment]
 
 
 class CreateUUIDSchema(SQLModel):
     name: str
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)  # type: ignore[assignment]
 
 
 class UpdateUUIDSchema(SQLModel):
     name: str
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True)  # type: ignore[assignment]
 
 
 @pytest.fixture
@@ -151,17 +151,29 @@ def uuid_client(async_session):
 @pytest.mark.asyncio
 @pytest.mark.dialect("sqlite")
 async def test_custom_uuid_crud(uuid_client):
+    # v0.20.0 behavior: create endpoint without select_schema returns null
     response = uuid_client.post("/custom-uuid-test/create", json={"name": "test"})
     assert (
         response.status_code == 200
     ), f"Creation failed with response: {response.text}"
 
-    try:
-        data = response.json()
-        assert "id" in data, f"Response does not contain 'id': {data}"
-        uuid_id = data["id"]
-    except Exception as e:  # pragma: no cover
-        pytest.fail(f"Failed to process response: {response.text}. Error: {str(e)}")
+    # Verify that creation returns null (None) as expected in v0.20.0
+    assert response.json() is None, f"Expected null response, got: {response.text}"
+
+    # To get the created record, use get_multi endpoint to find it
+    get_response = uuid_client.get("/custom-uuid-test/get_multi")
+    assert get_response.status_code == 200
+    items = get_response.json().get("data", [])
+
+    # Find the created item
+    test_item = None
+    for item in items:
+        if item["name"] == "test":
+            test_item = item
+            break
+
+    assert test_item is not None, "Created item not found in get_multi response"
+    uuid_id = test_item["id"]
 
     try:
         UUID(uuid_id)
@@ -190,11 +202,12 @@ async def test_custom_uuid_crud(uuid_client):
 
 @pytest.mark.asyncio
 async def test_uuid_list_endpoint(uuid_client):
-    created_ids = []
+    # v0.20.0 behavior: create endpoint without select_schema returns null
     for i in range(3):
         response = uuid_client.post("/uuid-test/create", json={"name": f"test_{i}"})
         assert response.status_code == 200
-        created_ids.append(response.json()["id"])
+        # Verify that creation returns null (None) as expected in v0.20.0
+        assert response.json() is None, f"Expected null response, got: {response.text}"
 
     response = uuid_client.get("/uuid-test/get_multi")
     assert response.status_code == 200

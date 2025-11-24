@@ -8,7 +8,7 @@ from tests.sqlalchemy.conftest import ModelTest, CreateSchemaTest, UpdateSchemaT
 
 
 @pytest.fixture
-def app(async_session):
+def app(async_session) -> FastAPI:
     app = FastAPI()
     endpoint_creator = EndpointCreator(
         session=lambda: async_session,
@@ -24,7 +24,7 @@ def app(async_session):
 
 
 @pytest.fixture
-def client(app):
+def client(app) -> TestClient:
     return TestClient(app)
 
 

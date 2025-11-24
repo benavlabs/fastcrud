@@ -1,7 +1,7 @@
 # Paginated Module Reference
 
-!!! warning "Deprecated"
-    The `fastcrud.paginated` module is deprecated as of version 0.18.0 and will be removed in the next major version. Please import pagination utilities directly from `fastcrud` instead:
+!!! warning "Removed in v0.20.0"
+    The `fastcrud.paginated` module was deprecated as of version 0.18.0 and was removed in v0.20.0. Please import pagination utilities directly from `fastcrud` instead:
     
     ```python
     # Old (deprecated)

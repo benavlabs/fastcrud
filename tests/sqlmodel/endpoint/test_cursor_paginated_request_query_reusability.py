@@ -15,7 +15,7 @@ from fastcrud.core import CursorPaginatedRequestQuery
 
 
 @pytest.fixture
-def cursor_app(async_session):
+def cursor_app(async_session) -> FastAPI:
     """Create a FastAPI app with custom endpoints using CursorPaginatedRequestQuery."""
     app = FastAPI()
 
@@ -201,7 +201,7 @@ def test_openapi_schema_includes_cursor_params(cursor_client):
         assert schema.get("exclusiveMinimum") == 0 or schema.get("minimum") == 1
 
 
-def test_subclassing_cursor_paginated_request_query():
+def test_subclassing_cursor_paginated_request_query() -> None:
     """Test that CursorPaginatedRequestQuery can be subclassed for custom extensions."""
     from typing import Optional
     from pydantic import Field

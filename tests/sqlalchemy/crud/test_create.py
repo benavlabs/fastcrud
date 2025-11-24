@@ -8,11 +8,14 @@ from pydantic import ValidationError
 async def test_create_successful(async_session, test_model, create_schema):
     crud = FastCRUD(test_model)
     new_data = create_schema(name="New Record", tier_id=1)
-    await crud.create(async_session, new_data)
+    result = await crud.create(async_session, new_data)
+
+    # v0.20.0 behavior: create() without schema_to_select returns None
+    assert result is None
 
     stmt = select(test_model).where(test_model.name == "New Record")
-    result = await async_session.execute(stmt)
-    fetched_record = result.scalar_one_or_none()
+    db_result = await async_session.execute(stmt)
+    fetched_record = db_result.scalar_one_or_none()
 
     assert fetched_record is not None
     assert fetched_record.name == "New Record"
@@ -64,13 +67,16 @@ async def test_create_and_read_successful_return_as_model(
 async def test_create_no_commit(async_session, test_model, create_schema):
     crud = FastCRUD(test_model)
     new_data = create_schema(name="No Commit Record", tier_id=1)
-    await crud.create(async_session, new_data, commit=False)
+    result = await crud.create(async_session, new_data, commit=False)
+
+    # v0.20.0 behavior: create() without schema_to_select returns None
+    assert result is None
 
     await async_session.rollback()
 
     stmt = select(test_model).where(test_model.name == "No Commit Record")
-    result = await async_session.execute(stmt)
-    fetched_record = result.scalar_one_or_none()
+    db_result = await async_session.execute(stmt)
+    fetched_record = db_result.scalar_one_or_none()
 
     assert fetched_record is None
 
@@ -108,11 +114,14 @@ async def test_create_with_various_valid_data(async_session, test_model, create_
     for data in valid_data_samples:
         crud = FastCRUD(test_model)
         new_data = create_schema(**data)
-        await crud.create(async_session, new_data)
+        result = await crud.create(async_session, new_data)
+
+        # v0.20.0 behavior: create() without schema_to_select returns None
+        assert result is None
 
         stmt = select(test_model).where(test_model.name == data["name"])
-        result = await async_session.execute(stmt)
-        fetched_record = result.scalar_one_or_none()
+        db_result = await async_session.execute(stmt)
+        fetched_record = db_result.scalar_one_or_none()
 
         assert fetched_record is not None
         assert fetched_record.name == data["name"]
@@ -149,11 +158,14 @@ async def test_create_successful_multi_pk(
 ):
     crud = FastCRUD(multi_pk_model)
     new_data = multi_pk_test_create_schema(name="New Record", id=1, uuid="a")
-    await crud.create(async_session, new_data)
+    result = await crud.create(async_session, new_data)
+
+    # v0.20.0 behavior: create() without schema_to_select returns None
+    assert result is None
 
     stmt = select(multi_pk_model).where(multi_pk_model.name == "New Record")
-    result = await async_session.execute(stmt)
-    fetched_record = result.scalar_one_or_none()
+    db_result = await async_session.execute(stmt)
+    fetched_record = db_result.scalar_one_or_none()
 
     assert fetched_record is not None
     assert fetched_record.name == "New Record"

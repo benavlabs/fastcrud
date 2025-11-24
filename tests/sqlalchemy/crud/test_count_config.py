@@ -1,6 +1,6 @@
 import pytest
 from sqlalchemy import Column, Integer, String, ForeignKey, text
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import DeclarativeBase
 from fastcrud import FastCRUD, CountConfig
 from ...sqlalchemy.conftest import (
     Project,
@@ -10,7 +10,9 @@ from ...sqlalchemy.conftest import (
     Article,
 )
 
-Base = declarative_base()
+
+class Base(DeclarativeBase):
+    pass
 
 
 class CustomPKModel(Base):

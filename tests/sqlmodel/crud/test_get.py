@@ -80,14 +80,16 @@ async def test_get_with_advanced_filters(async_session, test_data):
 
 
 @pytest.mark.asyncio
-async def test_get_with_schema_selecting_specific_columns(async_session, test_data):
+async def test_get_with_schema_selecting_specific_columns(
+    async_session, test_data
+) -> None:
     async_session.add(ModelTest(**test_data[0]))
     await async_session.commit()
 
     class PartialSchema(BaseModel):
         name: str
 
-    crud = FastCRUD(ModelTest)
+    crud: FastCRUD = FastCRUD(ModelTest)
     fetched_record = await crud.get(
         async_session, schema_to_select=PartialSchema, id=test_data[0]["id"]
     )

@@ -20,9 +20,9 @@ from pydantic import BaseModel, ConfigDict
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.sql import func
-from testcontainers.postgres import PostgresContainer
-from testcontainers.mysql import MySqlContainer
-from testcontainers.core.docker_client import DockerClient
+from testcontainers.postgres import PostgresContainer  # type: ignore
+from testcontainers.mysql import MySqlContainer  # type: ignore
+from testcontainers.core.docker_client import DockerClient  # type: ignore
 
 from fastcrud.crud.fast_crud import FastCRUD
 from fastcrud.endpoint.crud_router import crud_router
@@ -387,7 +387,7 @@ def is_docker_running() -> bool:  # pragma: no cover
 async def _async_session(url: str) -> AsyncGenerator[AsyncSession]:
     async_engine = create_async_engine(url, echo=True, future=True)
 
-    session = sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)
+    session = sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)  # type: ignore
 
     async with session() as s:
         async with async_engine.begin() as conn:
@@ -421,7 +421,7 @@ async def async_session(request: pytest.FixtureRequest) -> AsyncGenerator[AsyncS
             pytest.skip("Docker is required, but not running")
         with MySqlContainer() as mysql:
             async with _async_session(
-                url=make_url(name_or_url=mysql.get_connection_url())._replace(
+                url=make_url(name_or_url=mysql.get_connection_url())._replace(  # type: ignore
                     drivername="mysql+aiomysql"
                 )
             ) as session:
@@ -465,7 +465,7 @@ def test_data_category() -> list[dict]:
     ],
 )
 def test_data_multipk(request) -> list[dict]:
-    return request.param
+    return request.param  # type: ignore
 
 
 @pytest.fixture(scope="function")
@@ -568,7 +568,7 @@ def client(
     multi_pk_test_schema,
     multi_pk_test_create_schema,
     async_session,
-):
+) -> TestClient:
     app = FastAPI()
 
     app.include_router(

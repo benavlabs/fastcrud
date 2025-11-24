@@ -14,9 +14,9 @@ from sqlmodel import SQLModel, Field, Relationship
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.sql import func
-from testcontainers.postgres import PostgresContainer
-from testcontainers.mysql import MySqlContainer
-from testcontainers.core.docker_client import DockerClient
+from testcontainers.postgres import PostgresContainer  # type: ignore
+from testcontainers.mysql import MySqlContainer  # type: ignore
+from testcontainers.core.docker_client import DockerClient  # type: ignore
 
 from fastcrud.crud.fast_crud import FastCRUD
 from fastcrud.endpoint.crud_router import crud_router
@@ -159,7 +159,7 @@ class Task(SQLModel, table=True):
 
 
 class CreateSchemaTest(SQLModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid")  # type: ignore[assignment]
     name: str
     tier_id: int
 
@@ -224,7 +224,7 @@ class MultiPkCreate(SQLModel):
     id: int
     uuid: str
     name: str
-    test_id: int = None
+    test_id: Optional[int] = None
 
 
 class MultiPkSchema(SQLModel):
@@ -296,7 +296,7 @@ async_engine = create_async_engine(
 @asynccontextmanager
 async def _setup_database(url: str) -> AsyncGenerator[AsyncSession]:
     engine = create_async_engine(url, echo=True, future=True)
-    session_maker = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    session_maker = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)  # type: ignore
     async with session_maker() as session:
         async with engine.begin() as conn:
             await conn.run_sync(SQLModel.metadata.create_all)
@@ -371,7 +371,7 @@ def test_data_category() -> list[dict]:
     ],
 )
 def test_data_multipk(request) -> list[dict]:
-    return request.param
+    return request.param  # type: ignore
 
 
 @pytest.fixture(scope="function")
@@ -469,7 +469,7 @@ def client(
     multi_pk_test_schema,
     multi_pk_test_create_schema,
     async_session,
-):
+) -> TestClient:
     app = FastAPI()
 
     app.include_router(
@@ -672,7 +672,7 @@ def client_with_select_schema(
     update_schema,
     read_schema,
     async_session,
-):
+) -> TestClient:
     app = FastAPI()
 
     app.include_router(
