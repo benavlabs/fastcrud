@@ -7,7 +7,7 @@ import pytest_asyncio
 from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.ext.asyncio import async_sessionmaker
+from sqlalchemy.orm import sessionmaker
 from sqlalchemy import make_url, Column, String
 from pydantic import ConfigDict
 from sqlmodel import SQLModel, Field, Relationship
@@ -296,9 +296,7 @@ async_engine = create_async_engine(
 @asynccontextmanager
 async def _setup_database(url: str) -> AsyncGenerator[AsyncSession]:
     engine = create_async_engine(url, echo=True, future=True)
-    session_maker = async_sessionmaker(
-        engine, class_=AsyncSession, expire_on_commit=False
-    )
+    session_maker = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)  # type: ignore
     async with session_maker() as session:
         async with engine.begin() as conn:
             await conn.run_sync(SQLModel.metadata.create_all)

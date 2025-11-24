@@ -15,8 +15,7 @@ from sqlalchemy import (
     make_url,
 )
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import DeclarativeBase, relationship
-from sqlalchemy.ext.asyncio import async_sessionmaker
+from sqlalchemy.orm import sessionmaker, DeclarativeBase, relationship
 from pydantic import BaseModel, ConfigDict
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -388,9 +387,7 @@ def is_docker_running() -> bool:  # pragma: no cover
 async def _async_session(url: str) -> AsyncGenerator[AsyncSession]:
     async_engine = create_async_engine(url, echo=True, future=True)
 
-    session = async_sessionmaker(
-        async_engine, class_=AsyncSession, expire_on_commit=False
-    )
+    session = sessionmaker(async_engine, class_=AsyncSession, expire_on_commit=False)  # type: ignore
 
     async with session() as s:
         async with async_engine.begin() as conn:
@@ -424,10 +421,8 @@ async def async_session(request: pytest.FixtureRequest) -> AsyncGenerator[AsyncS
             pytest.skip("Docker is required, but not running")
         with MySqlContainer() as mysql:
             async with _async_session(
-                url=str(
-                    make_url(name_or_url=mysql.get_connection_url())._replace(
-                        drivername="mysql+aiomysql"
-                    )
+                url=make_url(name_or_url=mysql.get_connection_url())._replace(  # type: ignore
+                    drivername="mysql+aiomysql"
                 )
             ) as session:
                 yield session
