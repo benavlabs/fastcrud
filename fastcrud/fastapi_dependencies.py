@@ -20,6 +20,9 @@ from uuid import UUID
 
 from fastapi import Depends, Query, Path, params
 
+from fastcrud.core.filtering.processor import FilterProcessor
+from fastcrud.types import ModelType
+
 if TYPE_CHECKING:
     from .core.config import CreateConfig, UpdateConfig, DeleteConfig, FilterConfig
 
@@ -81,7 +84,8 @@ def create_auto_field_injector(
 
 
 def create_dynamic_filters(
-    filter_config: Optional["FilterConfig"], column_types: dict[str, type]
+    filter_config: Optional["FilterConfig"],
+    model: ModelType,
 ) -> Callable[..., dict[str, Any]]:
     """
     Create dynamic filter function for handling query parameters.
@@ -105,54 +109,43 @@ def create_dynamic_filters(
     if filter_config is None:
         return lambda: {}
 
-    param_to_filter_key = {}
-    for original_key in filter_config.filters.keys():
-        param_name = original_key.replace(".", "_")
-        param_to_filter_key[param_name] = original_key
+    filter_processor = FilterProcessor(model)
+    filters = filter_processor.interpret_filters(filter_config)
 
-    def filters(
+    def dependency_function(
         **kwargs: Any,
     ) -> dict[str, Any]:
-        filtered_params = {}
-        for param_name, value in kwargs.items():
-            if value is not None:
-                original_key = param_to_filter_key.get(param_name, param_name)
-                key_without_op = original_key.rsplit("__", 1)[0]
-                parse_func = column_types.get(key_without_op)
-                if parse_func:
-                    try:
-                        filtered_params[original_key] = parse_func(value)
-                    except (ValueError, TypeError):
-                        filtered_params[original_key] = value
-                else:
-                    filtered_params[original_key] = value
-        return filtered_params
+        return {
+            filter.definition: filter.default_value
+            for filter in filters
+            if filter.default_value
+        }
 
     params = []
-    for key, value in filter_config.filters.items():
-        param_name = key.replace(".", "_")
 
-        if callable(value):
+    for filter in filters:
+        if callable(filter.default_value):
             params.append(
                 inspect.Parameter(
-                    param_name,
+                    filter.param_name,
                     inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                    default=Depends(value),
+                    default=Depends(filter.default_value),
                 )
             )
         else:
             params.append(
                 inspect.Parameter(
-                    param_name,
+                    filter.param_name,
                     inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                    default=Query(value, alias=key),
+                    annotation=filter.type,
+                    default=Query(filter.default_value, alias=filter.definition),
                 )
             )
 
     sig = inspect.Signature(params)
-    setattr(filters, "__signature__", sig)
+    setattr(dependency_function, "__signature__", sig)
 
-    return filters
+    return dependency_function
 
 
 def inject_dependencies(

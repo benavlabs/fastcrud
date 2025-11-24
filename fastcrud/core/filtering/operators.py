@@ -13,6 +13,8 @@ from ...types import FilterValueType
 
 FilterCallable = Callable[[Column[Any]], Callable[..., ColumnElement[bool]]]
 
+COLLECTION_OPERATORS = {"in", "not_in", "between"}
+
 SUPPORTED_FILTERS: dict[str, FilterCallable] = {
     "eq": lambda column: column.__eq__,
     "gt": lambda column: column.__gt__,
@@ -64,7 +66,7 @@ def get_sqlalchemy_filter(
         >>> # This will raise ValueError
         >>> get_sqlalchemy_filter('in', 'invalid')  # Should be list/tuple/set
     """
-    if operator in {"in", "not_in", "between"}:
+    if operator in COLLECTION_OPERATORS:
         if not isinstance(value, (tuple, list, set)):
             raise ValueError(f"<{operator}> filter must be tuple, list or set")
 
@@ -76,3 +78,10 @@ def get_sqlalchemy_filter(
         raise ValueError("Between operator requires exactly 2 values")
 
     return SUPPORTED_FILTERS.get(operator)
+
+
+def get_operator_wrap_type(operator: str) -> Optional[type]:
+    if operator in COLLECTION_OPERATORS:
+        return list
+
+    return None

@@ -8,7 +8,6 @@ and filter operations, including automatic field injection and endpoint customiz
 from typing import Any, Callable, Sequence, Optional, Annotated
 from pydantic import BaseModel, Field
 from pydantic.functional_validators import field_validator
-from fastapi import Depends, Query
 
 from ...types import ModelType
 
@@ -335,21 +334,6 @@ class FilterConfig(BaseModel):
         filters = kwargs.pop("filters", {})
         filters.update(kwargs)
         super().__init__(filters=filters)
-
-    def get_params(self) -> dict[str, Any]:
-        """
-        Get FastAPI parameter definitions for the configured filters.
-
-        Returns:
-            Dictionary mapping parameter names to FastAPI parameter objects.
-        """
-        params = {}
-        for key, value in self.filters.items():
-            if callable(value):
-                params[key] = Depends(value)
-            else:
-                params[key] = Query(value)
-        return params
 
     def is_joined_filter(self, filter_key: str) -> bool:
         """
