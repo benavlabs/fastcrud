@@ -470,7 +470,7 @@ def test_data_category() -> list[dict]:
     ],
 )
 def test_data_multipk(request) -> list[dict]:
-    return request.param
+    return request.param  # type: ignore
 
 
 @pytest.fixture(scope="function")
