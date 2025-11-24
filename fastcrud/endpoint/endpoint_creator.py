@@ -458,7 +458,7 @@ class EndpointCreator:
         The query parameters are encapsulated in PaginatedRequestQuery schema,
         which can be reused in custom endpoints.
         """
-        dynamic_filters = create_dynamic_filters(self.filter_config, self.column_types)
+        dynamic_filters = create_dynamic_filters(self.filter_config, self.model)
 
         async def endpoint(
             db: AsyncSession = Depends(self.session),

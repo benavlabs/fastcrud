@@ -7,14 +7,36 @@ OR conditions, NOT conditions, and joined model filters.
 """
 
 from typing import Any, Optional, Union
+from pydantic import BaseModel, ConfigDict, SkipValidation, computed_field
 from sqlalchemy import Column, or_, not_, and_
 from sqlalchemy.orm.util import AliasedClass
 from sqlalchemy.sql.elements import ColumnElement
 
-from ..introspection import get_model_column
+from ..config.crud_configs import FilterConfig
+from ..introspection import get_column_types, get_model_column
 from ...types import ModelType, FilterValueType
-from .operators import get_sqlalchemy_filter
+from .operators import get_operator_wrap_type, get_sqlalchemy_filter
 from .validators import validate_joined_filter_format
+
+
+class Filter(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    definition: str
+    param_name: str
+    default_value: Any
+    operator: Optional[str]
+    wrap_type: Optional[type]
+    joined_model: Optional[type]
+    column: SkipValidation[Column[Any]]
+    value_type: type
+
+    @computed_field
+    def type(self) -> type:
+        if self.wrap_type:
+            return self.wrap_type[self.value_type]
+
+        return self.value_type
 
 
 class FilterProcessor:
@@ -348,6 +370,56 @@ class FilterProcessor:
             return [target_column == value]
         else:
             return self._handle_standard_filter(target_column, operator, value)
+
+    def interpret_filters(self, filter_config: FilterConfig) -> list[Filter]:
+        filters: list[Filter] = []
+
+        for filter_definition, default_value in filter_config.filters.items():
+            field_and_operator = filter_definition.rsplit("__", 1)
+            field_definition = field_and_operator[0]
+
+            param_name = filter_definition.replace(".", "_")
+
+            operator = field_and_operator[1] if len(field_and_operator) > 1 else None
+            wrap_type = get_operator_wrap_type(operator) if operator else None
+
+            is_joined_model = filter_config.is_joined_filter(filter_definition)
+
+            if is_joined_model:
+                validate_joined_filter_format(filter_definition)
+
+                relationship_name, column_name = field_definition.split(".", 1)
+                relationship_column = get_model_column(self.model, relationship_name)
+
+                if not hasattr(relationship_column.property, "mapper"):
+                    raise ValueError(
+                        f"Invalid relationship '{relationship_name}' in model '{self.model.__name__}'"
+                    )
+
+                joined_model = relationship_column.property.mapper.class_
+                model_column_types = dict(get_column_types(joined_model))
+                column = get_model_column(joined_model, column_name)
+                value_type = model_column_types[column_name]
+            else:
+                joined_model = None
+                column_name = field_definition
+                column = get_model_column(self.model, column_name)
+                value_type = dict(get_column_types(self.model))[column_name]
+
+            filters.append(
+                Filter(
+                    definition=filter_definition,
+                    param_name=param_name,
+                    default_value=default_value,
+                    operator=operator,
+                    wrap_type=wrap_type,
+                    joined_model=joined_model,
+                    value_type=value_type,
+                    column=column,
+                )
+            )
+
+        return filters
 
     def separate_joined_filters(
         self, **kwargs: Any
