@@ -1378,7 +1378,10 @@ class FastCRUD(
             total_count = await self.count(db=db, **kwargs)
             response["total_count"] = total_count
 
-        return response
+        return cast(
+            Union[GetMultiResponseModel[SelectSchemaType], GetMultiResponseDict],
+            response,
+        )
 
     @overload
     async def get_joined(
@@ -2259,18 +2262,21 @@ class FastCRUD(
             sort_orders=sort_orders,
         )
 
-        return await format_joined_response(
-            primary_model=self.model,
-            raw_data=raw_data,
-            config=config,
-            schema_to_select=schema_to_select,
-            return_as_model=return_as_model,
-            nest_joins=nest_joins,
-            return_total_count=return_total_count,
-            db=db,
-            nested_schema_to_select=nested_schema_to_select,
-            count_func=self.count if return_total_count else None,
-            **kwargs,
+        return cast(
+            Union[GetMultiResponseModel[SelectSchemaType], GetMultiResponseDict],
+            await format_joined_response(
+                primary_model=self.model,
+                raw_data=raw_data,
+                config=config,
+                schema_to_select=schema_to_select,
+                return_as_model=return_as_model,
+                nest_joins=nest_joins,
+                return_total_count=return_total_count,
+                db=db,
+                nested_schema_to_select=nested_schema_to_select,
+                count_func=self.count if return_total_count else None,
+                **kwargs,
+            ),
         )
 
     @overload

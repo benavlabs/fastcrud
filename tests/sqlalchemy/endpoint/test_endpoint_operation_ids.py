@@ -88,10 +88,10 @@ def test_endpoint_operation_ids_not_generic_endpoint(client_for_openapi):
             if isinstance(operation, dict) and "operationId" in operation:
                 operation_id = operation["operationId"]
                 # The operationId should NOT be just "endpoint" or "endpoint_*"
-                assert not operation_id.startswith("endpoint_"), (
-                    f"Route {method.upper()} {path} has generic operationId: {operation_id}"
-                )
+                assert not operation_id.startswith(
+                    "endpoint_"
+                ), f"Route {method.upper()} {path} has generic operationId: {operation_id}"
                 # Also check it's not exactly "endpoint"
-                assert operation_id != "endpoint", (
-                    f"Route {method.upper()} {path} has generic operationId: {operation_id}"
-                )
+                assert (
+                    operation_id != "endpoint"
+                ), f"Route {method.upper()} {path} has generic operationId: {operation_id}"
