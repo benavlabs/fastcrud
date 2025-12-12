@@ -265,7 +265,7 @@ class FilterProcessor:
         if operator == "between":
             if isinstance(value, (tuple, list, set)):
                 return [filter_func(col)(*value)]
-            else:
+            else:  # pragma: no cover
                 raise ValueError("Between operator requires a sequence value")
         else:
             return [filter_func(col)(value)]

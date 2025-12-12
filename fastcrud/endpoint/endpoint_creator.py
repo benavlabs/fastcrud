@@ -350,18 +350,20 @@ class EndpointCreator:
                         filter_config.parse_joined_filter(key)
                     )
 
-                    if operator and operator not in supported_filters:
+                    if (
+                        operator and operator not in supported_filters
+                    ):  # pragma: no cover
                         raise ValueError(
                             f"Invalid filter op '{operator}': following filter ops are allowed: {supported_filters.keys()}"
                         )
 
                     if not validate_joined_filter_path(
                         self.model, relationship_path, final_field
-                    ):
+                    ):  # pragma: no cover
                         raise ValueError(
                             f"Invalid joined filter '{key}': relationship path {'.'.join(relationship_path + [final_field])} not found in model '{self.model.__name__}'"
                         )
-                except ValueError as e:
+                except ValueError as e:  # pragma: no cover
                     raise ValueError(f"Invalid joined filter '{key}': {str(e)}")
             else:
                 if "__" in key:

@@ -2,6 +2,7 @@
 
 import pytest
 from fastcrud import FastCRUD, FilterCallable
+from fastcrud.core.filtering.operators import get_sqlalchemy_filter
 from sqlalchemy import Column
 
 
@@ -97,6 +98,14 @@ async def test_custom_filter_combined_with_builtin(
     assert all(item["tier_id"] == 2 for item in result["data"])
     assert all(item["name"].startswith("A") for item in result["data"])
 
+    # Test the False branch - get records where tier_id is odd (tier_id=1)
+    result_odd = await crud.get_multi(
+        async_session,
+        tier_id__is_even=False,
+    )
+
+    assert all(item["tier_id"] == 1 for item in result_odd["data"])
+
 
 @pytest.mark.asyncio
 async def test_custom_filter_on_string_column(async_session, test_model, test_data):
@@ -147,3 +156,30 @@ async def test_custom_filter_preserves_instance_isolation(
     # Instance without custom filter should raise an error for unknown operator
     with pytest.raises(ValueError, match="Unsupported filter operator"):
         await crud_without_custom.get_multi(async_session, tier_id__custom_op=1)
+
+
+def test_get_sqlalchemy_filter_in_operator_requires_list():
+    """Test that 'in' operator requires a list/tuple/set value."""
+    with pytest.raises(ValueError, match="<in> filter must be tuple, list or set"):
+        get_sqlalchemy_filter("in", "not_a_list")
+
+
+def test_get_sqlalchemy_filter_not_in_operator_requires_list():
+    """Test that 'not_in' operator requires a list/tuple/set value."""
+    with pytest.raises(ValueError, match="<not_in> filter must be tuple, list or set"):
+        get_sqlalchemy_filter("not_in", 123)
+
+
+def test_get_sqlalchemy_filter_between_operator_requires_list():
+    """Test that 'between' operator requires a list/tuple/set value."""
+    with pytest.raises(ValueError, match="<between> filter must be tuple, list or set"):
+        get_sqlalchemy_filter("between", "invalid")
+
+
+def test_get_sqlalchemy_filter_between_requires_two_values():
+    """Test that 'between' operator requires exactly 2 values."""
+    with pytest.raises(ValueError, match="Between operator requires exactly 2 values"):
+        get_sqlalchemy_filter("between", [1, 2, 3])
+
+    with pytest.raises(ValueError, match="Between operator requires exactly 2 values"):
+        get_sqlalchemy_filter("between", [1])
