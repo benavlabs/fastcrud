@@ -265,10 +265,10 @@ get_multi(
 ) -> dict[str, Any]
 ```
 
-**Purpose**: To fetch multiple records with optional sorting, pagination, and model conversion.  
+**Purpose**: To fetch multiple records with optional sorting, pagination, and model conversion.
 **Return Types**:
-- When `return_as_model=True` and `schema_to_select` is provided: `GetMultiResponseModel[SelectSchemaType]` (i.e., `Dict[str, Union[List[SelectSchemaType], int]]`)
-- When `return_as_model=False`: `GetMultiResponseDict` (i.e., `Dict[str, Union[List[Dict[str, Any]], int]]`)
+- When `return_as_model=True` and `schema_to_select` is provided: `GetMultiResponseModel[SelectSchemaType]` - a TypedDict with `data: list[SelectSchemaType]` and `total_count: int` (when `return_total_count=True`)
+- When `return_as_model=False`: `GetMultiResponseDict` - a TypedDict with `data: list[dict[str, Any]]` and `total_count: int` (when `return_total_count=True`)
 
 **Usage Examples**: 
 
@@ -470,10 +470,10 @@ get_multi_joined(
 ) -> dict[str, Any]
 ```
 
-**Purpose**: Similar to `get_joined`, but for fetching multiple records.  
+**Purpose**: Similar to `get_joined`, but for fetching multiple records.
 **Return Types**:
-- When `return_as_model=True` and `schema_to_select` is provided: `GetMultiResponseModel[SelectSchemaType]` (i.e., `Dict[str, Union[List[SelectSchemaType], int]]`)
-- When `return_as_model=False`: `GetMultiResponseDict` (i.e., `Dict[str, Union[List[Dict[str, Any]], int]]`)
+- When `return_as_model=True` and `schema_to_select` is provided: `GetMultiResponseModel[SelectSchemaType]` - a TypedDict with `data: list[SelectSchemaType]` and `total_count: int` (when `return_total_count=True`)
+- When `return_as_model=False`: `GetMultiResponseDict` - a TypedDict with `data: list[dict[str, Any]]` and `total_count: int` (when `return_total_count=True`)
 
 **Usage Examples**: 
 
@@ -519,10 +519,10 @@ get_multi_by_cursor(
 ) -> dict[str, Any]
 ```
 
-**Purpose**: Implements cursor-based pagination for efficient data retrieval in large datasets.  
-**Return Types**:
-- When `return_as_model=True` and `schema_to_select` is provided: `Dict[str, Union[List[SelectSchemaType], Any]]`
-- When `return_as_model=False`: `Dict[str, Union[List[Dict[str, Any]], Any]]`
+**Purpose**: Implements cursor-based pagination for efficient data retrieval in large datasets.
+**Return Types**: A dictionary with `data: list[...]` and `next_cursor: Any`:
+- When `return_as_model=True` and `schema_to_select` is provided: `{"data": list[SelectSchemaType], "next_cursor": Any}`
+- When `return_as_model=False`: `{"data": list[dict[str, Any]], "next_cursor": Any}`
 
 **Usage Examples**: 
 
