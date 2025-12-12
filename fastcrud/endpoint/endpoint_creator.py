@@ -745,6 +745,7 @@ class EndpointCreator:
                 include_in_schema=self.include_in_schema,
                 tags=self.tags,
                 dependencies=inject_dependencies(create_deps),
+                name=f"{self.model.__name__.lower()}_create",
                 description=f"Create a new {self.model.__name__} row in the database.",
             )
 
@@ -757,6 +758,7 @@ class EndpointCreator:
                 tags=self.tags,
                 dependencies=inject_dependencies(read_deps),
                 response_model=self.select_schema if self.select_schema else None,
+                name=f"{self.model.__name__.lower()}_read",
                 description=f"Read a single {self.model.__name__} row from the database by its primary keys: {self.primary_key_names}.",
             )
 
@@ -779,6 +781,7 @@ class EndpointCreator:
                 tags=self.tags,
                 dependencies=inject_dependencies(read_multi_deps),
                 response_model=response_model,
+                name=f"{self.model.__name__.lower()}_read_multi",
                 description=(
                     f"Read multiple {self.model.__name__} rows from the database.\n\n"
                     f"**Pagination Options:**\n"
@@ -802,6 +805,7 @@ class EndpointCreator:
                 include_in_schema=self.include_in_schema,
                 tags=self.tags,
                 dependencies=inject_dependencies(update_deps),
+                name=f"{self.model.__name__.lower()}_update",
                 description=f"Update an existing {self.model.__name__} row in the database by its primary keys: {self.primary_key_names}.",
             )
 
@@ -814,6 +818,7 @@ class EndpointCreator:
                 include_in_schema=self.include_in_schema,
                 tags=self.tags,
                 dependencies=inject_dependencies(delete_deps),
+                name=f"{self.model.__name__.lower()}_delete",
                 description=f"{delete_description} {self.model.__name__} row from the database by its primary keys: {self.primary_key_names}.",
             )
 
@@ -829,6 +834,7 @@ class EndpointCreator:
                 include_in_schema=self.include_in_schema,
                 tags=self.tags,
                 dependencies=inject_dependencies(db_delete_deps),
+                name=f"{self.model.__name__.lower()}_db_delete",
                 description=f"Permanently delete a {self.model.__name__} row from the database by its primary keys: {self.primary_key_names}.",
             )
 
