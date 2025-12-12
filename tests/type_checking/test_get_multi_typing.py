@@ -35,7 +35,7 @@ crud: FastCRUD[MyModel, MySchema, MySchema, MySchema, MySchema, MySchema] = Fast
 )
 
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from sqlalchemy.ext.asyncio import AsyncSession
 
     async def test_get_multi_with_model(db: AsyncSession) -> None:

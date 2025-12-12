@@ -16,7 +16,7 @@ def custom_filter_client(
     app = FastAPI()
 
     # Custom filter that checks if value is in a range (between min and max)
-    def in_range(col: Column) -> FilterCallable:
+    def in_range(col: Column) -> FilterCallable:  # pragma: no cover
         def filter_fn(value):
             if isinstance(value, (list, tuple)) and len(value) == 2:
                 return (col >= value[0]) & (col <= value[1])
@@ -50,7 +50,7 @@ def override_filter_client(
     app = FastAPI()
 
     # Override 'eq' to be case-insensitive for strings
-    def case_insensitive_eq(col: Column) -> FilterCallable:
+    def case_insensitive_eq(col: Column) -> FilterCallable:  # pragma: no cover
         def filter_fn(value):
             from sqlalchemy import func
 
@@ -121,7 +121,7 @@ async def test_custom_filter_validation_in_filter_config(
     """Test that custom operators are recognized in FilterConfig validation."""
     app = FastAPI()
 
-    def custom_op(col: Column) -> FilterCallable:
+    def custom_op(col: Column) -> FilterCallable:  # pragma: no cover
         def filter_fn(value):
             return col == value
 
