@@ -24,7 +24,7 @@ from .protocols import (
 )
 from .introspection import ModelInspector, get_model_inspector
 from .join_processing import JoinProcessor, handle_null_primary_key_multi_join
-from .filtering import FilterProcessor, get_sqlalchemy_filter
+from .filtering import FilterProcessor, FilterCallable, get_sqlalchemy_filter
 from .query import (
     SQLQueryBuilder,
     SortProcessor,
@@ -123,6 +123,7 @@ __all__ = [
     "handle_null_primary_key_multi_join",
     # Filtering engine
     "FilterProcessor",
+    "FilterCallable",
     "get_sqlalchemy_filter",
     # Query building engine
     "SQLQueryBuilder",

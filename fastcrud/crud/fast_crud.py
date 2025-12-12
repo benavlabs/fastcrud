@@ -1,4 +1,4 @@
-from typing import Any, Generic, Union, Optional, Callable, overload, Literal, cast
+from typing import Any, Generic, Union, Optional, overload, Literal, cast
 from datetime import datetime, timezone
 
 from sqlalchemy import (
@@ -7,14 +7,13 @@ from sqlalchemy import (
     delete,
     func,
     column,
-    Column,
 )
 from sqlalchemy.exc import MultipleResultsFound
 from sqlalchemy.sql import Join
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.engine.row import Row
 from sqlalchemy.orm.util import AliasedClass
-from sqlalchemy.sql.elements import BinaryExpression, ColumnElement
+from sqlalchemy.sql.elements import BinaryExpression
 from sqlalchemy.sql.selectable import Select
 
 from fastcrud.types import (
@@ -38,6 +37,7 @@ from ..core import (
     get_primary_key_names,
     get_primary_key_columns,
     FilterProcessor,
+    FilterCallable,
     SQLQueryBuilder,
     format_multi_response,
     process_joined_data,
@@ -63,8 +63,6 @@ from .database_specific import (
     upsert_multi_mysql,
 )
 
-FilterCallable = Callable[[Column[Any]], Callable[..., ColumnElement[bool]]]
-
 
 class FastCRUD(
     Generic[
@@ -87,6 +85,8 @@ class FastCRUD(
         is_deleted_column: Optional column name to use for indicating a soft delete. Defaults to `"is_deleted"`.
         deleted_at_column: Optional column name to use for storing the timestamp of a soft delete. Defaults to `"deleted_at"`.
         updated_at_column: Optional column name to use for storing the timestamp of an update. Defaults to `"updated_at"`.
+        custom_filters: Optional dictionary of custom filter operators. Keys are operator names (e.g., 'year'),
+            values are callables that take a column and return a filter function.
 
     Methods:
         create:
@@ -477,6 +477,7 @@ class FastCRUD(
         deleted_at_column: str = "deleted_at",
         updated_at_column: str = "updated_at",
         multi_response_key: str = "data",
+        custom_filters: Optional[dict[str, FilterCallable]] = None,
     ) -> None:
         self.model = model
         self.model_col_names = [col.key for col in model.__table__.columns]
@@ -484,8 +485,9 @@ class FastCRUD(
         self.deleted_at_column = deleted_at_column
         self.updated_at_column = updated_at_column
         self.multi_response_key = multi_response_key
+        self.custom_filters = custom_filters
         self._primary_keys = get_primary_key_columns(self.model)
-        self._filter_processor = FilterProcessor(self.model)
+        self._filter_processor = FilterProcessor(self.model, custom_filters)
         self._query_builder = SQLQueryBuilder(self.model)
 
     @overload

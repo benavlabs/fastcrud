@@ -13,7 +13,7 @@ from sqlalchemy.sql.elements import ColumnElement
 
 from ..introspection import get_model_column
 from ...types import ModelType, FilterValueType
-from .operators import get_sqlalchemy_filter
+from .operators import get_sqlalchemy_filter, FilterCallable
 from .validators import validate_joined_filter_format
 
 
@@ -26,26 +26,41 @@ class FilterProcessor:
     range of filtering scenarios including simple equality, comparison operators,
     OR/NOT conditions, and joined model filters.
 
-    The processor is designed to be stateless (except for the model reference)
-    and can be reused across multiple filtering operations.
+    The processor is designed to be stateless (except for the model reference
+    and optional custom filters) and can be reused across multiple filtering operations.
 
     Attributes:
         model: The base SQLAlchemy model for filtering operations
+        custom_filters: Optional dictionary of custom filter operators
 
     Example:
         >>> processor = FilterProcessor(User)
         >>> filters = processor.parse_filters(name='John', age__gt=25)
         >>> # Returns [User.name == 'John', User.age > 25]
+
+        >>> # With custom filters
+        >>> from sqlalchemy import func
+        >>> custom = {"year": lambda col: lambda val: func.extract('year', col) == val}
+        >>> processor = FilterProcessor(User, custom_filters=custom)
+        >>> filters = processor.parse_filters(created_at__year=2024)
     """
 
-    def __init__(self, model: type[ModelType]):
+    def __init__(
+        self,
+        model: type[ModelType],
+        custom_filters: Optional[dict[str, FilterCallable]] = None,
+    ):
         """
         Initialize the filter processor.
 
         Args:
             model: The SQLAlchemy model to use as the base for filtering
+            custom_filters: Optional dictionary of custom filter operators.
+                Keys are operator names (e.g., 'year'), values are callables
+                that take a column and return a filter function.
         """
         self.model = model
+        self.custom_filters = custom_filters
 
     def parse_filters(
         self, model: Optional[Union[type[ModelType], AliasedClass]] = None, **kwargs
@@ -154,7 +169,9 @@ class FilterProcessor:
         for or_op, or_value in value.items():
             if isinstance(or_value, list):
                 for single_value in or_value:
-                    filter_func = get_sqlalchemy_filter(or_op, single_value)
+                    filter_func = get_sqlalchemy_filter(
+                        or_op, single_value, self.custom_filters
+                    )
                     if filter_func:
                         condition = (
                             filter_func(col)(*single_value)
@@ -163,7 +180,9 @@ class FilterProcessor:
                         )
                         or_conditions.append(condition)
             else:
-                filter_func = get_sqlalchemy_filter(or_op, or_value)
+                filter_func = get_sqlalchemy_filter(
+                    or_op, or_value, self.custom_filters
+                )
                 if filter_func:
                     condition = (
                         filter_func(col)(*or_value)
@@ -198,7 +217,9 @@ class FilterProcessor:
         for not_op, not_value in value.items():
             if isinstance(not_value, list):
                 for single_value in not_value:
-                    filter_func = get_sqlalchemy_filter(not_op, single_value)
+                    filter_func = get_sqlalchemy_filter(
+                        not_op, single_value, self.custom_filters
+                    )
                     if filter_func:
                         condition = (
                             filter_func(col)(*single_value)
@@ -207,7 +228,9 @@ class FilterProcessor:
                         )
                         not_conditions.append(not_(condition))
             else:
-                filter_func = get_sqlalchemy_filter(not_op, not_value)
+                filter_func = get_sqlalchemy_filter(
+                    not_op, not_value, self.custom_filters
+                )
                 if filter_func:
                     condition = (
                         filter_func(col)(*not_value)
@@ -235,7 +258,7 @@ class FilterProcessor:
         Raises:
             ValueError: If operator is not supported
         """
-        filter_func = get_sqlalchemy_filter(operator, value)
+        filter_func = get_sqlalchemy_filter(operator, value, self.custom_filters)
         if not filter_func:
             raise ValueError(f"Unsupported filter operator: {operator}")
 

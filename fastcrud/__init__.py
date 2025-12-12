@@ -21,6 +21,7 @@ from .core import (
     CursorPaginatedRequestQuery,
     paginated_response,
     compute_offset,
+    FilterCallable,
 )
 
 __all__ = [
@@ -33,6 +34,7 @@ __all__ = [
     "aliased",
     "AliasedClass",
     "FilterConfig",
+    "FilterCallable",
     "CreateConfig",
     "UpdateConfig",
     "DeleteConfig",
