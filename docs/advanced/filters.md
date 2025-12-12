@@ -179,3 +179,130 @@ results = await crud.get_multi(
 - Invalid column names raise `ValueError`
 - Invalid operators are ignored
 - Invalid value types for operators (e.g., non-list for `between`) raise `ValueError`
+
+## Custom Filters
+
+You can define custom filter operators at the instance level by passing `custom_filters` to `FastCRUD`, `EndpointCreator`, or `crud_router`. This allows you to extend or override the built-in filter operators.
+
+### Defining Custom Filters
+
+A custom filter is a callable that takes a SQLAlchemy column and returns a function that generates a filter condition:
+
+```python
+from sqlalchemy import Column, func
+from fastcrud import FastCRUD, FilterCallable
+
+# Custom filter: check if year matches
+def year_filter(col: Column) -> FilterCallable:
+    def filter_fn(value):
+        return func.extract('year', col) == value
+    return filter_fn
+
+# Custom filter: case-insensitive equality
+def case_insensitive_eq(col: Column) -> FilterCallable:
+    def filter_fn(value):
+        if isinstance(value, str):
+            return func.lower(col) == func.lower(value)
+        return col == value
+    return filter_fn
+
+# Custom filter: check if value is greater than doubled input
+def double_gt(col: Column) -> FilterCallable:
+    def filter_fn(value):
+        return col > value * 2
+    return filter_fn
+```
+
+### Using Custom Filters with FastCRUD
+
+```python
+from fastcrud import FastCRUD
+
+# Create FastCRUD instance with custom filters
+crud = FastCRUD(
+    MyModel,
+    custom_filters={
+        "year": year_filter,
+        "double_gt": double_gt,
+    }
+)
+
+# Use custom filters in queries
+results = await crud.get_multi(
+    db,
+    created_at__year=2024,        # Uses custom year filter
+    price__double_gt=50,          # Uses custom double_gt filter (price > 100)
+    status__eq="active",          # Uses built-in eq filter
+)
+```
+
+### Using Custom Filters with crud_router
+
+```python
+from fastcrud import crud_router, FilterConfig
+
+router = crud_router(
+    session=get_session,
+    model=MyModel,
+    create_schema=CreateSchema,
+    update_schema=UpdateSchema,
+    custom_filters={
+        "year": year_filter,
+        "eq": case_insensitive_eq,  # Override built-in eq
+    },
+    filter_config=FilterConfig(
+        created_at__year=None,
+        name__eq=None,
+    ),
+    path="/items",
+    tags=["Items"],
+)
+```
+
+### Overriding Built-in Operators
+
+Custom filters take precedence over built-in operators. This allows you to change default behavior:
+
+```python
+# Override the default 'eq' operator to be case-insensitive
+crud = FastCRUD(
+    UserModel,
+    custom_filters={"eq": case_insensitive_eq}
+)
+
+# Now name__eq will be case-insensitive
+results = await crud.get_multi(db, name__eq="alice")  # Matches "Alice", "ALICE", etc.
+```
+
+Note: Simple equality filters (`name=value`) use direct comparison and are not affected by custom 'eq' operators. Use explicit operator syntax (`name__eq=value`) to use custom operators.
+
+### Instance-Level Isolation
+
+Custom filters are scoped to the specific `FastCRUD` instance. Different instances can have different custom filters without affecting each other:
+
+```python
+# Instance with custom filters
+crud_with_custom = FastCRUD(MyModel, custom_filters={"year": year_filter})
+
+# Instance without custom filters
+crud_standard = FastCRUD(MyModel)
+
+# Custom filter works on first instance
+results = await crud_with_custom.get_multi(db, created_at__year=2024)  # Works
+
+# Raises error on second instance (unknown operator)
+results = await crud_standard.get_multi(db, created_at__year=2024)  # ValueError
+```
+
+### FilterCallable Type
+
+The `FilterCallable` type is exported from FastCRUD for type hints:
+
+```python
+from fastcrud import FilterCallable
+
+def my_custom_filter(col: Column) -> FilterCallable:
+    def filter_fn(value):
+        return col == value
+    return filter_fn
+```
