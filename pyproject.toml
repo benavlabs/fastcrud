@@ -1,6 +1,6 @@
 [project]
 name = "fastcrud"
-version = "0.19.2"
+version = "0.20.0"
 description = "FastCRUD is a Python package for FastAPI, offering robust async CRUD operations and flexible endpoint creation utilities."
 authors = [{ name = "Igor Benav", email = "igor@benav.io" }]
 requires-python = ">=3.9.2,<4"

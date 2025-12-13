@@ -5,6 +5,80 @@
 The Changelog documents all notable changes made to FastCRUD. This includes new features, bug fixes, and improvements. It's organized by version and date, providing a clear history of the library's development.
 ___
 
+## [0.20.0] - Dec 13, 2025
+
+#### Added
+- **Custom Filter Operators** by [@igorbenav](https://github.com/igorbenav)
+  - Define and use custom filter operators at the instance level via `custom_filters` parameter
+  - Custom filters extend or override built-in operators like `eq`, `gt`, `like`, etc.
+  - Instance-level isolation allows different `FastCRUD` instances to have different filter behaviors
+  - New `FilterCallable` type exported for type hints
+  - Works with `FastCRUD`, `EndpointCreator`, and `crud_router`
+
+#### Fixed
+- **Swagger Operation Names** by [@igorbenav](https://github.com/igorbenav)
+  - Auto-generated CRUD endpoints now display meaningful operation IDs in OpenAPI documentation
+  - Endpoints show `modelname_create`, `modelname_read`, `modelname_read_multi`, etc. instead of generic "Endpoint"
+  - Added `name` parameter to all `add_api_route()` calls in `EndpointCreator`
+- **TypedDict Response Types** by [@igorbenav](https://github.com/igorbenav)
+  - `GetMultiResponseModel` and `GetMultiResponseDict` now use proper `TypedDict` classes
+  - Eliminates type checker false positives when accessing `data` or `total_count` keys
+  - Added `UpsertMultiResponseDict` and `UpsertMultiResponseModel` TypedDict classes
+
+#### Improved
+- **Python Version Upgrade** by [@igorbenav](https://github.com/igorbenav)
+  - Minimum Python version upgraded from 3.9 to 3.11
+  - Enables use of modern Python features and improved performance
+
+#### Removed
+- **`fastcrud.paginated` Module** by [@igorbenav](https://github.com/igorbenav)
+  - The deprecated `fastcrud.paginated` module has been completely removed
+  - Import pagination utilities directly from `fastcrud` instead:
+    ```python
+    from fastcrud import PaginatedListResponse, PaginatedRequestQuery
+    ```
+
+#### Breaking Changes
+⚠️ **`create()` Method Return Type Changed**
+
+The `create()` method no longer returns the SQLAlchemy model when `schema_to_select` is not provided. It now returns `None` for consistency with other CRUD methods.
+
+```python
+# Before (v0.19.x) - returned SQLAlchemy model
+user = await crud.create(db, user_data)
+print(user.id)  # Worked
+
+# After (v0.20.0) - returns None
+result = await crud.create(db, user_data)
+print(result)  # None
+
+# To get data back, provide schema_to_select
+user = await crud.create(db, user_data, schema_to_select=UserSchema, return_as_model=True)
+```
+
+⚠️ **`fastcrud.paginated` Module Removed**
+
+Update imports from deprecated module:
+```python
+# Old (no longer works)
+from fastcrud.paginated import PaginatedListResponse
+
+# New (required)
+from fastcrud import PaginatedListResponse
+```
+
+⚠️ **Python 3.11+ Required**
+
+Python 3.9 and 3.10 are no longer supported.
+
+#### What's Changed
+* Remove deprecated by [@igorbenav](https://github.com/igorbenav) in https://github.com/benavlabs/fastcrud/pull/292
+* Some features and fixes by [@igorbenav](https://github.com/igorbenav) in https://github.com/benavlabs/fastcrud/pull/298
+
+**Full Changelog**: https://github.com/benavlabs/fastcrud/compare/v0.19.2...v0.20.0
+
+___
+
 ## [0.19.2] - Nov 15, 2025
 
 #### Added
