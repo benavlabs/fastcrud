@@ -23,10 +23,15 @@ The pagination utilities are now consolidated in a single core module:
     rendering:
       show_if_no_docstring: true
 
-## Backward Compatibility
+## Migration Guide
 
-For backward compatibility, the original imports still work but will issue deprecation warnings:
+If you were importing from `fastcrud.paginated`, update your imports:
 
-::: fastcrud.paginated
-    rendering:
-      show_if_no_docstring: true
+| Old Import | New Import |
+|------------|------------|
+| `from fastcrud.paginated import PaginatedListResponse` | `from fastcrud import PaginatedListResponse` |
+| `from fastcrud.paginated import PaginatedRequestQuery` | `from fastcrud import PaginatedRequestQuery` |
+| `from fastcrud.paginated import CursorPaginatedRequestQuery` | `from fastcrud import CursorPaginatedRequestQuery` |
+| `from fastcrud.paginated import ListResponse` | `from fastcrud import ListResponse` |
+| `from fastcrud.paginated import paginated_response` | `from fastcrud import paginated_response` |
+| `from fastcrud.paginated import compute_offset` | `from fastcrud import compute_offset` |
