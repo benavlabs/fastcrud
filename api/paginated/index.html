@@ -1128,18 +1128,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#backward-compatibility" class="md-nav__link">
+  <a href="#migration-guide" class="md-nav__link">
     <span class="md-ellipsis">
-      Backward Compatibility
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#fastcrud.paginated" class="md-nav__link">
-    <span class="md-ellipsis">
-      paginated
+      Migration Guide
     </span>
   </a>
   
@@ -1569,18 +1560,9 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#backward-compatibility" class="md-nav__link">
+  <a href="#migration-guide" class="md-nav__link">
     <span class="md-ellipsis">
-      Backward Compatibility
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#fastcrud.paginated" class="md-nav__link">
-    <span class="md-ellipsis">
-      paginated
+      Migration Guide
     </span>
   </a>
   
@@ -1607,8 +1589,8 @@
 
 <h1 id="paginated-module-reference">Paginated Module Reference<a class="headerlink" href="#paginated-module-reference" title="Permanent link">&para;</a></h1>
 <div class="admonition warning">
-<p class="admonition-title">Deprecated</p>
-<p>The <code>fastcrud.paginated</code> module is deprecated as of version 0.18.0 and will be removed in the next major version. Please import pagination utilities directly from <code>fastcrud</code> instead:</p>
+<p class="admonition-title">Removed in v0.20.0</p>
+<p>The <code>fastcrud.paginated</code> module was deprecated as of version 0.18.0 and was removed in v0.20.0. Please import pagination utilities directly from <code>fastcrud</code> instead:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Old (deprecated)</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="kn">from</span> <span class="nn">fastcrud.paginated</span> <span class="kn">import</span> <span class="n">PaginatedListResponse</span><span class="p">,</span> <span class="n">PaginatedRequestQuery</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
@@ -2528,56 +2510,42 @@ meaning the display should start with the 21st item.</p>
 
     </div>
 
-</div><h2 id="backward-compatibility">Backward Compatibility<a class="headerlink" href="#backward-compatibility" title="Permanent link">&para;</a></h2>
-<p>For backward compatibility, the original imports still work but will issue deprecation warnings:</p>
-
-
-<div class="doc doc-object doc-module">
-
-
-
-<a id="fastcrud.paginated"></a>
-    <div class="doc doc-contents first">
-
-        <p>Backward compatibility module for paginated utilities.</p>
-<p>.. deprecated:: 0.19.0
-   The <code>fastcrud.paginated</code> module is deprecated and will be removed in the next major version.
-   Please import pagination utilities directly from <code>fastcrud</code> instead:</p>
-<p>.. code-block:: python</p>
-<div class="codehilite"><pre><span></span><code>   <span class="c1"># Old (deprecated)</span>
-   <span class="kn">from</span> <span class="nn">fastcrud.paginated</span> <span class="kn">import</span> <span class="n">PaginatedListResponse</span><span class="p">,</span> <span class="n">PaginatedRequestQuery</span>
-
-   <span class="c1"># New (recommended)</span>
-   <span class="kn">from</span> <span class="nn">fastcrud</span> <span class="kn">import</span> <span class="n">PaginatedListResponse</span><span class="p">,</span> <span class="n">PaginatedRequestQuery</span>
-</code></pre></div>
-
-
-
-
-
-
-
-
-
-
-  <div class="doc doc-children">
-
-
-
-
-
-
-
-
-
-
-
-
-  </div>
-
-    </div>
-
-</div>
+</div><h2 id="migration-guide">Migration Guide<a class="headerlink" href="#migration-guide" title="Permanent link">&para;</a></h2>
+<p>If you were importing from <code>fastcrud.paginated</code>, update your imports:</p>
+<table>
+<thead>
+<tr>
+<th>Old Import</th>
+<th>New Import</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>from fastcrud.paginated import PaginatedListResponse</code></td>
+<td><code>from fastcrud import PaginatedListResponse</code></td>
+</tr>
+<tr>
+<td><code>from fastcrud.paginated import PaginatedRequestQuery</code></td>
+<td><code>from fastcrud import PaginatedRequestQuery</code></td>
+</tr>
+<tr>
+<td><code>from fastcrud.paginated import CursorPaginatedRequestQuery</code></td>
+<td><code>from fastcrud import CursorPaginatedRequestQuery</code></td>
+</tr>
+<tr>
+<td><code>from fastcrud.paginated import ListResponse</code></td>
+<td><code>from fastcrud import ListResponse</code></td>
+</tr>
+<tr>
+<td><code>from fastcrud.paginated import paginated_response</code></td>
+<td><code>from fastcrud import paginated_response</code></td>
+</tr>
+<tr>
+<td><code>from fastcrud.paginated import compute_offset</code></td>
+<td><code>from fastcrud import compute_offset</code></td>
+</tr>
+</tbody>
+</table>
 
 
 

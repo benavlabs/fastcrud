@@ -2267,8 +2267,8 @@
 <h2 id="upserting-multiple-records-using-upsert_multi">Upserting multiple records using <code>upsert_multi</code><a class="headerlink" href="#upserting-multiple-records-using-upsert_multi" title="Permanent link">&para;</a></h2>
 <p>FastCRUD provides an <code>upsert_multi</code> method to efficiently upsert multiple records in a single operation. This method is particularly useful when you need to insert new records or update existing ones based on a unique constraint.</p>
 <p><strong>Return Types</strong>:
-- When <code>return_as_model=True</code> and <code>schema_to_select</code> is provided: <code>UpsertMultiResponseModel[SelectSchemaType]</code> (i.e., <code>Dict[str, List[SelectSchemaType]]</code>)
-- When <code>return_as_model=False</code>: <code>UpsertMultiResponseDict</code> (i.e., <code>Dict[str, List[Dict[str, Any]]]</code>)</p>
+- When <code>return_as_model=True</code> and <code>schema_to_select</code> is provided: <code>UpsertMultiResponseModel[SelectSchemaType]</code> - a TypedDict with <code>data: list[SelectSchemaType]</code>
+- When <code>return_as_model=False</code>: <code>UpsertMultiResponseDict</code> - a TypedDict with <code>data: list[dict[str, Any]]</code></p>
 <p><strong>Usage Examples</strong>:</p>
 <p>Upsert multiple records and return as dictionaries:
 <div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="kn">from</span> <span class="nn">fastcrud</span> <span class="kn">import</span> <span class="n">FastCRUD</span>
@@ -2602,8 +2602,8 @@
 </span><span id="__span-29-30"><a id="__codelineno-29-30" name="__codelineno-29-30" href="#__codelineno-29-30"></a><span class="p">)</span>
 </span></code></pre></div>
 <p><strong>Return Types for <code>get_multi_joined</code></strong>:
-- When <code>return_as_model=True</code> and <code>schema_to_select</code> is provided: <code>GetMultiResponseModel[SelectSchemaType]</code> (i.e., <code>Dict[str, Union[List[SelectSchemaType], int]]</code>)
-- When <code>return_as_model=False</code>: <code>GetMultiResponseDict</code> (i.e., <code>Dict[str, Union[List[Dict[str, Any]], int]]</code>)</p>
+- When <code>return_as_model=True</code> and <code>schema_to_select</code> is provided: <code>GetMultiResponseModel[SelectSchemaType]</code> - a TypedDict with <code>data: list[SelectSchemaType]</code> and <code>total_count: int</code> (when <code>return_total_count=True</code>)
+- When <code>return_as_model=False</code>: <code>GetMultiResponseDict</code> - a TypedDict with <code>data: list[dict[str, Any]]</code> and <code>total_count: int</code> (when <code>return_total_count=True</code>)</p>
 <p>Then just pass this list to <code>joins_config</code>:</p>
 <div class="language-python highlight"><span class="filename">Passing to get_multi_joined</span><pre><span></span><code><span id="__span-30-1"><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="kn">from</span> <span class="nn">fastcrud</span> <span class="kn">import</span> <span class="n">JoinConfig</span>
 </span><span id="__span-30-2"><a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>

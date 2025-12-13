@@ -1969,8 +1969,24 @@
 </span></code></pre></div>
 <h3 id="step-3-pick-your-method">Step 3: Pick your Method<a class="headerlink" href="#step-3-pick-your-method" title="Permanent link">&para;</a></h3>
 <p>Then you just pick the method you need and use it like this:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Creating a new record</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">new_record</span> <span class="o">=</span> <span class="k">await</span> <span class="n">item_crud</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">db_session</span><span class="p">,</span> <span class="n">create_schema_instance</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Creating a new record (v0.20.0: returns None without schema_to_select)</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">item_crud</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">db_session</span><span class="p">,</span> <span class="n">create_schema_instance</span><span class="p">)</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="c1"># result is None</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="c1"># To get created data back as dict:</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="n">new_record</span> <span class="o">=</span> <span class="k">await</span> <span class="n">item_crud</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>    <span class="n">db_session</span><span class="p">,</span> 
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>    <span class="n">create_schema_instance</span><span class="p">,</span> 
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>    <span class="n">schema_to_select</span><span class="o">=</span><span class="n">YourReadSchema</span>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="p">)</span>
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>
+</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="c1"># To get created data back as Pydantic model:</span>
+</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="n">new_record</span> <span class="o">=</span> <span class="k">await</span> <span class="n">item_crud</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>    <span class="n">db_session</span><span class="p">,</span> 
+</span><span id="__span-8-15"><a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a>    <span class="n">create_schema_instance</span><span class="p">,</span> 
+</span><span id="__span-8-16"><a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a>    <span class="n">schema_to_select</span><span class="o">=</span><span class="n">YourReadSchema</span><span class="p">,</span>
+</span><span id="__span-8-17"><a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a>    <span class="n">return_as_model</span><span class="o">=</span><span class="kc">True</span>
+</span><span id="__span-8-18"><a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a><span class="p">)</span>
 </span></code></pre></div>
 <p>More on available methods below.</p>
 <hr />
@@ -1985,16 +2001,35 @@
 </span></code></pre></div>
 <p><strong>Purpose</strong>: To create a new record in the database.<br />
 <strong>Usage Example</strong>: Creates an item with name <code>"New Item"</code>.</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="n">new_item</span> <span class="o">=</span> <span class="k">await</span> <span class="n">item_crud</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">CreateItemSchema</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;New Item&quot;</span><span class="p">))</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># v0.20.0: Returns None without schema_to_select</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">item_crud</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">CreateItemSchema</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;New Item&quot;</span><span class="p">))</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="c1"># result is None</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="c1"># To get the created item data back as a dict:</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="n">new_item_dict</span> <span class="o">=</span> <span class="k">await</span> <span class="n">item_crud</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="n">db</span><span class="p">,</span> 
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>    <span class="n">CreateItemSchema</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;New Item&quot;</span><span class="p">),</span> 
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>    <span class="n">schema_to_select</span><span class="o">=</span><span class="n">ReadItemSchema</span>
+</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a><span class="p">)</span>
+</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a><span class="c1"># new_item_dict is a dict with the created item data</span>
+</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>
+</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="c1"># To get the created item data back as a Pydantic model:</span>
+</span><span id="__span-10-14"><a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a><span class="n">new_item_model</span> <span class="o">=</span> <span class="k">await</span> <span class="n">item_crud</span><span class="o">.</span><span class="n">create</span><span class="p">(</span>
+</span><span id="__span-10-15"><a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>    <span class="n">db</span><span class="p">,</span> 
+</span><span id="__span-10-16"><a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a>    <span class="n">CreateItemSchema</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;New Item&quot;</span><span class="p">),</span> 
+</span><span id="__span-10-17"><a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>    <span class="n">schema_to_select</span><span class="o">=</span><span class="n">ReadItemSchema</span><span class="p">,</span>
+</span><span id="__span-10-18"><a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a>    <span class="n">return_as_model</span><span class="o">=</span><span class="kc">True</span>
+</span><span id="__span-10-19"><a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a><span class="p">)</span>
+</span><span id="__span-10-20"><a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a><span class="c1"># new_item_model is a ReadItemSchema instance</span>
 </span></code></pre></div>
-<div class="admonition warning">
-<p class="admonition-title">Deprecated Behavior</p>
-<p><strong>Upcoming Changes in Next Major Version</strong>: The <code>create()</code> method currently behaves inconsistently compared to other CRUD methods like <code>update()</code>. It will change:</p>
+<div class="admonition info">
+<p class="admonition-title">v0.20.0 Behavior</p>
+<p><strong>Changes Completed in v0.20.0</strong>: The <code>create()</code> method now behaves consistently with other CRUD methods like <code>update()</code>. Changes made:</p>
 <ul>
-<li><strong>Currently without <code>schema_to_select</code></strong>: Returns SQLAlchemy model → <strong>Will return <code>None</code></strong></li>
-<li><strong>Currently with <code>schema_to_select</code></strong>: Bypasses <code>return_as_model</code> parameter → <strong>Will respect <code>return_as_model</code> like other methods</strong></li>
+<li><strong>Without <code>schema_to_select</code></strong>: Now returns <code>None</code> (was SQLAlchemy model)</li>
+<li><strong>With <code>schema_to_select</code></strong>: Returns created data immediately - dict by default, Pydantic model if <code>return_as_model=True</code></li>
 </ul>
-<p>This makes <code>create()</code> consistent with <code>update()</code> behavior. Current usage patterns will trigger deprecation warnings. See <a href="../../changelog/#0192---nov-15-2025">changelog</a> for details.</p>
+<p><strong>Recommended</strong>: Always use <code>schema_to_select</code> to get the created data back in one operation. This is more efficient than separate create + get calls.</p>
 </div>
 <div class="admonition warning">
 <p class="admonition-title">Warning</p>
@@ -2064,10 +2099,10 @@
 </span><span id="__span-18-10"><a id="__codelineno-18-10" name="__codelineno-18-10" href="#__codelineno-18-10"></a>    <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
 </span><span id="__span-18-11"><a id="__codelineno-18-11" name="__codelineno-18-11" href="#__codelineno-18-11"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
 </span></code></pre></div>
-<p><strong>Purpose</strong>: To fetch multiple records with optional sorting, pagination, and model conversion.<br />
+<p><strong>Purpose</strong>: To fetch multiple records with optional sorting, pagination, and model conversion.
 <strong>Return Types</strong>:
-- When <code>return_as_model=True</code> and <code>schema_to_select</code> is provided: <code>GetMultiResponseModel[SelectSchemaType]</code> (i.e., <code>Dict[str, Union[List[SelectSchemaType], int]]</code>)
-- When <code>return_as_model=False</code>: <code>GetMultiResponseDict</code> (i.e., <code>Dict[str, Union[List[Dict[str, Any]], int]]</code>)</p>
+- When <code>return_as_model=True</code> and <code>schema_to_select</code> is provided: <code>GetMultiResponseModel[SelectSchemaType]</code> - a TypedDict with <code>data: list[SelectSchemaType]</code> and <code>total_count: int</code> (when <code>return_total_count=True</code>)
+- When <code>return_as_model=False</code>: <code>GetMultiResponseDict</code> - a TypedDict with <code>data: list[dict[str, Any]]</code> and <code>total_count: int</code> (when <code>return_total_count=True</code>)</p>
 <p><strong>Usage Examples</strong>: </p>
 <p>Fetch items as dictionaries:
 <div class="language-python highlight"><pre><span></span><code><span id="__span-19-1"><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a><span class="n">items</span> <span class="o">=</span> <span class="k">await</span> <span class="n">item_crud</span><span class="o">.</span><span class="n">get_multi</span><span class="p">(</span><span class="n">db</span><span class="p">,</span> <span class="n">offset</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="mi">5</span><span class="p">)</span>
@@ -2224,10 +2259,10 @@
 </span><span id="__span-32-20"><a id="__codelineno-32-20" name="__codelineno-32-20" href="#__codelineno-32-20"></a>    <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
 </span><span id="__span-32-21"><a id="__codelineno-32-21" name="__codelineno-32-21" href="#__codelineno-32-21"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
 </span></code></pre></div>
-<p><strong>Purpose</strong>: Similar to <code>get_joined</code>, but for fetching multiple records.<br />
+<p><strong>Purpose</strong>: Similar to <code>get_joined</code>, but for fetching multiple records.
 <strong>Return Types</strong>:
-- When <code>return_as_model=True</code> and <code>schema_to_select</code> is provided: <code>GetMultiResponseModel[SelectSchemaType]</code> (i.e., <code>Dict[str, Union[List[SelectSchemaType], int]]</code>)
-- When <code>return_as_model=False</code>: <code>GetMultiResponseDict</code> (i.e., <code>Dict[str, Union[List[Dict[str, Any]], int]]</code>)</p>
+- When <code>return_as_model=True</code> and <code>schema_to_select</code> is provided: <code>GetMultiResponseModel[SelectSchemaType]</code> - a TypedDict with <code>data: list[SelectSchemaType]</code> and <code>total_count: int</code> (when <code>return_total_count=True</code>)
+- When <code>return_as_model=False</code>: <code>GetMultiResponseDict</code> - a TypedDict with <code>data: list[dict[str, Any]]</code> and <code>total_count: int</code> (when <code>return_total_count=True</code>)</p>
 <p><strong>Usage Examples</strong>: </p>
 <p>Fetch joined records as dictionaries:
 <div class="language-python highlight"><pre><span></span><code><span id="__span-33-1"><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a><span class="n">orders</span> <span class="o">=</span> <span class="k">await</span> <span class="n">order_crud</span><span class="o">.</span><span class="n">get_multi_joined</span><span class="p">(</span>
@@ -2264,10 +2299,10 @@
 </span><span id="__span-35-9"><a id="__codelineno-35-9" name="__codelineno-35-9" href="#__codelineno-35-9"></a>    <span class="o">**</span><span class="n">kwargs</span><span class="p">:</span> <span class="n">Any</span><span class="p">,</span>
 </span><span id="__span-35-10"><a id="__codelineno-35-10" name="__codelineno-35-10" href="#__codelineno-35-10"></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]</span>
 </span></code></pre></div>
-<p><strong>Purpose</strong>: Implements cursor-based pagination for efficient data retrieval in large datasets.<br />
-<strong>Return Types</strong>:
-- When <code>return_as_model=True</code> and <code>schema_to_select</code> is provided: <code>Dict[str, Union[List[SelectSchemaType], Any]]</code>
-- When <code>return_as_model=False</code>: <code>Dict[str, Union[List[Dict[str, Any]], Any]]</code></p>
+<p><strong>Purpose</strong>: Implements cursor-based pagination for efficient data retrieval in large datasets.
+<strong>Return Types</strong>: A dictionary with <code>data: list[...]</code> and <code>next_cursor: Any</code>:
+- When <code>return_as_model=True</code> and <code>schema_to_select</code> is provided: <code>{"data": list[SelectSchemaType], "next_cursor": Any}</code>
+- When <code>return_as_model=False</code>: <code>{"data": list[dict[str, Any]], "next_cursor": Any}</code></p>
 <p><strong>Usage Examples</strong>: </p>
 <p>Cursor pagination with dictionaries:
 <div class="language-python highlight"><pre><span></span><code><span id="__span-36-1"><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a><span class="n">paginated_items</span> <span class="o">=</span> <span class="k">await</span> <span class="n">item_crud</span><span class="o">.</span><span class="n">get_multi_by_cursor</span><span class="p">(</span>

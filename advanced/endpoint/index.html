@@ -2983,6 +2983,11 @@
 <li><strong>Description</strong>: Creates a new item in the database.</li>
 <li><strong>Request Body</strong>: JSON object based on the <code>create_schema</code>.</li>
 <li><strong>Example Request</strong>: <code>POST /items</code> with JSON body.</li>
+<li><strong>Response</strong>: </li>
+<li>When <code>select_schema</code> is provided: Returns the created item data immediately (dict by default, Pydantic model if configured)</li>
+<li>When no <code>select_schema</code>: Returns <code>null</code> (v0.20.0 behavior)</li>
+<li>When auto fields are used: Returns SQLAlchemy model (legacy compatibility)</li>
+<li><strong>Tip</strong>: Use <code>select_schema</code> to get the created data back without additional API calls</li>
 </ul>
 <h3 id="read">Read<a class="headerlink" href="#read" title="Permanent link">&para;</a></h3>
 <ul>
@@ -3505,8 +3510,8 @@ See <a href="https://github.com/igorbenav/fastcrud/issues/67">this issue</a> for
 <h2 id="reusing-pagination-query-parameters">Reusing Pagination Query Parameters<a class="headerlink" href="#reusing-pagination-query-parameters" title="Permanent link">&para;</a></h2>
 <p>FastCRUD provides a <code>PaginatedRequestQuery</code> Pydantic model that encapsulates all query parameters used for pagination and sorting. This model can be reused in custom endpoints using FastAPI's <code>Depends()</code>, making it easy to maintain consistent pagination behavior across your API.</p>
 <div class="admonition warning">
-<p class="admonition-title">Import Path Change</p>
-<p>Until version 0.18.x, pagination utilities were imported from <code>fastcrud.paginated</code>. Starting from version 0.19.0, this import path is deprecated and will be completely removed in version 0.20.0. Please update your imports to use <code>from fastcrud import PaginatedRequestQuery</code> instead.</p>
+<p class="admonition-title">Import Path Changed in v0.20.0</p>
+<p>Until version 0.18.x, pagination utilities were imported from <code>fastcrud.paginated</code>. Starting from version 0.19.0, this import path was deprecated and was completely removed in version 0.20.0. Please update your imports to use <code>from fastcrud import PaginatedRequestQuery</code> instead.</p>
 </div>
 <h3 id="using-paginatedrequestquery-in-custom-endpoints">Using <code>PaginatedRequestQuery</code> in Custom Endpoints<a class="headerlink" href="#using-paginatedrequestquery-in-custom-endpoints" title="Permanent link">&para;</a></h3>
 <p>The <code>PaginatedRequestQuery</code> model includes all standard pagination parameters:</p>
@@ -3612,8 +3617,8 @@ See <a href="https://github.com/igorbenav/fastcrud/issues/67">this issue</a> for
 <h2 id="reusing-cursor-pagination-query-parameters">Reusing Cursor Pagination Query Parameters<a class="headerlink" href="#reusing-cursor-pagination-query-parameters" title="Permanent link">&para;</a></h2>
 <p>FastCRUD also provides a <code>CursorPaginatedRequestQuery</code> Pydantic model for cursor-based pagination. This model is ideal for large datasets and infinite scrolling features, as it provides consistent results even when data is being modified.</p>
 <div class="admonition warning">
-<p class="admonition-title">Import Path Change</p>
-<p>Until version 0.18.x, pagination utilities were imported from <code>fastcrud.paginated</code>. Starting from version 0.19.0, this import path is deprecated and will be completely removed in version 0.20.0. Please update your imports to use <code>from fastcrud import CursorPaginatedRequestQuery</code> instead.</p>
+<p class="admonition-title">Import Path Changed in v0.20.0</p>
+<p>Until version 0.18.x, pagination utilities were imported from <code>fastcrud.paginated</code>. Starting from version 0.19.0, this import path was deprecated and was completely removed in version 0.20.0. Please update your imports to use <code>from fastcrud import CursorPaginatedRequestQuery</code> instead.</p>
 </div>
 <h3 id="using-cursorpaginatedrequestquery-in-custom-endpoints">Using <code>CursorPaginatedRequestQuery</code> in Custom Endpoints<a class="headerlink" href="#using-cursorpaginatedrequestquery-in-custom-endpoints" title="Permanent link">&para;</a></h3>
 <p>The <code>CursorPaginatedRequestQuery</code> model includes cursor-based pagination parameters:</p>

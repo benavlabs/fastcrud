@@ -2627,8 +2627,8 @@
 </span><span id="__span-26-36"><a id="__codelineno-26-36" name="__codelineno-26-36" href="#__codelineno-26-36"></a><span class="p">)</span>
 </span></code></pre></div>
 <p><strong>Return Types</strong>:
-- When <code>return_as_model=True</code> and <code>schema_to_select</code> is provided: <code>GetMultiResponseModel[SelectSchemaType]</code> (i.e., <code>Dict[str, Union[List[SelectSchemaType], int]]</code>)
-- When <code>return_as_model=False</code>: <code>GetMultiResponseDict</code> (i.e., <code>Dict[str, Union[List[Dict[str, Any]], int]]</code>)</p>
+- When <code>return_as_model=True</code> and <code>schema_to_select</code> is provided: <code>GetMultiResponseModel[SelectSchemaType]</code> - a TypedDict with <code>data: list[SelectSchemaType]</code> and <code>total_count: int</code> (when <code>return_total_count=True</code>)
+- When <code>return_as_model=False</code>: <code>GetMultiResponseDict</code> - a TypedDict with <code>data: list[dict[str, Any]]</code> and <code>total_count: int</code> (when <code>return_total_count=True</code>)</p>
 <p>Now, <code>projects_with_participants['data']</code> will contain projects along with their participant information. The full results would look like:</p>
 <div class="language-json highlight"><pre><span></span><code><span id="__span-27-1"><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="p">{</span>
 </span><span id="__span-27-2"><a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a><span class="w">    </span><span class="nt">&quot;data&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
