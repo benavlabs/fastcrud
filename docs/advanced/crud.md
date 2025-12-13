@@ -278,8 +278,8 @@ For detailed examples and usage patterns, see the [joins documentation](joins.md
 FastCRUD provides an `upsert_multi` method to efficiently upsert multiple records in a single operation. This method is particularly useful when you need to insert new records or update existing ones based on a unique constraint.
 
 **Return Types**:
-- When `return_as_model=True` and `schema_to_select` is provided: `UpsertMultiResponseModel[SelectSchemaType]` (i.e., `Dict[str, List[SelectSchemaType]]`)
-- When `return_as_model=False`: `UpsertMultiResponseDict` (i.e., `Dict[str, List[Dict[str, Any]]]`)
+- When `return_as_model=True` and `schema_to_select` is provided: `UpsertMultiResponseModel[SelectSchemaType]` - a TypedDict with `data: list[SelectSchemaType]`
+- When `return_as_model=False`: `UpsertMultiResponseDict` - a TypedDict with `data: list[dict[str, Any]]`
 
 **Usage Examples**:
 
@@ -489,8 +489,8 @@ users = await user_crud.get_multi_joined(
 ```
 
 **Return Types for `get_multi_joined`**:
-- When `return_as_model=True` and `schema_to_select` is provided: `GetMultiResponseModel[SelectSchemaType]` (i.e., `Dict[str, Union[List[SelectSchemaType], int]]`)
-- When `return_as_model=False`: `GetMultiResponseDict` (i.e., `Dict[str, Union[List[Dict[str, Any]], int]]`)
+- When `return_as_model=True` and `schema_to_select` is provided: `GetMultiResponseModel[SelectSchemaType]` - a TypedDict with `data: list[SelectSchemaType]` and `total_count: int` (when `return_total_count=True`)
+- When `return_as_model=False`: `GetMultiResponseDict` - a TypedDict with `data: list[dict[str, Any]]` and `total_count: int` (when `return_total_count=True`)
 
 Then just pass this list to `joins_config`:
 

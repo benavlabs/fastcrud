@@ -573,8 +573,8 @@ projects_with_participants = await project_crud.get_multi_joined(
 ```
 
 **Return Types**:
-- When `return_as_model=True` and `schema_to_select` is provided: `GetMultiResponseModel[SelectSchemaType]` (i.e., `Dict[str, Union[List[SelectSchemaType], int]]`)
-- When `return_as_model=False`: `GetMultiResponseDict` (i.e., `Dict[str, Union[List[Dict[str, Any]], int]]`)
+- When `return_as_model=True` and `schema_to_select` is provided: `GetMultiResponseModel[SelectSchemaType]` - a TypedDict with `data: list[SelectSchemaType]` and `total_count: int` (when `return_total_count=True`)
+- When `return_as_model=False`: `GetMultiResponseDict` - a TypedDict with `data: list[dict[str, Any]]` and `total_count: int` (when `return_total_count=True`)
 
 Now, `projects_with_participants['data']` will contain projects along with their participant information. The full results would look like:
 

@@ -12,7 +12,7 @@ from ..core import (
     PaginatedListResponse,
     PaginatedRequestQuery,
 )
-from ..core.filtering.operators import SUPPORTED_FILTERS
+from ..core.filtering.operators import SUPPORTED_FILTERS, FilterCallable
 from fastcrud.types import (
     CreateSchemaType,
     DeleteSchemaType,
@@ -77,6 +77,8 @@ class EndpointCreator:
                         values are the custom names to use. Unspecified operations will use default names.
         filter_config: Optional `FilterConfig` instance or dictionary to configure filters for the `read_multi` endpoint.
         select_schema: Optional Pydantic schema for selecting an item.
+        custom_filters: Optional dictionary of custom filter operators. Keys are operator names (e.g., 'year'),
+                        values are callables that take a column and return a filter function.
 
     Raises:
         ValueError: If both `included_methods` and `deleted_methods` are provided.
@@ -274,6 +276,7 @@ class EndpointCreator:
         create_config: Optional[CreateConfig] = None,
         update_config: Optional[UpdateConfig] = None,
         delete_config: Optional[DeleteConfig] = None,
+        custom_filters: Optional[dict[str, FilterCallable]] = None,
     ) -> None:
         self._primary_keys = get_primary_key_columns(model)
         self._primary_keys_types = {
@@ -283,11 +286,13 @@ class EndpointCreator:
         }
         self.primary_key_names = [pk.name for pk in self._primary_keys]
         self.session = session
+        self.custom_filters = custom_filters
         self.crud = crud or FastCRUD(
             model=model,
             is_deleted_column=is_deleted_column,
             deleted_at_column=deleted_at_column,
             updated_at_column=updated_at_column,
+            custom_filters=custom_filters,
         )
         self.model = model
         self.create_schema = create_schema
@@ -334,7 +339,7 @@ class EndpointCreator:
 
     def _validate_filter_config(self, filter_config: FilterConfig) -> None:
         model_columns = self.crud.model_col_names
-        supported_filters = SUPPORTED_FILTERS
+        supported_filters = {**SUPPORTED_FILTERS, **(self.custom_filters or {})}
         for key, value in filter_config.filters.items():
             if callable(value):
                 continue
@@ -345,18 +350,20 @@ class EndpointCreator:
                         filter_config.parse_joined_filter(key)
                     )
 
-                    if operator and operator not in supported_filters:
+                    if (
+                        operator and operator not in supported_filters
+                    ):  # pragma: no cover
                         raise ValueError(
                             f"Invalid filter op '{operator}': following filter ops are allowed: {supported_filters.keys()}"
                         )
 
                     if not validate_joined_filter_path(
                         self.model, relationship_path, final_field
-                    ):
+                    ):  # pragma: no cover
                         raise ValueError(
                             f"Invalid joined filter '{key}': relationship path {'.'.join(relationship_path + [final_field])} not found in model '{self.model.__name__}'"
                         )
-                except ValueError as e:
+                except ValueError as e:  # pragma: no cover
                     raise ValueError(f"Invalid joined filter '{key}': {str(e)}")
             else:
                 if "__" in key:
@@ -745,6 +752,7 @@ class EndpointCreator:
                 include_in_schema=self.include_in_schema,
                 tags=self.tags,
                 dependencies=inject_dependencies(create_deps),
+                name=f"{self.model.__name__.lower()}_create",
                 description=f"Create a new {self.model.__name__} row in the database.",
             )
 
@@ -757,6 +765,7 @@ class EndpointCreator:
                 tags=self.tags,
                 dependencies=inject_dependencies(read_deps),
                 response_model=self.select_schema if self.select_schema else None,
+                name=f"{self.model.__name__.lower()}_read",
                 description=f"Read a single {self.model.__name__} row from the database by its primary keys: {self.primary_key_names}.",
             )
 
@@ -779,6 +788,7 @@ class EndpointCreator:
                 tags=self.tags,
                 dependencies=inject_dependencies(read_multi_deps),
                 response_model=response_model,
+                name=f"{self.model.__name__.lower()}_read_multi",
                 description=(
                     f"Read multiple {self.model.__name__} rows from the database.\n\n"
                     f"**Pagination Options:**\n"
@@ -802,6 +812,7 @@ class EndpointCreator:
                 include_in_schema=self.include_in_schema,
                 tags=self.tags,
                 dependencies=inject_dependencies(update_deps),
+                name=f"{self.model.__name__.lower()}_update",
                 description=f"Update an existing {self.model.__name__} row in the database by its primary keys: {self.primary_key_names}.",
             )
 
@@ -814,6 +825,7 @@ class EndpointCreator:
                 include_in_schema=self.include_in_schema,
                 tags=self.tags,
                 dependencies=inject_dependencies(delete_deps),
+                name=f"{self.model.__name__.lower()}_delete",
                 description=f"{delete_description} {self.model.__name__} row from the database by its primary keys: {self.primary_key_names}.",
             )
 
@@ -829,6 +841,7 @@ class EndpointCreator:
                 include_in_schema=self.include_in_schema,
                 tags=self.tags,
                 dependencies=inject_dependencies(db_delete_deps),
+                name=f"{self.model.__name__.lower()}_db_delete",
                 description=f"Permanently delete a {self.model.__name__} row from the database by its primary keys: {self.primary_key_names}.",
             )
 

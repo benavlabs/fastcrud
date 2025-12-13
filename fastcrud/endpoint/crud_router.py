@@ -13,6 +13,7 @@ from fastcrud.types import (
 )
 from .endpoint_creator import EndpointCreator
 from ..core import FilterConfig, CreateConfig, UpdateConfig, DeleteConfig
+from ..core.filtering.operators import FilterCallable
 
 
 def crud_router(
@@ -43,6 +44,7 @@ def crud_router(
     create_config: Optional[CreateConfig] = None,
     update_config: Optional[UpdateConfig] = None,
     delete_config: Optional[DeleteConfig] = None,
+    custom_filters: Optional[dict[str, FilterCallable]] = None,
 ) -> APIRouter:
     """
     Creates and configures a FastAPI router with CRUD endpoints for a given model.
@@ -78,6 +80,8 @@ def crud_router(
                         values are the custom names to use. Unspecified operations will use default names.
         filter_config: Optional `FilterConfig` instance or dictionary to configure filters for the `read_multi` endpoint.
         select_schema: Optional Pydantic schema for selecting an item.
+        custom_filters: Optional dictionary of custom filter operators. Keys are operator names (e.g., 'year'),
+                        values are callables that take a column and return a filter function.
 
     Returns:
         Configured `APIRouter` instance with the CRUD endpoints.
@@ -528,6 +532,7 @@ def crud_router(
         is_deleted_column=is_deleted_column,
         deleted_at_column=deleted_at_column,
         updated_at_column=updated_at_column,
+        custom_filters=custom_filters,
     )
 
     endpoint_creator_class = endpoint_creator or EndpointCreator
@@ -550,6 +555,7 @@ def crud_router(
         create_config=create_config,
         update_config=update_config,
         delete_config=delete_config,
+        custom_filters=custom_filters,
     )
 
     endpoint_creator_instance.add_routes_to_router(
