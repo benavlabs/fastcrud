@@ -5,6 +5,16 @@
 The Changelog documents all notable changes made to FastCRUD. This includes new features, bug fixes, and improvements. It's organized by version and date, providing a clear history of the library's development.
 ___
 
+## [0.20.1] - Dec 16, 2025
+
+#### Fixed
+- **`paginated_response` Type Hint**: Updated `crud_data` parameter to accept `GetMultiResponseDict`, fixing type errors when passing `get_multi()` results.
+
+#### Improved
+- **TypedDict Documentation**: Added guidance on properly typing functions that wrap `get_multi()`.
+
+___
+
 ## [0.20.0] - Dec 13, 2025
 
 #### Added
@@ -24,6 +34,7 @@ ___
   - `GetMultiResponseModel` and `GetMultiResponseDict` now use proper `TypedDict` classes
   - Eliminates type checker false positives when accessing `data` or `total_count` keys
   - Added `UpsertMultiResponseDict` and `UpsertMultiResponseModel` TypedDict classes
+  - When typing wrapper functions, use `-> GetMultiResponseDict` or `-> GetMultiResponseModel[YourSchema]` instead of `-> dict[str, Any]`
 
 #### Improved
 - **Python Version Upgrade** by [@igorbenav](https://github.com/igorbenav)
