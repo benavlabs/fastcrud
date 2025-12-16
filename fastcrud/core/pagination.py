@@ -8,9 +8,11 @@ This module consolidates all pagination-related functionality including:
 - Dynamic response model creation
 """
 
-from typing import Generic, TypeVar, Optional, Type, Any
+from typing import Generic, TypeVar, Optional, Type, Any, Union
 
 from pydantic import BaseModel, create_model, Field
+
+from ..types import GetMultiResponseDict
 
 SchemaType = TypeVar("SchemaType", bound=BaseModel)
 
@@ -40,7 +42,7 @@ def compute_offset(page: int, items_per_page: int) -> int:
 
 
 def paginated_response(
-    crud_data: dict,
+    crud_data: Union[GetMultiResponseDict, dict[str, Any]],
     page: int,
     items_per_page: int,
     multi_response_key: str = "data",
