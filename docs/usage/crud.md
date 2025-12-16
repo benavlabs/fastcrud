@@ -283,14 +283,42 @@ Fetch items as typed Pydantic models:
 from .schemas import ReadItemSchema
 
 items = await item_crud.get_multi(
-    db, 
-    offset=10, 
+    db,
+    offset=10,
     limit=5,
     schema_to_select=ReadItemSchema,
     return_as_model=True
 )
 # Returns: {"data": [ReadItemSchema, ...], "total_count": int}
 ```
+
+**Typing Your Functions**:
+
+When wrapping `get_multi` in your own functions, use the proper return types for full type safety:
+
+```python
+from fastcrud import GetMultiResponseDict, GetMultiResponseModel
+from .schemas import ReadItemSchema
+
+# Option 1: Return as dict with proper typing
+async def get_items(db: AsyncSession) -> GetMultiResponseDict:
+    return await item_crud.get_multi(db)
+
+# Option 2: Return as model with proper typing
+async def get_items_typed(db: AsyncSession) -> GetMultiResponseModel[ReadItemSchema]:
+    return await item_crud.get_multi(
+        db,
+        schema_to_select=ReadItemSchema,
+        return_as_model=True
+    )
+
+# Option 3: Let the type be inferred (omit return annotation)
+async def get_items_inferred(db: AsyncSession):
+    return await item_crud.get_multi(db)
+```
+
+!!! warning "Avoid `-> dict[str, Any]`"
+    Using `-> dict[str, Any]` as a return type annotation discards the type information that `GetMultiResponseDict` provides. If you explicitly annotate with `dict[str, Any]`, you'll need to cast the result and lose the benefit of knowing that `result["data"]` is a `list` and `result["total_count"]` is an `int`.
 
 ### 6. Update
 
