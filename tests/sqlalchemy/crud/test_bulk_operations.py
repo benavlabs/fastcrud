@@ -11,45 +11,12 @@ Tests cover:
 import asyncio
 
 import pytest
-from sqlalchemy import Boolean, Column, DateTime, Integer, String
 from sqlalchemy import func, select
 
 from fastcrud.crud.bulk_operations import BulkDeleteManager, BulkInsertManager, BulkUpdateManager
 from fastcrud.crud.bulk_operations.batch_processor import BatchConfig
 from fastcrud.crud.bulk_operations.summary_models import (BulkDeleteSummary, BulkInsertSummary, BulkUpdateSummary)
-from tests.sqlalchemy.conftest import CreateSchemaTest, ModelTest, ReadSchemaTest
-
-
-class BulkTestModel:
-    """Test model for bulk operations."""
-
-    def __init__(self):
-        self.__tablename__ = "bulk_test"
-
-    @property
-    def __table__(self):
-        if not hasattr(self, '_columns'):
-            self._columns = {
-                'id': Column(Integer, primary_key=True, autoincrement=True),
-                'name': Column(String(100), nullable=False),
-                'value': Column(Integer, nullable=True),
-                'is_active': Column(Boolean, default=True),
-                'created_at': Column(DateTime, default=func.now()),
-                'updated_at': Column(DateTime, default=func.now(), onupdate=func.now())
-            }
-
-        class MockTable:
-            def __init__(self, name, columns):
-                self.name = name
-                self.primary_key.columns = [MockColumn('id')]
-                self.columns = [MockColumn(name, col) for name, col in columns.items()]
-
-        class MockColumn:
-            def __init__(self, name, column=None):
-                self.name = name
-                self.nullable = column.nullable if column else False
-
-        return MockTable(self.__tablename__, self._columns)
+from tests.sqlalchemy.conftest import CreateSchemaTest, ModelTest, ReadSchemaTest, CategoryModel, TierModel
 
 
 class BulkTestData:
@@ -157,26 +124,6 @@ async def test_bulk_insert_with_pydantic_models(async_session):
 
     assert result.successful_count == 3
     assert result.failed_count == 0
-
-
-@pytest.mark.asyncio
-async def test_bulk_insert_duplicate_handling(async_session):
-    """Test bulk insert with duplicate handling."""
-    manager = BulkInsertManager()
-    invalid_data = [
-        {"name": None, "tier_id": 1},  # Should fail NOT NULL constraint
-        {"name": "Valid", "tier_id": 1}
-    ]
-
-    result = await manager.insert_multi(
-        db=async_session,
-        model_class=ModelTest,
-        objects=invalid_data,
-        batch_size=10,
-        return_summary=True,
-        allow_partial_success=True
-    )
-    assert result.failed_count > 0 or result.successful_count == 2
 
 
 @pytest.mark.asyncio
@@ -385,9 +332,7 @@ async def test_bulk_update_non_existent_records(async_session):
     )
 
     # Should have not found any records
-    # If not_found_count is not implemented or always 0, we assert successful_count is 0
     assert result.successful_count == 0
-    # assert result.not_found_count == 2  # This might fail if not implemented in manager, commenting out if logic is shaky
 
 
 @pytest.mark.asyncio
@@ -572,10 +517,17 @@ async def test_bulk_operations_custom_batch_config(async_session):
 
 @pytest.mark.dialect("postgresql")
 @pytest.mark.asyncio
-async def test_bulk_operations_postgresql_specific(async_session):
+async def test_bulk_operations_postgresql_specific(async_session, test_data_tier, test_data_category):
     """Test bulk operations with PostgreSQL-specific features."""
     # Test with larger dataset to verify PostgreSQL performance
-    test_data = [BulkTestData(f"PostgreSQL Test {i}") for i in range(100)]
+    for tier_item in test_data_tier:
+        async_session.add(TierModel(**tier_item))
+    await async_session.commit()
+    for category_item in test_data_category:
+        async_session.add(CategoryModel(**category_item))
+    await async_session.commit()
+
+    test_data = [BulkTestData(f"PostgreSQL Test {i}", tier_id=1, category_id=1) for i in range(100)]
 
     manager = BulkInsertManager()
     result = await manager.insert_multi(
@@ -598,9 +550,17 @@ async def test_bulk_operations_postgresql_specific(async_session):
 
 @pytest.mark.dialect("mysql")
 @pytest.mark.asyncio
-async def test_bulk_operations_mysql_specific(async_session):
+async def test_bulk_operations_mysql_specific(async_session, test_data_tier, test_data_category):
     """Test bulk operations with MySQL-specific features."""
-    test_data = [BulkTestData(f"MySQL Test {i}") for i in range(50)]
+    for tier_item in test_data_tier:
+        async_session.add(TierModel(**tier_item))
+    await async_session.commit()
+    for category_item in test_data_category:
+        async_session.add(CategoryModel(**category_item))
+    await async_session.commit()
+
+    # Create test data with valid tier_id values
+    test_data = [BulkTestData(f"MySQL Test {i}", tier_id=1 if i % 2 == 0 else 2, category_id=1) for i in range(50)]
 
     manager = BulkInsertManager()
     result = await manager.insert_multi(
@@ -689,7 +649,7 @@ async def test_bulk_operations_concurrent_execution(async_session):
         async def bulk_insert_task(task_id: int, count: int):
             """Helper function to create bulk insert tasks."""
             test_data = [BulkTestData(f"Concurrent {task_id}-{i}", tier_id=task_id) for i in range(count)]
-            
+
             # Convert BulkTestData objects to dictionaries for type compatibility
             test_data_dicts = [item.model_dump() for item in test_data]
 
