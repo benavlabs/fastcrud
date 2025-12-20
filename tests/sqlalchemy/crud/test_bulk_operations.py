@@ -689,16 +689,24 @@ async def test_bulk_operations_concurrent_execution(async_session):
         async def bulk_insert_task(task_id: int, count: int):
             """Helper function to create bulk insert tasks."""
             test_data = [BulkTestData(f"Concurrent {task_id}-{i}", tier_id=task_id) for i in range(count)]
+            
+            # Convert BulkTestData objects to dictionaries for type compatibility
+            test_data_dicts = [item.model_dump() for item in test_data]
 
             manager = BulkInsertManager()
             result = await manager.insert_multi(
                 db=async_session,
                 model_class=ModelTest,
-                objects=test_data,
+                objects=test_data_dicts,
                 batch_size=5,
                 return_summary=True
             )
-            return result.successful_count
+            # Type narrowing: result is BulkInsertSummary when return_summary=True
+            if isinstance(result, BulkInsertSummary):
+                return result.successful_count
+            else:
+                # This should never happen when return_summary=True
+                return 0
 
         # Execute multiple concurrent bulk operations
         tasks = [
