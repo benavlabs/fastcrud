@@ -87,9 +87,6 @@ def test_cursor_int64_overflow(client):
     assert response.status_code == 400
     data = response.json()
     assert "exceeds valid" in data["detail"] and "range" in data["detail"]
-    print(response)
-
-
 def test_cursor_valid_int(client):
     """Test that valid integer cursor values are accepted."""
     response = client.get("/items?cursor=1000&sort_column=id")
