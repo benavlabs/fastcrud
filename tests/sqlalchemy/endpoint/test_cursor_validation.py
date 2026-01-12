@@ -12,7 +12,6 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.orm import declarative_base
-from datetime import datetime
 from uuid import uuid4
 
 from fastcrud import EndpointCreator
