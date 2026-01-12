@@ -6,7 +6,7 @@ against column type constraints (int32, int64, datetime, UUID).
 """
 
 import pytest
-from typing import Annotated, Optional
+from typing import Annotated
 from fastapi import FastAPI, Depends
 from fastapi.testclient import TestClient
 from sqlalchemy import Column, Integer, String, DateTime
