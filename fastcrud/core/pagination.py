@@ -10,7 +10,7 @@ This module consolidates all pagination-related functionality including:
 
 from typing import Generic, TypeVar, Optional, Type, Any, Union
 
-from pydantic import BaseModel, create_model, Field
+from pydantic import BaseModel, create_model, Field, field_validator
 
 from ..types import GetMultiResponseDict
 
@@ -171,6 +171,23 @@ class CursorPaginatedRequestQuery(BaseModel):
     )
 
     model_config = {"populate_by_name": True}
+
+    @field_validator("cursor", mode="before")
+    @classmethod
+    def coerce_cursor(cls, v):
+        """Try to coerce string cursor to int if it represents a valid integer."""
+        if v is None:
+            return None
+        if isinstance(v, int):
+            return v
+        if isinstance(v, str):
+            # Try to parse as integer first
+            try:
+                return int(v)
+            except ValueError:
+                # Keep as string for datetime/UUID cursors
+                return v
+        return v
 
 
 # ------------- Response Schema Factories -------------
