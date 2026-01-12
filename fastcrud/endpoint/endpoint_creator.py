@@ -1,16 +1,21 @@
 from typing import Type, Optional, Callable, Sequence, Union, Any, cast, Awaitable
 from enum import Enum
+from datetime import datetime
+from uuid import UUID
 
 from fastapi import Depends, Body, APIRouter
 from pydantic import ValidationError, BaseModel
+from sqlalchemy import Integer, BigInteger, SmallInteger
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import NoResultFound
+from sqlalchemy.types import TypeEngine
 
 from fastcrud.crud.fast_crud import FastCRUD
 from ..core import (
     ListResponse,
     PaginatedListResponse,
     PaginatedRequestQuery,
+    CursorPaginatedRequestQuery,
 )
 from ..core.filtering.operators import SUPPORTED_FILTERS, FilterCallable
 from fastcrud.types import (
@@ -46,6 +51,7 @@ from ..core import (
     get_unique_columns,
     get_python_type,
     get_column_types,
+    get_sqlalchemy_column_types,
     validate_joined_filter_path,
 )
 
@@ -326,6 +332,7 @@ class EndpointCreator:
         self.update_config = update_config
         self.delete_config = delete_config
         self.column_types = dict(get_column_types(model))
+        self.sqlalchemy_column_types = get_sqlalchemy_column_types(model)
 
         if select_schema is not None:
             response_key = getattr(self.crud, "multi_response_key", "data")
@@ -336,6 +343,10 @@ class EndpointCreator:
         else:
             self.list_response_model = None  # type: ignore
             self.paginated_response_model = None  # type: ignore
+
+
+    
+
 
     def _validate_filter_config(self, filter_config: FilterConfig) -> None:
         model_columns = self.crud.model_col_names
@@ -379,6 +390,132 @@ class EndpointCreator:
                     raise ValueError(
                         f"Invalid filter column '{key}': not found in model '{self.model.__name__}' columns"
                     )
+
+    @staticmethod
+    def _validate_cursor_value(
+        cursor: Any,
+        sqlalchemy_type: Optional[TypeEngine],
+        python_type: Optional[type],
+        column_name: str,
+    ) -> None:
+        """
+        Validate cursor value against column type constraints.
+        
+        Uses SQLAlchemy type objects to properly distinguish between Integer (INT32)
+        and BigInteger (INT64) columns, ensuring accurate range validation.
+        
+        Args:
+            cursor: The cursor value to validate
+            sqlalchemy_type: The SQLAlchemy TypeEngine of the column (for precise int range)
+            python_type: The Python type of the column (for datetime/UUID validation)
+            column_name: Name of the column for error messages
+            
+        Raises:
+            BadRequestException: If cursor value doesn't match column constraints
+        """
+        if cursor is None:
+            return
+        
+        # Integer validation with precise range checks based on SQLAlchemy type
+        if sqlalchemy_type is not None and isinstance(sqlalchemy_type, (Integer, BigInteger, SmallInteger)):
+            try:
+                cursor_int = int(cursor)
+                
+                # Define ranges for different integer types
+                INT16_MIN, INT16_MAX = -32768, 32767  # SmallInteger
+                INT32_MIN, INT32_MAX = -2147483648, 2147483647  # Integer
+                INT64_MIN, INT64_MAX = -9223372036854775808, 9223372036854775807  # BigInteger
+                
+                # Determine range based on SQLAlchemy type
+                if isinstance(sqlalchemy_type, BigInteger):
+                    min_val, max_val = INT64_MIN, INT64_MAX
+                    type_name = "BIGINT"
+                elif isinstance(sqlalchemy_type, SmallInteger):
+                    min_val, max_val = INT16_MIN, INT16_MAX
+                    type_name = "SMALLINT"
+                else:  # Integer (default for int-like types)
+                    min_val, max_val = INT32_MIN, INT32_MAX
+                    type_name = "INTEGER"
+                
+                if cursor_int < min_val or cursor_int > max_val:
+                    raise BadRequestException(
+                        detail=f"Cursor value {cursor} exceeds valid {type_name} range ({min_val} to {max_val}) for column '{column_name}'"
+                    )
+            except (ValueError, TypeError):
+                raise BadRequestException(
+                    detail=f"Invalid cursor value for integer column '{column_name}': {cursor}"
+                )
+            return
+        
+        # Datetime validation
+        if python_type == datetime:
+            if isinstance(cursor, str):
+                try:
+                    # Handle both ISO format and common datetime formats
+                    datetime.fromisoformat(cursor.replace('Z', '+00:00'))
+                except (ValueError, TypeError):
+                    raise BadRequestException(
+                        detail=f"Invalid cursor value for datetime column '{column_name}': {cursor}. Expected ISO 8601 format (e.g., '2024-01-01T12:00:00')."
+                    )
+        
+        # UUID validation
+        elif python_type == UUID:
+            if isinstance(cursor, str):
+                try:
+                    UUID(cursor)
+                except (ValueError, TypeError):
+                    raise BadRequestException(
+                        detail=f"Invalid cursor value for UUID column '{column_name}': {cursor}. Expected valid UUID format (e.g., '123e4567-e89b-12d3-a456-426614174000')."
+                    )
+
+    def _create_cursor_validator(self) -> Callable:
+        """
+        Create a cursor pagination validator for the current model.
+        
+        Returns a dependency function that validates cursor values
+        against model column types. This can be used as a FastAPI dependency.
+        
+        Example:
+            ```python
+            validator = endpoint_creator._create_cursor_validator()
+            
+            @app.get("/items")
+            async def get_items(
+                query: Annotated[CursorPaginatedRequestQuery, Depends(validator)]
+            ):
+                ...
+            ```
+        """
+        def validate_pagination_args(
+            query: CursorPaginatedRequestQuery = Depends(),
+        ) -> CursorPaginatedRequestQuery:
+            """
+            Validate cursor pagination arguments against model column types.
+            
+            Args:
+                query: The cursor pagination query parameters
+                
+            Returns:
+                The validated query parameters
+                
+            Raises:
+                BadRequestException: If cursor value doesn't match column type constraints
+            """
+            if query.cursor is not None and query.sort_column:
+                # Get both SQLAlchemy type (for precise int range) and Python type (for datetime/UUID)
+                sqlalchemy_type = self.sqlalchemy_column_types.get(query.sort_column)
+                python_type = self.column_types.get(query.sort_column)
+                
+                self._validate_cursor_value(
+                    query.cursor,
+                    sqlalchemy_type,
+                    python_type,
+                    query.sort_column,
+                )
+            
+            return query
+        
+        return validate_pagination_args
 
     def _create_item(self) -> Callable[..., Awaitable[Any]]:
         """Creates an endpoint for creating items in the database.
