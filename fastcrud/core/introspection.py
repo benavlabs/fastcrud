@@ -203,6 +203,32 @@ def get_column_types(model: ModelType) -> tuple:
     return tuple(inspector.column_types.items())
 
 
+def get_sqlalchemy_column_types(model: ModelType) -> dict[str, TypeEngine]:
+    """
+    Get SQLAlchemy type objects for each column.
+
+    Unlike get_column_types which returns Python types (int, str, etc.),
+    this returns the actual SQLAlchemy type objects (Integer, BigInteger, etc.),
+    which is necessary for precise type validation (e.g., distinguishing
+    INT32 vs INT64 ranges).
+
+    Args:
+        model: The SQLAlchemy model to inspect.
+
+    Returns:
+        Dictionary mapping column names to SQLAlchemy TypeEngine objects.
+
+    Example:
+        >>> get_sqlalchemy_column_types(User)
+        {'id': Integer(), 'name': String(length=255), 'big_id': BigInteger()}
+    """
+    inspector = get_model_inspector(model)
+    return {
+        column.name: column.type
+        for column in inspector.inspector.mapper.columns
+    }
+
+
 def get_first_primary_key(model: ModelType) -> str:
     """
     Get the first primary key name for a model.
