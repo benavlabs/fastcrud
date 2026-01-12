@@ -345,9 +345,6 @@ class EndpointCreator:
             self.paginated_response_model = None  # type: ignore
 
 
-    
-
-
     def _validate_filter_config(self, filter_config: FilterConfig) -> None:
         model_columns = self.crud.model_col_names
         supported_filters = {**SUPPORTED_FILTERS, **(self.custom_filters or {})}
