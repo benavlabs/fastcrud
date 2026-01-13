@@ -32,6 +32,157 @@ FastCRUD simplifies CRUD operations while offering capabilities for handling com
 
 The count is implemented as a scalar subquery, which means all records from the primary model will be returned with their respective counts (including 0 for records with no related objects).
 
+## Auto-Detecting Relationships
+
+FastCRUD can automatically detect and include most SQLAlchemy relationships defined on your models, eliminating the need to manually configure `JoinConfig` for each relationship.
+
+### How It Works
+
+When you set `auto_detect_relationships=True`, FastCRUD:
+
+1. Inspects your model using SQLAlchemy's relationship mapper
+2. Discovers all defined relationships (one-to-one and one-to-many)
+3. Automatically detects join conditions using foreign keys
+4. Creates appropriate `JoinConfig` objects for each relationship
+5. Applies left joins to include the related data
+
+### Basic Usage
+
+=== "get_joined"
+    ```python
+    # Auto-detect all relationships on the User model
+    user = await user_crud.get_joined(
+        db=db,
+        auto_detect_relationships=True,
+        id=1,
+    )
+    # Returns user with tier, department, and any other relationships
+    ```
+
+=== "get_multi_joined"
+    ```python
+    # Auto-detect relationships for multiple records
+    users = await user_crud.get_multi_joined(
+        db=db,
+        auto_detect_relationships=True,
+        offset=0,
+        limit=10,
+    )
+    # Returns users with all relationships included
+    ```
+
+### With Nested Responses
+
+Combine with `nest_joins=True` to get nested relationship data:
+
+```python
+user = await user_crud.get_joined(
+    db=db,
+    auto_detect_relationships=True,
+    nest_joins=True,
+    id=1,
+)
+# Response structure:
+# {
+#     "id": 1,
+#     "name": "Alice",
+#     "tier": {
+#         "id": 1,
+#         "name": "Premium"
+#     },
+#     "department": {
+#         "id": 5,
+#         "name": "Engineering"
+#     }
+# }
+```
+
+### Graceful Fallback
+
+If a model has no relationships, auto-detection gracefully falls back to a regular query:
+
+```python
+# Model with no relationships
+result = await simple_crud.get_joined(
+    db=db,
+    auto_detect_relationships=True,
+    id=1,
+)
+# Works without error - returns simple record without joins
+```
+
+### What Gets Auto-Detected
+
+Auto-detection includes:
+
+- ✅ One-to-one relationships
+- ✅ One-to-many relationships
+- ✅ Many-to-many relationships (via association tables)
+- ✅ Relationships with simple foreign keys
+
+Auto-detection skips:
+
+- ❌ Relationships with composite primary keys (complex joins)
+- ❌ Relationships without detectable foreign key constraints
+- ❌ Self-referential relationships (e.g., tree structures)
+
+Complex relationships that can't be auto-detected are silently skipped.
+
+### Important Notes
+
+!!! warning "Mutual Exclusivity"
+    You cannot use `auto_detect_relationships=True` with manual join parameters.
+
+    ```python
+    # ❌ This raises ValueError
+    user = await user_crud.get_joined(
+        db=db,
+        auto_detect_relationships=True,
+        join_model=TierModel,  # Error! Can't mix auto and manual
+        id=1,
+    )
+
+    # ✅ Choose one approach
+    user = await user_crud.get_joined(
+        db=db,
+        auto_detect_relationships=True,  # Auto-detect all
+        id=1,
+    )
+
+    # OR
+
+    user = await user_crud.get_joined(
+        db=db,
+        join_model=TierModel,  # Manual configuration
+        join_on=User.tier_id == TierModel.id,
+        id=1,
+    )
+    ```
+
+### Combining with Schema Selection
+
+Use `schema_to_select` to control which fields are returned from each model:
+
+```python
+from pydantic import BaseModel
+
+class UserSchema(BaseModel):
+    id: int
+    name: str
+    tier_id: int
+    tier_name: str  # From joined tier relationship
+    department_name: str  # From joined department relationship
+
+user = await user_crud.get_joined(
+    db=db,
+    schema_to_select=UserSchema,
+    auto_detect_relationships=True,
+    return_as_model=True,
+    id=1,
+)
+# Returns Pydantic model with selected fields from user and relationships
+```
+
 ## Applying Joins in FastCRUD Methods
 
 ??? example "Models - `Tier`, `Department`, `User`, `Story`, `Task`"

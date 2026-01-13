@@ -470,6 +470,126 @@ class User(Base):
     company = relationship("Company", back_populates="users")
 ```
 
+## Including Relationships in Endpoints
+
+Auto-generated endpoints can automatically include related data from SQLAlchemy relationships using the `include_relationships` parameter.
+
+### Basic Usage
+
+Enable relationship inclusion when creating your router:
+
+=== "crud_router"
+    ```python
+    from fastcrud import crud_router
+
+    router = crud_router(
+        session=get_session,
+        model=User,
+        create_schema=UserCreate,
+        update_schema=UserUpdate,
+        include_relationships=True,  # Enable auto-detection
+        nest_joins=True,  # Nest related data
+        path="/users",
+        tags=["Users"],
+    )
+    ```
+
+=== "EndpointCreator"
+    ```python
+    from fastcrud import EndpointCreator
+
+    endpoint_creator = EndpointCreator(
+        session=get_session,
+        model=User,
+        create_schema=UserCreate,
+        update_schema=UserUpdate,
+        include_relationships=True,  # Enable auto-detection
+        nest_joins=True,  # Nest related data
+        path="/users",
+        tags=["Users"],
+    )
+
+    router = endpoint_creator.add_routes_to_router()
+    ```
+
+### Response Format
+
+When `include_relationships=True`, read endpoints return related data:
+
+**Without relationships:**
+```json
+GET /users/1
+{
+  "id": 1,
+  "name": "Alice Smith",
+  "tier_id": 3,
+  "department_id": 5
+}
+```
+
+**With relationships (`nest_joins=True`):**
+```json
+GET /users/1
+{
+  "id": 1,
+  "name": "Alice Smith",
+  "tier_id": 3,
+  "tier": {
+    "id": 3,
+    "name": "Premium"
+  },
+  "department_id": 5,
+  "department": {
+    "id": 5,
+    "name": "Engineering"
+  }
+}
+```
+
+**With relationships (`nest_joins=False`):**
+```json
+GET /users/1
+{
+  "id": 1,
+  "name": "Alice Smith",
+  "tier_id": 3,
+  "tier_name": "Premium",
+  "department_id": 5,
+  "department_name": "Engineering"
+}
+```
+
+### Affected Endpoints
+
+Relationship data is included in:
+
+- ✅ **Read Item** (`GET /users/{id}`) - Returns single item with relationships
+- ✅ **Read Items** (`GET /users`) - Returns list with relationships for each item
+- ✅ **Create Item** (`POST /users`) - Returns created item with relationships
+- ✅ **Update Item** (`PATCH /users/{id}`) - Returns updated item with relationships
+- ✅ **Delete Item** (`DELETE /users/{id}`) - Returns deleted item with relationships
+- ✅ **DB Delete Item** (`DELETE /users/{id}/db`) - Returns item before deletion with relationships
+
+### How It Works
+
+Under the hood, `include_relationships=True`:
+
+1. Uses FastCRUD's `auto_detect_relationships` feature
+2. Automatically discovers all SQLAlchemy relationships on the model
+3. Applies left joins to include related data
+4. Works seamlessly with pagination, sorting, and filtering
+
+For more details on auto-detection, see [Auto-Detecting Relationships](joins.md#auto-detecting-relationships).
+
+### Performance Considerations
+
+!!! warning "Database Query Performance"
+    Including relationships adds JOIN operations to your queries:
+
+    - Each relationship = one additional JOIN
+    - More JOINs = slower queries and larger responses
+
+
 ## Extending `EndpointCreator`
 
 You can create a subclass of `EndpointCreator` and override or add new methods to define custom routes. Here's an example:

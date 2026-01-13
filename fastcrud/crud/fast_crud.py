@@ -1543,6 +1543,7 @@ class FastCRUD(
             joins_config: A list of `JoinConfig` instances, each specifying a model to join with, join condition, optional prefix for column names, schema for selecting specific columns, and the type of join. This parameter enables support for multiple joins.
             nest_joins: If `True`, nested data structures will be returned where joined model data are nested under the `join_prefix` as a dictionary.
             relationship_type: Specifies the relationship type, such as `"one-to-one"` or `"one-to-many"`. Used to determine how to nest the joined data. If `None`, uses `"one-to-one"`.
+            auto_detect_relationships: If `True`, automatically detect and join all SQLAlchemy relationships defined on the model. Cannot be used with manual join parameters (`join_model`, `joins_config`, etc.). Gracefully falls back to regular `get()` if no relationships exist. Defaults to `False`.
             **kwargs: Filters to apply to the primary model query, supporting advanced comparison operators for refined searching.
 
         Returns:
@@ -1762,6 +1763,20 @@ class FastCRUD(
                 relationship_type='one-to-many',
             )
             # Expect 'result' to have 'posts' as a nested list of dictionaries
+            ```
+
+            Example using auto-detection to automatically join all relationships:
+
+            ```python
+            # Automatically detect and join all relationships defined on the User model
+            user = await user_crud.get_joined(
+                db=session,
+                schema_to_select=ReadUserSchema,
+                auto_detect_relationships=True,
+                nest_joins=True,
+                id=1,
+            )
+            # All defined relationships (tier, department, etc.) are automatically joined
             ```
         """
         # Handle auto-detection first
@@ -2061,6 +2076,7 @@ class FastCRUD(
             return_total_count: If `True`, also returns the total count of rows with the selected filters. Useful for pagination.
             relationship_type: Specifies the relationship type, such as `"one-to-one"` or `"one-to-many"`. Used to determine how to nest the joined data. If `None`, uses `"one-to-one"`.
             nested_schema_to_select: A dictionary mapping join prefixes to their corresponding Pydantic schemas for nested data conversion. If not provided, schemas are auto-detected from `joins_config`.
+            auto_detect_relationships: If `True`, automatically detect and join all SQLAlchemy relationships defined on the model. Cannot be used with manual join parameters (`join_model`, `joins_config`, etc.). Gracefully falls back to regular `get_multi()` if no relationships exist. Defaults to `False`.
             **kwargs: Filters to apply to the primary query, including advanced comparison operators for refined searching.
 
         Returns:
@@ -2342,6 +2358,21 @@ class FastCRUD(
             #     ],
             #     "total_count": 3
             # }
+            ```
+
+            Example using auto-detection to automatically join all relationships:
+
+            ```python
+            # Automatically detect and join all relationships defined on the User model
+            users = await user_crud.get_multi_joined(
+                db=session,
+                schema_to_select=ReadUserSchema,
+                auto_detect_relationships=True,
+                nest_joins=True,
+                offset=0,
+                limit=10,
+            )
+            # All defined relationships (tier, department, etc.) are automatically joined
             ```
         """
         # Handle auto-detection before validation

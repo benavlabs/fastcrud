@@ -79,8 +79,8 @@ class EndpointCreator:
         select_schema: Optional Pydantic schema for selecting an item.
         custom_filters: Optional dictionary of custom filter operators. Keys are operator names (e.g., 'year'),
                         values are callables that take a column and return a filter function.
-        include_relationships: Whether to auto-detect and include SqlAlchemy relationships in the returned data. Defaults to `False`.
-        nest_joins: Whether to nest joined relationships in the returned data. Defaults to `True`.
+        include_relationships: If `True`, automatically detect and include related data from SQLAlchemy relationships in read endpoints. Defaults to `False`.
+        nest_joins: If `True`, nested data structures will be returned where joined model data are nested as dictionaries or lists. Defaults to `True`.
 
     Raises:
         ValueError: If both `included_methods` and `deleted_methods` are provided.
