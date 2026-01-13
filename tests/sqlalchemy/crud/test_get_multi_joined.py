@@ -27,6 +27,7 @@ from ...sqlalchemy.conftest import (
     DepartmentRead,
     UserReadSub,
     TaskRead,
+    ModelWithCustomColumns,
 )
 
 
@@ -1416,9 +1417,6 @@ async def test_get_multi_joined_auto_detect_with_manual_error(async_session):
 @pytest.mark.asyncio
 async def test_get_multi_joined_auto_detect_no_relationships(async_session):
     """Test that auto_detect gracefully handles models with no relationships."""
-    from ...sqlalchemy.conftest import ModelWithCustomColumns
-    from pydantic import BaseModel
-
     class CustomSchema(BaseModel):
         id: int
         meta: str

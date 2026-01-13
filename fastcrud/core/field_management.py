@@ -15,6 +15,7 @@ from sqlalchemy.orm.util import AliasedClass
 
 from .introspection import validate_model_has_table
 from .data import build_column_label
+from .config import JoinConfig
 from ..types import ModelType, SelectSchemaType
 
 from typing import TYPE_CHECKING
@@ -299,8 +300,6 @@ def build_relationship_joins_config(
         # Returns JoinConfig for each relationship (e.g., profile, posts, etc.)
         ```
     """
-    from ..core.config import JoinConfig
-
     relationships = discover_model_relationships(model)
     joins_config = []
 

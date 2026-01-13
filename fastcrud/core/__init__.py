@@ -84,6 +84,8 @@ from .field_management import (
     create_modified_schema,
     extract_matching_columns_from_schema,
     auto_detect_join_condition,
+    discover_model_relationships,
+    build_relationship_joins_config,
 )
 
 # FastAPI-specific utilities
@@ -176,6 +178,8 @@ __all__ = [
     "inject_dependencies",
     "apply_model_pk",
     "auto_detect_join_condition",
+    "discover_model_relationships",
+    "build_relationship_joins_config",
     # Configuration classes
     "JoinConfig",
     "CountConfig",

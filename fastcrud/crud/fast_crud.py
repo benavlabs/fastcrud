@@ -32,6 +32,7 @@ from fastcrud.types import (
 from ..core import (
     extract_matching_columns_from_schema,
     auto_detect_join_condition,
+    build_relationship_joins_config,
     JoinConfig,
     CountConfig,
     get_primary_key_names,
@@ -1772,7 +1773,6 @@ class FastCRUD(
                 )
 
             # Build joins_config from auto-detection
-            from ..core.field_management import build_relationship_joins_config
             joins_config = build_relationship_joins_config(self.model)
 
             # If no relationships exist, fall back to regular get() for efficiency
@@ -2352,7 +2352,6 @@ class FastCRUD(
                     "Use auto_detect_relationships=True with only db, schema_to_select, nest_joins, "
                     "offset, limit, sort_columns, sort_orders, and **kwargs."
                 )
-            from ..core.field_management import build_relationship_joins_config
             joins_config = build_relationship_joins_config(self.model)
 
             # If no relationships exist, fall back to regular get_multi() for efficiency
