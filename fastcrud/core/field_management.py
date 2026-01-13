@@ -247,3 +247,86 @@ def auto_detect_join_condition(
         raise ValueError("Could not automatically get model columns.")
 
     return join_on
+
+
+def discover_model_relationships(
+    model: ModelType,
+) -> list[tuple[str, Any]]:
+    """
+    Discover all SQLAlchemy relationships defined on a model.
+
+    This function inspects a SQLAlchemy model and returns all defined relationships,
+    which can then be used to automatically build join configurations.
+
+    Args:
+        model: The SQLAlchemy model to inspect.
+
+    Returns:
+        List of tuples: (relationship_name, relationship_property)
+
+    Example:
+        ```python
+        relationships = discover_model_relationships(User)
+        for name, rel_prop in relationships:
+            print(f"Found relationship: {name}")
+        ```
+    """
+    inspector = sa_inspect(model)
+    return list(inspector.relationships.items())
+
+
+def build_relationship_joins_config(
+    model: ModelType,
+) -> list[Any]:
+    """
+    Auto-detect all relationships and build JoinConfig list.
+
+    For each relationship discovered on the model:
+    - Auto-detects join condition via foreign keys using auto_detect_join_condition()
+    - Determines relationship type (one-to-one vs one-to-many) from SQLAlchemy metadata
+    - Creates JoinConfig with sensible defaults
+    - Skips relationships where join condition cannot be auto-detected
+
+    Args:
+        model: The SQLAlchemy model to build join configurations for.
+
+    Returns:
+        List of JoinConfig objects for all detected relationships that can be auto-joined.
+
+    Example:
+        ```python
+        joins_config = build_relationship_joins_config(User)
+        # Returns JoinConfig for each relationship (e.g., profile, posts, etc.)
+        ```
+    """
+    from ..core.config import JoinConfig
+
+    relationships = discover_model_relationships(model)
+    joins_config = []
+
+    for rel_name, rel_prop in relationships:
+        related_model = rel_prop.mapper.class_
+
+        try:
+            # Try to auto-detect join condition using existing function
+            join_on = auto_detect_join_condition(model, related_model)
+        except (ValueError, AttributeError):
+            # Skip relationships where join condition cannot be auto-detected
+            # (e.g., complex relationships, multiple primary keys, etc.)
+            continue
+
+        # Determine relationship type from SQLAlchemy property
+        relationship_type = "one-to-many" if rel_prop.uselist else "one-to-one"
+
+        joins_config.append(
+            JoinConfig(
+                model=related_model,
+                join_on=join_on,
+                join_prefix=f"{rel_name}_",
+                schema_to_select=None,  # Include all columns
+                join_type="left",
+                relationship_type=relationship_type,
+            )
+        )
+
+    return joins_config

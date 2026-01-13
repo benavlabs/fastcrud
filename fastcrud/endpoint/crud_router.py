@@ -45,6 +45,8 @@ def crud_router(
     update_config: Optional[UpdateConfig] = None,
     delete_config: Optional[DeleteConfig] = None,
     custom_filters: Optional[dict[str, FilterCallable]] = None,
+    include_relationships: bool = False,
+    nest_joins: bool = True,
 ) -> APIRouter:
     """
     Creates and configures a FastAPI router with CRUD endpoints for a given model.
@@ -82,6 +84,8 @@ def crud_router(
         select_schema: Optional Pydantic schema for selecting an item.
         custom_filters: Optional dictionary of custom filter operators. Keys are operator names (e.g., 'year'),
                         values are callables that take a column and return a filter function.
+        include_relationships: Whether to auto-detect and include SqlAlchemy relationships in the returned data. Defaults to `False`.
+        nest_joins: Whether to nest joined relationships in the returned data. Defaults to `True`.
 
     Returns:
         Configured `APIRouter` instance with the CRUD endpoints.
@@ -555,6 +559,8 @@ def crud_router(
         create_config=create_config,
         update_config=update_config,
         delete_config=delete_config,
+        include_relationships=include_relationships,
+        nest_joins=nest_joins,
         custom_filters=custom_filters,
     )
 

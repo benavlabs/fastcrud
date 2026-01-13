@@ -398,7 +398,7 @@ async def test_get_joined_without_join_model_or_joins_config_raises_value_error(
     with pytest.raises(ValueError) as excinfo:
         await crud.get_joined(db=async_session)
 
-    assert "You need one of join_model or joins_config." in str(excinfo.value)
+    assert "You need one of join_model, joins_config, or auto_detect_relationships." in str(excinfo.value)
 
 
 @pytest.mark.asyncio

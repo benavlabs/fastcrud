@@ -398,7 +398,7 @@ async def test_get_joined_without_join_model_or_joins_config_raises_value_error(
     with pytest.raises(ValueError) as excinfo:
         await crud.get_joined(db=async_session)
 
-    assert "You need one of join_model or joins_config." in str(excinfo.value)
+    assert "You need one of join_model, joins_config, or auto_detect_relationships." in str(excinfo.value)
 
 
 @pytest.mark.asyncio
@@ -884,3 +884,108 @@ async def test_get_joined_return_as_model_with_joins_config(async_session):
         result, "assignee_name"
     ), "Result should have assignee_name attribute"
     assert result.assignee_name == "John Doe"
+
+
+# Tests for auto_detect_relationships parameter
+@pytest.mark.asyncio
+async def test_get_joined_auto_detect_relationships(
+    async_session, test_data, test_data_tier, test_data_category
+):
+    """Test auto-detecting all relationships."""
+    # Setup tier and category data
+    for tier_item in test_data_tier:
+        async_session.add(TierModel(**tier_item))
+    for category_item in test_data_category:
+        async_session.add(CategoryModel(**category_item))
+    await async_session.commit()
+
+    # Add test data
+    for user_item in test_data:
+        async_session.add(ModelTest(**user_item))
+    await async_session.commit()
+
+    crud = FastCRUD(ModelTest)
+    result = await crud.get_joined(
+        db=async_session,
+        schema_to_select=ReadSchemaTest,
+        auto_detect_relationships=True,
+        name="Alice",
+    )
+
+    assert result is not None
+    assert "name" in result
+    assert result["name"] == "Alice"
+    # Should have tier relationship data
+    assert "tier_id" in result or "tier_name" in result
+
+
+@pytest.mark.asyncio
+async def test_get_joined_auto_detect_with_manual_error(async_session):
+    """Test that auto_detect + manual joins raises error."""
+    crud = FastCRUD(ModelTest)
+    with pytest.raises(ValueError, match="Cannot use auto_detect_relationships"):
+        await crud.get_joined(
+            db=async_session,
+            join_model=TierModel,
+            auto_detect_relationships=True,
+            id=1,
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_joined_auto_detect_no_relationships(async_session):
+    """Test that auto_detect gracefully handles models with no relationships."""
+    from ...sqlalchemy.conftest import ModelWithCustomColumns
+    from pydantic import BaseModel
+
+    class CustomSchema(BaseModel):
+        id: int
+        meta: str
+        name: str
+
+    # ModelWithCustomColumns has NO relationships defined
+    custom = ModelWithCustomColumns(id=1, meta="test", name="Test Name")
+    async_session.add(custom)
+    await async_session.commit()
+    await async_session.refresh(custom)
+
+    crud = FastCRUD(ModelWithCustomColumns)
+    # Should work without error - falls back to regular get()
+    result = await crud.get_joined(
+        db=async_session,
+        schema_to_select=CustomSchema,
+        auto_detect_relationships=True,
+        id=custom.id,
+    )
+
+    assert result is not None
+    assert result["id"] == custom.id
+    assert result["name"] == custom.name
+
+
+@pytest.mark.asyncio
+async def test_get_joined_auto_detect_with_nest_joins(
+    async_session, test_data, test_data_tier
+):
+    """Test auto-detection with nested joins enabled."""
+    for tier_item in test_data_tier:
+        async_session.add(TierModel(**tier_item))
+    await async_session.commit()
+
+    for user_item in test_data:
+        async_session.add(ModelTest(**user_item))
+    await async_session.commit()
+
+    crud = FastCRUD(ModelTest)
+    result = await crud.get_joined(
+        db=async_session,
+        schema_to_select=ReadSchemaTest,
+        auto_detect_relationships=True,
+        nest_joins=True,
+        name="Alice",
+    )
+
+    assert result is not None
+    assert "name" in result
+    # With nest_joins, joined data should be nested
+    assert "tier" in result or "category" in result

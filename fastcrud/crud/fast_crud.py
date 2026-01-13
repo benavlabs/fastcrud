@@ -1385,6 +1385,44 @@ class FastCRUD(
             response,
         )
 
+    # New overloads for auto_detect_relationships=True
+    @overload
+    async def get_joined(
+        self,
+        db: AsyncSession,
+        *,
+        auto_detect_relationships: Literal[True],
+        schema_to_select: type[SelectSchemaType],
+        return_as_model: Literal[True],
+        nest_joins: bool = False,
+        **kwargs: Any,
+    ) -> Optional[SelectSchemaType]: ...
+
+    @overload
+    async def get_joined(
+        self,
+        db: AsyncSession,
+        *,
+        auto_detect_relationships: Literal[True],
+        schema_to_select: type[SelectSchemaType],
+        return_as_model: Literal[False] = False,
+        nest_joins: bool = False,
+        **kwargs: Any,
+    ) -> Optional[dict[str, Any]]: ...
+
+    @overload
+    async def get_joined(
+        self,
+        db: AsyncSession,
+        *,
+        auto_detect_relationships: Literal[True],
+        schema_to_select: None = None,
+        return_as_model: bool = False,
+        nest_joins: bool = False,
+        **kwargs: Any,
+    ) -> Optional[dict[str, Any]]: ...
+
+    # Existing overloads for manual joins
     @overload
     async def get_joined(
         self,
@@ -1480,6 +1518,7 @@ class FastCRUD(
         joins_config: Optional[list[JoinConfig]] = None,
         nest_joins: bool = False,
         relationship_type: Optional[str] = None,
+        auto_detect_relationships: bool = False,
         **kwargs: Any,
     ) -> Optional[Union[dict[str, Any], SelectSchemaType]]:
         """
@@ -1724,14 +1763,36 @@ class FastCRUD(
             # Expect 'result' to have 'posts' as a nested list of dictionaries
             ```
         """
-        if joins_config and (
+        # Handle auto-detection first
+        if auto_detect_relationships:
+            if joins_config or join_model or join_on or join_prefix or join_schema_to_select or alias:
+                raise ValueError(
+                    "Cannot use auto_detect_relationships with manual join parameters. "
+                    "Use auto_detect_relationships=True with only db, schema_to_select, nest_joins, and **kwargs."
+                )
+
+            # Build joins_config from auto-detection
+            from ..core.field_management import build_relationship_joins_config
+            joins_config = build_relationship_joins_config(self.model)
+
+            # If no relationships exist, fall back to regular get() for efficiency
+            if not joins_config:
+                return await self.get(
+                    db=db,
+                    schema_to_select=schema_to_select,
+                    return_as_model=return_as_model,
+                    **kwargs
+                )
+
+        # Existing validation for manual joins (skip if auto-detect was used)
+        elif joins_config and (
             join_model or join_prefix or join_on or join_schema_to_select or alias
         ):
             raise ValueError(
                 "Cannot use both single join parameters and joins_config simultaneously."
             )
-        elif not joins_config and not join_model:
-            raise ValueError("You need one of join_model or joins_config.")
+        elif not joins_config and not join_model and not auto_detect_relationships:
+            raise ValueError("You need one of join_model, joins_config, or auto_detect_relationships.")
 
         primary_select = extract_matching_columns_from_schema(
             model=self.model,
@@ -1791,6 +1852,59 @@ class FastCRUD(
 
         return schema_to_select(**processed_data)
 
+    # New overloads for auto_detect_relationships=True
+    @overload
+    async def get_multi_joined(
+        self,
+        db: AsyncSession,
+        *,
+        auto_detect_relationships: Literal[True],
+        schema_to_select: type[SelectSchemaType],
+        return_as_model: Literal[True],
+        nest_joins: bool = False,
+        offset: int = 0,
+        limit: Optional[int] = 100,
+        sort_columns: Optional[Union[str, list[str]]] = None,
+        sort_orders: Optional[Union[str, list[str]]] = None,
+        return_total_count: bool = True,
+        **kwargs: Any,
+    ) -> GetMultiResponseModel[SelectSchemaType]: ...
+
+    @overload
+    async def get_multi_joined(
+        self,
+        db: AsyncSession,
+        *,
+        auto_detect_relationships: Literal[True],
+        schema_to_select: type[SelectSchemaType],
+        return_as_model: Literal[False] = False,
+        nest_joins: bool = False,
+        offset: int = 0,
+        limit: Optional[int] = 100,
+        sort_columns: Optional[Union[str, list[str]]] = None,
+        sort_orders: Optional[Union[str, list[str]]] = None,
+        return_total_count: bool = True,
+        **kwargs: Any,
+    ) -> GetMultiResponseDict: ...
+
+    @overload
+    async def get_multi_joined(
+        self,
+        db: AsyncSession,
+        *,
+        auto_detect_relationships: Literal[True],
+        schema_to_select: None = None,
+        return_as_model: bool = False,
+        nest_joins: bool = False,
+        offset: int = 0,
+        limit: Optional[int] = 100,
+        sort_columns: Optional[Union[str, list[str]]] = None,
+        sort_orders: Optional[Union[str, list[str]]] = None,
+        return_total_count: bool = True,
+        **kwargs: Any,
+    ) -> GetMultiResponseDict: ...
+
+    # Existing overloads for manual joins
     @overload
     async def get_multi_joined(
         self,
@@ -1918,6 +2032,7 @@ class FastCRUD(
         return_total_count: bool = True,
         relationship_type: Optional[str] = None,
         nested_schema_to_select: Optional[dict[str, type[SelectSchemaType]]] = None,
+        auto_detect_relationships: bool = False,
         **kwargs: Any,
     ) -> Union[GetMultiResponseModel[SelectSchemaType], GetMultiResponseDict]:
         """
@@ -2229,6 +2344,32 @@ class FastCRUD(
             # }
             ```
         """
+        # Handle auto-detection before validation
+        if auto_detect_relationships:
+            if joins_config or join_model or join_on or join_prefix or join_schema_to_select or alias:
+                raise ValueError(
+                    "Cannot use auto_detect_relationships with manual join parameters. "
+                    "Use auto_detect_relationships=True with only db, schema_to_select, nest_joins, "
+                    "offset, limit, sort_columns, sort_orders, and **kwargs."
+                )
+            from ..core.field_management import build_relationship_joins_config
+            joins_config = build_relationship_joins_config(self.model)
+
+            # If no relationships exist, fall back to regular get_multi() for efficiency
+            if not joins_config:
+                return await self.get_multi(
+                    db=db,
+                    schema_to_select=schema_to_select,
+                    return_as_model=return_as_model,
+                    offset=offset,
+                    limit=limit,
+                    sort_columns=sort_columns,
+                    sort_orders=sort_orders,
+                    return_total_count=return_total_count,
+                    **kwargs
+                )
+
+        # Now proceed with existing validation
         config = validate_joined_query_params(
             primary_model=self.model,
             joins_config=joins_config,

@@ -79,6 +79,8 @@ class EndpointCreator:
         select_schema: Optional Pydantic schema for selecting an item.
         custom_filters: Optional dictionary of custom filter operators. Keys are operator names (e.g., 'year'),
                         values are callables that take a column and return a filter function.
+        include_relationships: Whether to auto-detect and include SqlAlchemy relationships in the returned data. Defaults to `False`.
+        nest_joins: Whether to nest joined relationships in the returned data. Defaults to `True`.
 
     Raises:
         ValueError: If both `included_methods` and `deleted_methods` are provided.
@@ -277,6 +279,8 @@ class EndpointCreator:
         update_config: Optional[UpdateConfig] = None,
         delete_config: Optional[DeleteConfig] = None,
         custom_filters: Optional[dict[str, FilterCallable]] = None,
+        include_relationships: bool = False,
+        nest_joins: bool = True,
     ) -> None:
         self._primary_keys = get_primary_key_columns(model)
         self._primary_keys_types = {
@@ -326,6 +330,8 @@ class EndpointCreator:
         self.update_config = update_config
         self.delete_config = delete_config
         self.column_types = dict(get_column_types(model))
+        self.include_relationships = include_relationships
+        self.nest_joins = nest_joins
 
         if select_schema is not None:
             response_key = getattr(self.crud, "multi_response_key", "data")
@@ -422,9 +428,46 @@ class EndpointCreator:
                 db.add(db_object)
                 await db.commit()
                 await db.refresh(db_object)
+
+                # Fetch back with relationships if enabled
+                if self.include_relationships:
+                    pk_values = {pk: getattr(db_object, pk) for pk in self.primary_key_names}
+                    result = await self.crud.get_joined(
+                        db,
+                        schema_to_select=cast(Type[BaseModel], self.select_schema)
+                        if self.select_schema
+                        else None,
+                        return_as_model=True if self.select_schema else False,
+                        auto_detect_relationships=True,
+                        nest_joins=self.nest_joins,
+                        **pk_values,
+                    )
+                    return result
                 return db_object
 
-            return await self.crud.create(db, item, schema_to_select=self.select_schema)
+            created_item = await self.crud.create(db, item, schema_to_select=self.select_schema)
+
+            # Fetch back with relationships if enabled
+            if self.include_relationships and created_item:
+                # Extract primary key values from created item
+                if isinstance(created_item, dict):
+                    pk_values = {pk: created_item.get(pk) for pk in self.primary_key_names}
+                else:
+                    pk_values = {pk: getattr(created_item, pk, None) for pk in self.primary_key_names}
+
+                result = await self.crud.get_joined(
+                    db,
+                    schema_to_select=cast(Type[BaseModel], self.select_schema)
+                    if self.select_schema
+                    else None,
+                    return_as_model=True if self.select_schema else False,
+                    auto_detect_relationships=True,
+                    nest_joins=self.nest_joins,
+                    **pk_values,
+                )
+                return result
+
+            return created_item
 
         endpoint.__annotations__["item"] = request_schema
 
@@ -435,15 +478,29 @@ class EndpointCreator:
 
         @apply_model_pk(**self._primary_keys_types)
         async def endpoint(db: AsyncSession = Depends(self.session), **pkeys):
-            if self.select_schema is not None:
-                item = await self.crud.get(
+            if self.include_relationships:
+                # Simple passthrough to CRUD method with auto-detection
+                item = await self.crud.get_joined(
                     db,
-                    schema_to_select=cast(Type[BaseModel], self.select_schema),
-                    return_as_model=True,
+                    schema_to_select=cast(Type[BaseModel], self.select_schema)
+                    if self.select_schema
+                    else None,
+                    return_as_model=True if self.select_schema else False,
+                    auto_detect_relationships=True,
+                    nest_joins=self.nest_joins,
                     **pkeys,
                 )
             else:
-                item = await self.crud.get(db, **pkeys)
+                # Original behavior when relationships not enabled
+                if self.select_schema is not None:
+                    item = await self.crud.get(
+                        db,
+                        schema_to_select=cast(Type[BaseModel], self.select_schema),
+                        return_as_model=True,
+                        **pkeys,
+                    )
+                else:
+                    item = await self.crud.get(db, **pkeys)
             if not item:  # pragma: no cover
                 raise NotFoundException(detail="Item not found")
             return item  # pragma: no cover
@@ -516,26 +573,42 @@ class EndpointCreator:
                         sort_columns.append(s)
                         sort_orders.append("asc")
 
-            if self.select_schema is not None:
-                crud_data = await self.crud.get_multi(
+            if self.include_relationships:
+                # Simple passthrough to CRUD method with auto-detection
+                crud_data = await self.crud.get_multi_joined(
                     db,
                     offset=offset,  # type: ignore
                     limit=limit,  # type: ignore
                     schema_to_select=self.select_schema,
+                    return_as_model=True if self.select_schema else False,
+                    auto_detect_relationships=True,
+                    nest_joins=self.nest_joins,
                     sort_columns=sort_columns,
                     sort_orders=sort_orders,
-                    return_as_model=True,
                     **filters,
                 )
             else:
-                crud_data = await self.crud.get_multi(
-                    db,
-                    offset=offset,  # type: ignore
-                    limit=limit,  # type: ignore
-                    sort_columns=sort_columns,
-                    sort_orders=sort_orders,
-                    **filters,
-                )
+                # Original behavior when relationships not enabled
+                if self.select_schema is not None:
+                    crud_data = await self.crud.get_multi(
+                        db,
+                        offset=offset,  # type: ignore
+                        limit=limit,  # type: ignore
+                        schema_to_select=self.select_schema,
+                        sort_columns=sort_columns,
+                        sort_orders=sort_orders,
+                        return_as_model=True,
+                        **filters,
+                    )
+                else:
+                    crud_data = await self.crud.get_multi(
+                        db,
+                        offset=offset,  # type: ignore
+                        limit=limit,  # type: ignore
+                        sort_columns=sort_columns,
+                        sort_orders=sort_orders,
+                        **filters,
+                    )
 
             if is_paginated:
                 return paginated_response(
@@ -571,9 +644,25 @@ class EndpointCreator:
                 if auto_fields:
                     item_dict = item.model_dump(exclude_unset=True)
                     item_dict.update(auto_fields)
-                    return await self.crud.update(db, item_dict, **pkeys)
+                    updated_item = await self.crud.update(db, item_dict, **pkeys)
+                else:
+                    updated_item = await self.crud.update(db, item, **pkeys)
 
-                return await self.crud.update(db, item, **pkeys)
+                # Fetch back with relationships if enabled
+                if self.include_relationships:
+                    result = await self.crud.get_joined(
+                        db,
+                        schema_to_select=cast(Type[BaseModel], self.select_schema)
+                        if self.select_schema
+                        else None,
+                        return_as_model=True if self.select_schema else False,
+                        auto_detect_relationships=True,
+                        nest_joins=self.nest_joins,
+                        **pkeys,
+                    )
+                    return result
+
+                return updated_item
             except NoResultFound:
                 raise NotFoundException(detail="Item not found")
 
@@ -600,6 +689,20 @@ class EndpointCreator:
                         db, auto_fields, allow_multiple=False, **pkeys
                     )
 
+                # Fetch back with relationships if enabled
+                if self.include_relationships:
+                    result = await self.crud.get_joined(
+                        db,
+                        schema_to_select=cast(Type[BaseModel], self.select_schema)
+                        if self.select_schema
+                        else None,
+                        return_as_model=True if self.select_schema else False,
+                        auto_detect_relationships=True,
+                        nest_joins=self.nest_joins,
+                        **pkeys,
+                    )
+                    return result
+
                 return {"message": "Item deleted successfully"}  # pragma: no cover
             except NoResultFound:
                 raise NotFoundException(detail="Item not found")
@@ -619,7 +722,26 @@ class EndpointCreator:
 
         @apply_model_pk(**self._primary_keys_types)
         async def endpoint(db: AsyncSession = Depends(self.session), **pkeys):
+            item_to_delete = None
+            # Fetch item with relationships before deleting if enabled
+            if self.include_relationships:
+                item_to_delete = await self.crud.get_joined(
+                    db,
+                    schema_to_select=cast(Type[BaseModel], self.select_schema)
+                    if self.select_schema
+                    else None,
+                    return_as_model=True if self.select_schema else False,
+                    auto_detect_relationships=True,
+                    nest_joins=self.nest_joins,
+                    **pkeys,
+                )
+
             await self.crud.db_delete(db, **pkeys)
+
+            # Return the item with relationships if enabled
+            if self.include_relationships and item_to_delete:
+                return item_to_delete
+
             return {
                 "message": "Item permanently deleted from the database"
             }  # pragma: no cover
