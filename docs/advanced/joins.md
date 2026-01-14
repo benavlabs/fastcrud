@@ -42,9 +42,10 @@ When you set `auto_detect_relationships=True`, FastCRUD:
 
 1. Inspects your model using SQLAlchemy's relationship mapper
 2. Discovers all defined relationships (one-to-one and one-to-many)
-3. Automatically detects join conditions using foreign keys
+3. Automatically detects join conditions using foreign keys (works bidirectionally - finds FKs on either side of the relationship)
 4. Creates appropriate `JoinConfig` objects for each relationship
-5. Applies left joins to include the related data
+5. Handles multiple relationships to the same table using aliases
+6. Applies left joins to include the related data
 
 ### Basic Usage
 
@@ -97,6 +98,30 @@ user = await user_crud.get_joined(
 # }
 ```
 
+### Bidirectional Foreign Key Detection
+
+Auto-detection works in both directions of a relationship:
+
+```python
+# Forward: FK on Article pointing to Author
+article_crud = FastCRUD(Article)
+article = await article_crud.get_joined(
+    db=db,
+    join_model=Author,  # Detects: Article.author_id -> Author.id
+    id=1,
+)
+
+# Reverse: FK on Article, but joining from Author
+author_crud = FastCRUD(Author)
+author = await author_crud.get_joined(
+    db=db,
+    join_model=Article,  # Also works! Finds FK on Article side
+    id=1,
+)
+```
+
+This bidirectional detection means you don't need to worry about which side of the relationship has the foreign key - FastCRUD will find it automatically.
+
 ### Graceful Fallback
 
 If a model has no relationships, auto-detection gracefully falls back to a regular query:
@@ -118,7 +143,8 @@ Auto-detection includes:
 - ✅ One-to-one relationships
 - ✅ One-to-many relationships
 - ✅ Many-to-many relationships (via association tables)
-- ✅ Relationships with simple foreign keys
+- ✅ Relationships with simple foreign keys (bidirectional - FK can be on either side)
+- ✅ Multiple relationships to the same table (automatically uses aliases)
 
 Auto-detection skips:
 
