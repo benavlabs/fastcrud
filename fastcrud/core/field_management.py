@@ -12,6 +12,7 @@ from pydantic import BaseModel, create_model
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.sql import ColumnElement
 from sqlalchemy.orm.util import AliasedClass
+from sqlalchemy.orm import aliased
 
 from .introspection import validate_model_has_table
 from .data import build_column_label
@@ -203,16 +204,63 @@ def extract_matching_columns_from_schema(
         )
 
 
+def _find_join_condition(
+    fk_model: ModelType,
+    target_model: ModelType,
+    fk_alias: Optional[AliasedClass] = None,
+) -> Optional[ColumnElement]:
+    """
+    Helper function to find a join condition from fk_model to target_model.
+
+    Args:
+        fk_model: The model that may have a foreign key
+        target_model: The model that the FK may reference
+        fk_alias: Optional alias for the fk_model (the model being joined)
+
+    Returns:
+        Join condition if found, None otherwise
+    """
+    inspector = sa_inspect(fk_model)
+    if inspector is None:
+        return None
+
+    fk_columns = [col for col in inspector.c if col.foreign_keys]
+
+    # Use alias for fk_model if provided, otherwise use the model's table
+    fk_ref = fk_alias if fk_alias is not None else fk_model.__table__
+
+    join_on = next(
+        (
+            cast(
+                ColumnElement,
+                fk_ref.c[col.name]
+                == target_model.__table__.c[list(col.foreign_keys)[0].column.name],
+            )
+            for col in fk_columns
+            if list(col.foreign_keys)[0].column.table == target_model.__table__
+        ),
+        None,
+    )
+
+    return join_on
+
+
 def auto_detect_join_condition(
     base_model: ModelType,
     join_model: ModelType,
+    join_alias: Optional[AliasedClass] = None,
 ):
     """
     Automatically detects the join condition for SQLAlchemy models based on foreign key relationships.
 
+    Supports bidirectional FK detection:
+    - Checks for FKs on base_model pointing to join_model
+    - If not found, checks for FKs on join_model pointing to base_model
+
     Args:
         base_model: The base SQLAlchemy model from which to join.
         join_model: The SQLAlchemy model to join with the base model.
+        join_alias: Optional alias for the join_model (used when joining to the same table multiple times).
 
     Returns:
         A SQLAlchemy `ColumnElement` representing the join condition, if successfully detected.
@@ -224,28 +272,21 @@ def auto_detect_join_condition(
     validate_model_has_table(base_model)
     validate_model_has_table(join_model)
 
-    inspector = sa_inspect(base_model)
-    if inspector is not None:
-        fk_columns = [col for col in inspector.c if col.foreign_keys]
-        join_on = next(
-            (
-                cast(
-                    ColumnElement,
-                    base_model.__table__.c[col.name]
-                    == join_model.__table__.c[list(col.foreign_keys)[0].column.name],
-                )
-                for col in fk_columns
-                if list(col.foreign_keys)[0].column.table == join_model.__table__
-            ),
-            None,
-        )
+    # Try forward direction: FKs on base_model pointing to join_model
+    # Base model is never aliased in auto-detection, so no alias needed
+    join_on = _find_join_condition(base_model, join_model, fk_alias=None)
 
-        if join_on is None:
-            raise ValueError(
-                "Could not automatically determine join condition. Please provide join_on."
-            )
-    else:
-        raise ValueError("Could not automatically get model columns.")
+    # Try reverse direction: FKs on join_model pointing to base_model
+    # Apply alias to join_model since it's the one being joined (has the FK)
+    if join_on is None:
+        join_on = _find_join_condition(join_model, base_model, fk_alias=join_alias)
+
+    if join_on is None:
+        raise ValueError(
+            f"Could not automatically determine join condition between "
+            f"{base_model.__name__} and {join_model.__name__}. "
+            f"Please provide join_on explicitly."
+        )
 
     return join_on
 
@@ -287,6 +328,7 @@ def build_relationship_joins_config(
     - Determines relationship type (one-to-one vs one-to-many) from SQLAlchemy metadata
     - Creates JoinConfig with sensible defaults
     - Skips relationships where join condition cannot be auto-detected
+    - Creates aliases for multiple relationships to the same model
 
     Args:
         model: The SQLAlchemy model to build join configurations for.
@@ -302,13 +344,21 @@ def build_relationship_joins_config(
     """
     relationships = discover_model_relationships(model)
     joins_config = []
+    model_counts: dict[Any, int] = {}  # Track how many times we've seen each model
 
     for rel_name, rel_prop in relationships:
         related_model = rel_prop.mapper.class_
 
+        # Create alias if we've already seen this model (duplicate relationship)
+        alias = None
+        if related_model in model_counts:
+            alias = aliased(related_model, name=rel_name)
+        model_counts[related_model] = model_counts.get(related_model, 0) + 1
+
         try:
             # Try to auto-detect join condition using existing function
-            join_on = auto_detect_join_condition(model, related_model)
+            # Pass the alias so the join condition uses it if needed
+            join_on = auto_detect_join_condition(model, related_model, join_alias=alias)
         except (ValueError, AttributeError):
             # Skip relationships where join condition cannot be auto-detected
             # (e.g., complex relationships, multiple primary keys, etc.)
@@ -325,6 +375,7 @@ def build_relationship_joins_config(
                 schema_to_select=None,  # Include all columns
                 join_type="left",
                 relationship_type=relationship_type,
+                alias=alias,  # Pass the alias to JoinConfig
             )
         )
 

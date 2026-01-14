@@ -14,6 +14,7 @@ from ...sqlalchemy.conftest import (
     BookingSchema,
     ReadSchemaTest,
     Article,
+    Author,
     Card,
     Client,
     Department,
@@ -910,14 +911,15 @@ async def test_get_joined_auto_detect_relationships(
         db=async_session,
         schema_to_select=ReadSchemaTest,
         auto_detect_relationships=True,
+        nest_joins=True,  # Required for one-to-many relationships
         name="Alice",
     )
 
     assert result is not None
     assert "name" in result
     assert result["name"] == "Alice"
-    # Should have tier relationship data
-    assert "tier_id" in result or "tier_name" in result
+    # Should have tier relationship data (nested)
+    assert "tier" in result or "tier_id" in result
 
 
 @pytest.mark.asyncio
@@ -987,3 +989,84 @@ async def test_get_joined_auto_detect_with_nest_joins(
     assert "name" in result
     # With nest_joins, joined data should be nested
     assert "tier" in result or "category" in result
+
+
+@pytest.mark.asyncio
+async def test_get_joined_reverse_fk_direction(async_session):
+    """Test auto-detection when FK is on join_model (reverse direction).
+
+    Author has no FK, but Article has FK pointing to Author.
+    Join FROM Author TO Article.
+    """
+    author = Author(name="John Doe")
+    async_session.add(author)
+    await async_session.flush()
+
+    articles = [
+        Article(
+            title="Article 1",
+            content="Content 1",
+            published_date="2024-01-01",
+            author_id=author.id
+        ),
+        Article(
+            title="Article 2",
+            content="Content 2",
+            published_date="2024-01-02",
+            author_id=author.id
+        ),
+    ]
+    async_session.add_all(articles)
+    await async_session.commit()
+
+    # Join FROM Author TO Article (FK is on Article side - reverse direction)
+    author_crud = FastCRUD(Author)
+    result = await author_crud.get_joined(
+        db=async_session,
+        join_model=Article,
+        join_prefix="article_",
+        id=author.id,
+    )
+
+    assert result is not None
+    assert "name" in result
+    assert result["name"] == "John Doe"
+    # Should have joined article data (will get first article due to one-to-one behavior)
+    assert "article_title" in result
+
+
+@pytest.mark.asyncio
+async def test_get_joined_forward_fk_direction(async_session):
+    """Test auto-detection when FK is on base_model (forward direction).
+
+    Article has FK pointing to Author.
+    Join FROM Article TO Author.
+    """
+    author = Author(name="Jane Smith")
+    async_session.add(author)
+    await async_session.flush()
+
+    article = Article(
+        title="Great Article",
+        content="Amazing content",
+        published_date="2024-01-15",
+        author_id=author.id
+    )
+    async_session.add(article)
+    await async_session.commit()
+
+    # Join FROM Article TO Author (FK is on Article side - forward direction)
+    article_crud = FastCRUD(Article)
+    result = await article_crud.get_joined(
+        db=async_session,
+        join_model=Author,
+        join_prefix="author_",
+        id=article.id,
+    )
+
+    assert result is not None
+    assert "title" in result
+    assert result["title"] == "Great Article"
+    # Should have joined author data
+    assert "author_name" in result
+    assert result["author_name"] == "Jane Smith"
