@@ -16,6 +16,7 @@ FastCRUD simplifies CRUD operations while offering capabilities for handling com
 - **`relationship_type`**: Specifies the relationship type, such as `"one-to-one"` or `"one-to-many"`. Default is `"one-to-one"`.
 - **`sort_columns`**: An optional column name or list of column names to sort the nested items by. Only applies to `"one-to-many"` relationships.
 - **`sort_orders`**: An optional sort order (`"asc"` or `"desc"`) or list of sort orders corresponding to the columns in `sort_columns`. If not provided, defaults to `"asc"` for each column.
+- **`nested_limit`**: An optional limit for nested items in one-to-many relationships. When set, FastCRUD uses a separate query with SQL window functions for efficient database-level limiting. Use `None` for no limit (default).
 
 !!! TIP
 
@@ -70,6 +71,61 @@ When you set `auto_detect_relationships=True`, FastCRUD:
         limit=10,
     )
     # Returns users with all relationships included
+    ```
+
+### Selective Relationship Inclusion
+
+Instead of including all relationships, you can specify which relationships to include by passing a list of relationship names:
+
+=== "Include Specific Relationships"
+    ```python
+    # Only include the 'tier' relationship, not all relationships
+    user = await user_crud.get_joined(
+        db=db,
+        auto_detect_relationships=["tier"],
+        id=1,
+    )
+    # Returns user with tier data only
+    ```
+
+=== "Multiple Specific Relationships"
+    ```python
+    # Include tier and department, but not other relationships
+    user = await user_crud.get_joined(
+        db=db,
+        auto_detect_relationships=["tier", "department"],
+        id=1,
+    )
+    ```
+
+=== "With get_multi_joined"
+    ```python
+    # Selective relationships for multiple records
+    users = await user_crud.get_multi_joined(
+        db=db,
+        auto_detect_relationships=["tier"],
+        offset=0,
+        limit=10,
+    )
+    ```
+
+!!! tip "Benefits of Selective Inclusion"
+    - **Performance**: Only fetches the relationships you need, reducing query complexity
+    - **Control**: Explicit about which data is included in responses
+    - **Clarity**: Makes code intentions clear to other developers
+
+!!! warning "Invalid Relationship Names"
+    If you pass a relationship name that doesn't exist on the model, FastCRUD raises a `ValueError` with a helpful error message listing the available relationships:
+
+    ```python
+    # This raises ValueError
+    user = await user_crud.get_joined(
+        db=db,
+        auto_detect_relationships=["nonexistent"],
+        id=1,
+    )
+    # ValueError: Invalid relationship names: {'nonexistent'}.
+    # Available relationships on User: {'tier', 'department', 'tasks'}
     ```
 
 ### With Nested Responses
@@ -140,8 +196,8 @@ result = await simple_crud.get_joined(
 
 Auto-detection includes:
 
-- ✅ One-to-one relationships
-- ✅ One-to-many relationships
+- ✅ One-to-one relationships (included by default)
+- ✅ One-to-many relationships (excluded by default for safety - see below)
 - ✅ Many-to-many relationships (via association tables)
 - ✅ Relationships with simple foreign keys (bidirectional - FK can be on either side)
 - ✅ Multiple relationships to the same table (automatically uses aliases)
@@ -153,6 +209,57 @@ Auto-detection skips:
 - ❌ Self-referential relationships (e.g., tree structures)
 
 Complex relationships that can't be auto-detected are silently skipped.
+
+### Safe Defaults for One-to-Many Relationships
+
+By default, when using `auto_detect_relationships=True`, **one-to-many relationships are excluded** for safety. This prevents unbounded data fetching that could cause performance issues.
+
+To include one-to-many relationships, you have three options:
+
+=== "Option 1: Set include_one_to_many=True"
+    ```python
+    # Include all relationships including one-to-many
+    user = await user_crud.get_joined(
+        db=db,
+        auto_detect_relationships=True,
+        include_one_to_many=True,  # Explicitly include one-to-many
+        nest_joins=True,
+        id=1,
+    )
+    ```
+
+=== "Option 2: Explicitly list the relationships"
+    ```python
+    # Explicitly list relationships to include (bypasses the exclusion)
+    user = await user_crud.get_joined(
+        db=db,
+        auto_detect_relationships=["tier", "posts"],  # One-to-many "posts" is included
+        nest_joins=True,
+        id=1,
+    )
+    ```
+
+=== "Option 3: Use JoinConfig directly"
+    ```python
+    # Full control with JoinConfig
+    user = await user_crud.get_joined(
+        db=db,
+        joins_config=[
+            JoinConfig(
+                model=Post,
+                join_on=User.id == Post.author_id,
+                join_prefix="posts_",
+                relationship_type="one-to-many",
+                nested_limit=10,  # SQL-level limiting
+            )
+        ],
+        nest_joins=True,
+        id=1,
+    )
+    ```
+
+!!! tip "Why is this the default?"
+    One-to-many relationships via JOINs can return N×M rows (where N is the number of parent records and M is the average number of children). For a query returning 100 users with an average of 50 posts each, the database returns 5,000 rows. This default prevents accidental performance issues.
 
 ### Important Notes
 
@@ -184,6 +291,43 @@ Complex relationships that can't be auto-detected are silently skipped.
         id=1,
     )
     ```
+
+### Performance Considerations
+
+!!! info "Query Efficiency"
+    Auto-detection performs model introspection once and caches the results. However, be aware of these performance implications:
+
+    - **Join overhead**: Each detected relationship adds a LEFT JOIN to the query. For models with many relationships, this can increase query complexity.
+    - **Extra fetch on write operations**: When using `include_relationships=True` in endpoints, create/update/delete operations perform an additional SELECT query to return the result with relationships.
+    - **One-to-many relationships**: These require `nest_joins=True` and involve post-processing to aggregate related records.
+
+    For performance-critical paths, consider using manual `JoinConfig` to include only the relationships you need.
+
+### Troubleshooting
+
+Common issues when using auto-detection:
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Relationship not included | Composite primary key or missing FK constraint | Use manual `JoinConfig` with explicit `join_on` |
+| `ValueError: Cannot use one-to-many relationship with nest_joins=False` | One-to-many relationships require nesting | Set `nest_joins=True` |
+| Schema validation error | Schema missing fields for nested data | Add relationship fields to schema or use `return_as_model=False` |
+| Empty nested data | Related record doesn't exist | This is expected - LEFT JOIN returns NULL for missing relations |
+
+**Debugging auto-detection:**
+
+Enable DEBUG logging to see which relationships are detected and which are skipped:
+
+```python
+import logging
+logging.getLogger("fastcrud.core.field_management").setLevel(logging.DEBUG)
+```
+
+This will log messages like:
+```
+DEBUG - Skipping relationship 'complex_rel' on User: Could not automatically determine join condition...
+DEBUG - Auto-detection for User: 3 relationships detected, 1 skipped. Skipped: ['complex_rel']
+```
 
 ### Combining with Schema Selection
 
@@ -623,6 +767,44 @@ The result will be:
     ]
 }
 ```
+
+##### Limiting Nested Items with SQL-Level Pagination
+
+When dealing with one-to-many relationships that could return many related records, use the `nested_limit` parameter in `JoinConfig` to limit the number of nested items per parent record. When `nested_limit` is set, FastCRUD uses a separate query with SQL window functions for efficient database-level limiting.
+
+```python
+from fastcrud import FastCRUD, JoinConfig
+
+author_crud = FastCRUD(Author)
+
+# Limit to 10 articles per author with SQL-level limiting
+joins_config = [
+    JoinConfig(
+        model=Article,
+        join_on=Author.id == Article.author_id,
+        join_prefix="articles_",
+        relationship_type="one-to-many",
+        nested_limit=10,  # Only return first 10 articles per author
+        sort_columns="created_at",  # Sort before limiting
+        sort_orders="desc"  # Most recent first
+    )
+]
+
+result = await author_crud.get_multi_joined(
+    db=db,
+    joins_config=joins_config,
+    nest_joins=True
+)
+```
+
+!!! info "How SQL-Level Limiting Works"
+    When `nested_limit` is set on a one-to-many relationship, FastCRUD:
+
+    1. Executes the main query with only one-to-one joins
+    2. Runs a separate query for one-to-many data using `ROW_NUMBER() OVER (PARTITION BY ...)` window function
+    3. Merges the results efficiently
+
+    This approach ensures the database returns only the limited number of rows, rather than fetching all rows and filtering in Python.
 
 ##### Sorting Nested Items in One-to-Many Relationships
 
