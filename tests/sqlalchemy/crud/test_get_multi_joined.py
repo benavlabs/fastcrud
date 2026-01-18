@@ -2,6 +2,7 @@ from typing import Annotated
 import pytest
 from fastcrud import FastCRUD, JoinConfig, aliased
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 from ...sqlalchemy.conftest import (
     ModelTest,
     TierModel,
@@ -1415,8 +1416,11 @@ async def test_get_multi_joined_auto_detect_with_manual_error(async_session):
 
 
 @pytest.mark.asyncio
-async def test_get_multi_joined_auto_detect_no_relationships(async_session):
+async def test_get_multi_joined_auto_detect_no_relationships(
+    async_session: AsyncSession,
+) -> None:
     """Test that auto_detect gracefully handles models with no relationships."""
+
     class CustomSchema(BaseModel):
         id: int
         meta: str
@@ -1429,7 +1433,7 @@ async def test_get_multi_joined_auto_detect_no_relationships(async_session):
     async_session.add(custom2)
     await async_session.commit()
 
-    crud = FastCRUD(ModelWithCustomColumns)
+    crud: FastCRUD = FastCRUD(ModelWithCustomColumns)  # type: ignore[type-arg]
     # Should work without error - falls back to regular get_multi()
     result = await crud.get_multi_joined(
         db=async_session,
