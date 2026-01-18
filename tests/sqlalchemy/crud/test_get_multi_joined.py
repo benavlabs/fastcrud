@@ -2,6 +2,7 @@ from typing import Annotated
 import pytest
 from fastcrud import FastCRUD, JoinConfig, aliased
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 from ...sqlalchemy.conftest import (
     ModelTest,
     TierModel,
@@ -27,6 +28,7 @@ from ...sqlalchemy.conftest import (
     DepartmentRead,
     UserReadSub,
     TaskRead,
+    ModelWithCustomColumns,
 )
 
 
@@ -1361,3 +1363,148 @@ async def test_get_multi_joined_explicit_join_preserves_condition(async_session)
     assert (
         task3["department"]["name"] == "Engineering"
     ), "Task 3 should be in Engineering department"
+
+
+# Tests for auto_detect_relationships parameter
+@pytest.mark.asyncio
+async def test_get_multi_joined_auto_detect_relationships(
+    async_session, test_data, test_data_tier, test_data_category
+):
+    """Test auto-detecting all relationships in get_multi_joined."""
+    # Setup tier and category data
+    for tier_item in test_data_tier:
+        async_session.add(TierModel(**tier_item))
+    for category_item in test_data_category:
+        async_session.add(CategoryModel(**category_item))
+    await async_session.commit()
+
+    # Add test data
+    for user_item in test_data:
+        async_session.add(ModelTest(**user_item))
+    await async_session.commit()
+
+    crud = FastCRUD(ModelTest)
+    result = await crud.get_multi_joined(
+        db=async_session,
+        schema_to_select=ReadSchemaTest,
+        auto_detect_relationships=True,
+        offset=0,
+        limit=10,
+    )
+
+    assert result is not None
+    assert "data" in result
+    assert len(result["data"]) > 0
+    # Should have tier relationship data
+    first_item = result["data"][0]
+    assert "name" in first_item
+    assert "tier_id" in first_item or "tier_name" in first_item
+
+
+@pytest.mark.asyncio
+async def test_get_multi_joined_auto_detect_with_manual_error(async_session):
+    """Test that auto_detect + manual joins raises error."""
+    crud = FastCRUD(ModelTest)
+    with pytest.raises(ValueError, match="Cannot use auto_detect_relationships"):
+        await crud.get_multi_joined(
+            db=async_session,
+            join_model=TierModel,
+            auto_detect_relationships=True,
+            offset=0,
+            limit=10,
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_multi_joined_auto_detect_no_relationships(
+    async_session: AsyncSession,
+) -> None:
+    """Test that auto_detect gracefully handles models with no relationships."""
+
+    class CustomSchema(BaseModel):
+        id: int
+        meta: str
+        name: str
+
+    # ModelWithCustomColumns has NO relationships defined
+    custom1 = ModelWithCustomColumns(id=1, meta="test1", name="Name 1")
+    custom2 = ModelWithCustomColumns(id=2, meta="test2", name="Name 2")
+    async_session.add(custom1)
+    async_session.add(custom2)
+    await async_session.commit()
+
+    crud: FastCRUD = FastCRUD(ModelWithCustomColumns)  # type: ignore[type-arg]
+    # Should work without error - falls back to regular get_multi()
+    result = await crud.get_multi_joined(
+        db=async_session,
+        schema_to_select=CustomSchema,
+        auto_detect_relationships=True,
+        offset=0,
+        limit=10,
+    )
+
+    assert result is not None
+    assert "data" in result
+    assert len(result["data"]) == 2
+    # Just regular data, no joins
+    first_item = result["data"][0]
+    assert "id" in first_item
+    assert "name" in first_item
+
+
+@pytest.mark.asyncio
+async def test_get_multi_joined_auto_detect_with_pagination(
+    async_session, test_data, test_data_tier
+):
+    """Test auto-detection with pagination."""
+    for tier_item in test_data_tier:
+        async_session.add(TierModel(**tier_item))
+    await async_session.commit()
+
+    for user_item in test_data:
+        async_session.add(ModelTest(**user_item))
+    await async_session.commit()
+
+    crud = FastCRUD(ModelTest)
+    result = await crud.get_multi_joined(
+        db=async_session,
+        schema_to_select=ReadSchemaTest,
+        auto_detect_relationships=True,
+        offset=0,
+        limit=2,
+        return_total_count=True,
+    )
+
+    assert result is not None
+    assert "data" in result
+    assert "total_count" in result
+    assert len(result["data"]) <= 2
+
+
+@pytest.mark.asyncio
+async def test_get_multi_joined_auto_detect_with_sorting(
+    async_session, test_data, test_data_tier
+):
+    """Test auto-detection with sorting."""
+    for tier_item in test_data_tier:
+        async_session.add(TierModel(**tier_item))
+    await async_session.commit()
+
+    for user_item in test_data:
+        async_session.add(ModelTest(**user_item))
+    await async_session.commit()
+
+    crud = FastCRUD(ModelTest)
+    result = await crud.get_multi_joined(
+        db=async_session,
+        schema_to_select=ReadSchemaTest,
+        auto_detect_relationships=True,
+        offset=0,
+        limit=10,
+        sort_columns=["name"],
+        sort_orders=["desc"],
+    )
+
+    assert result is not None
+    assert "data" in result
+    assert len(result["data"]) > 0

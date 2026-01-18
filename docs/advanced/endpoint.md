@@ -470,6 +470,228 @@ class User(Base):
     company = relationship("Company", back_populates="users")
 ```
 
+## Including Relationships in Endpoints
+
+Auto-generated endpoints can automatically include related data from SQLAlchemy relationships using the `include_relationships` parameter.
+
+### Basic Usage
+
+Enable relationship inclusion when creating your router:
+
+=== "All Relationships"
+    ```python
+    from fastcrud import crud_router
+
+    router = crud_router(
+        session=get_session,
+        model=User,
+        create_schema=UserCreate,
+        update_schema=UserUpdate,
+        include_relationships=True,  # Include all relationships
+        nest_joins=True,  # Nest related data
+        path="/users",
+        tags=["Users"],
+    )
+    ```
+
+=== "Specific Relationships"
+    ```python
+    from fastcrud import crud_router
+
+    router = crud_router(
+        session=get_session,
+        model=User,
+        create_schema=UserCreate,
+        update_schema=UserUpdate,
+        include_relationships=["tier", "department"],  # Only these relationships
+        nest_joins=True,
+        path="/users",
+        tags=["Users"],
+    )
+    ```
+
+=== "Manual JoinConfig"
+    ```python
+    from fastcrud import crud_router, JoinConfig
+
+    router = crud_router(
+        session=get_session,
+        model=User,
+        create_schema=UserCreate,
+        update_schema=UserUpdate,
+        joins_config=[  # Full control over joins
+            JoinConfig(
+                model=Tier,
+                join_on=User.tier_id == Tier.id,
+                join_prefix="tier_",
+            ),
+        ],
+        nest_joins=True,
+        path="/users",
+        tags=["Users"],
+    )
+    ```
+
+### Parameter Options
+
+The `include_relationships` parameter accepts:
+
+| Value | Description |
+|-------|-------------|
+| `False` | No automatic relationships (default) |
+| `True` | Include one-to-one relationships only (safe default) |
+| `["rel1", "rel2"]` | Include specific relationships by name (all types) |
+
+!!! note "Safe Defaults for One-to-Many"
+    When using `include_relationships=True`, one-to-many relationships are **excluded by default** for safety. This prevents unbounded data fetching. To include one-to-many relationships:
+
+    ```python
+    # Option 1: Set include_one_to_many=True
+    router = crud_router(
+        ...,
+        include_relationships=True,
+        include_one_to_many=True,  # Include all one-to-many relationships
+    )
+
+    # Option 2: Explicitly list the relationships you want
+    router = crud_router(
+        ...,
+        include_relationships=["tier", "posts"],  # "posts" (one-to-many) included
+    )
+
+    # Option 3: Use joins_config for full control with nested_limit
+    router = crud_router(
+        ...,
+        joins_config=[
+            JoinConfig(
+                model=Post,
+                relationship_type="one-to-many",
+                nested_limit=10,  # SQL-level limiting
+            )
+        ],
+    )
+    ```
+
+The `joins_config` parameter provides manual control:
+
+| Value | Description |
+|-------|-------------|
+| `None` | No manual joins (default) |
+| `[JoinConfig(...)]` | List of JoinConfig objects for explicit join control |
+
+!!! warning "Mutual Exclusivity"
+    You cannot use both `include_relationships` and `joins_config` together:
+
+    ```python
+    # ❌ This raises ValueError
+    router = crud_router(
+        ...,
+        include_relationships=True,
+        joins_config=[JoinConfig(...)],  # Error!
+    )
+    ```
+
+!!! tip "Error Messages for Invalid Relationships"
+    If you pass a relationship name that doesn't exist on the model, FastCRUD raises a helpful error:
+
+    ```python
+    router = crud_router(
+        ...,
+        include_relationships=["nonexistent"],  # Raises ValueError
+    )
+    # ValueError: Invalid relationship name(s): ['nonexistent'].
+    # Available relationships on 'User': ['department', 'tasks', 'tier'].
+    # Tip: Use `include_relationships=True` to include all relationships,
+    # or check your model's relationship definitions.
+    ```
+
+### Response Format
+
+When `include_relationships=True`, read endpoints return related data:
+
+**Without relationships:**
+```json
+GET /users/1
+{
+  "id": 1,
+  "name": "Alice Smith",
+  "tier_id": 3,
+  "department_id": 5
+}
+```
+
+**With relationships (`nest_joins=True`):**
+```json
+GET /users/1
+{
+  "id": 1,
+  "name": "Alice Smith",
+  "tier_id": 3,
+  "tier": {
+    "id": 3,
+    "name": "Premium"
+  },
+  "department_id": 5,
+  "department": {
+    "id": 5,
+    "name": "Engineering"
+  }
+}
+```
+
+**With relationships (`nest_joins=False`):**
+```json
+GET /users/1
+{
+  "id": 1,
+  "name": "Alice Smith",
+  "tier_id": 3,
+  "tier_name": "Premium",
+  "department_id": 5,
+  "department_name": "Engineering"
+}
+```
+
+### Affected Endpoints
+
+Relationship data is included in:
+
+- ✅ **Read Item** (`GET /users/{id}`) - Returns single item with relationships
+- ✅ **Read Items** (`GET /users`) - Returns list with relationships for each item
+- ✅ **Create Item** (`POST /users`) - Returns created item with relationships
+- ✅ **Update Item** (`PATCH /users/{id}`) - Returns updated item with relationships
+- ✅ **Delete Item** (`DELETE /users/{id}`) - Returns deleted item with relationships
+- ✅ **DB Delete Item** (`DELETE /users/{id}/db`) - Returns item before deletion with relationships
+
+### How It Works
+
+Under the hood, `include_relationships=True`:
+
+1. Uses FastCRUD's `auto_detect_relationships` feature
+2. Automatically discovers all SQLAlchemy relationships on the model
+3. Applies left joins to include related data
+4. Works seamlessly with pagination, sorting, and filtering
+
+For more details on auto-detection, see [Auto-Detecting Relationships](joins.md#auto-detecting-relationships).
+
+### Performance Considerations
+
+!!! warning "Database Query Performance"
+    Including relationships affects query performance:
+
+    - **Read operations**: Each relationship adds a LEFT JOIN to your queries. More JOINs = slower queries and larger responses.
+    - **Write operations (create/update/delete)**: These perform an **additional SELECT query** after the write to return the result with relationships. This means:
+        - `POST /users` → 1 INSERT + 1 SELECT with JOINs
+        - `PATCH /users/{id}` → 1 UPDATE + 1 SELECT with JOINs
+        - `DELETE /users/{id}` → 1 SELECT with JOINs + 1 DELETE
+
+    **Performance Tips:**
+
+    - Use `include_relationships=["rel1"]` to include only the relationships you need
+    - Use `joins_config` for full control over join conditions and schemas
+    - For high-throughput write endpoints, consider disabling relationships entirely
+
+
 ## Extending `EndpointCreator`
 
 You can create a subclass of `EndpointCreator` and override or add new methods to define custom routes. Here's an example:
