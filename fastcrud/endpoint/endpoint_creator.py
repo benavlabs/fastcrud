@@ -1,4 +1,4 @@
-from typing import Type, Optional, Callable, Sequence, Union, Any, cast, Awaitable
+from typing import Type, Optional, Callable, Sequence, Union, Any, cast, Awaitable, List
 from enum import Enum
 
 from fastapi import Depends, Body, APIRouter
@@ -37,6 +37,7 @@ from ..core import (
     CreateConfig,
     UpdateConfig,
     DeleteConfig,
+    JoinConfig,
     inject_dependencies,
     apply_model_pk,
     create_dynamic_filters,
@@ -47,6 +48,8 @@ from ..core import (
     get_python_type,
     get_column_types,
     validate_joined_filter_path,
+    discover_model_relationships,
+    resolve_relationship_config,
 )
 
 
@@ -79,8 +82,11 @@ class EndpointCreator:
         select_schema: Optional Pydantic schema for selecting an item.
         custom_filters: Optional dictionary of custom filter operators. Keys are operator names (e.g., 'year'),
                         values are callables that take a column and return a filter function.
-        include_relationships: If `True`, automatically detect and include related data from SQLAlchemy relationships in read endpoints. Defaults to `False`.
+        include_relationships: If `True`, automatically detect and include related data from SQLAlchemy relationships in read endpoints.
+            Can also be a list of relationship names to include specific relationships. Defaults to `False`.
         nest_joins: If `True`, nested data structures will be returned where joined model data are nested as dictionaries or lists. Defaults to `True`.
+        include_one_to_many: If `True`, include one-to-many relationships when auto-detecting. Defaults to `False` for safety since
+            one-to-many JOINs can return unbounded data. This is ignored when specific relationship names are provided.
 
     Raises:
         ValueError: If both `included_methods` and `deleted_methods` are provided.
@@ -279,8 +285,11 @@ class EndpointCreator:
         update_config: Optional[UpdateConfig] = None,
         delete_config: Optional[DeleteConfig] = None,
         custom_filters: Optional[dict[str, FilterCallable]] = None,
-        include_relationships: bool = False,
+        include_relationships: Union[bool, Sequence[str]] = False,
+        joins_config: Optional[Sequence[JoinConfig]] = None,
         nest_joins: bool = True,
+        default_nested_limit: Optional[int] = None,
+        include_one_to_many: bool = False,
     ) -> None:
         self._primary_keys = get_primary_key_columns(model)
         self._primary_keys_types = {
@@ -330,8 +339,34 @@ class EndpointCreator:
         self.update_config = update_config
         self.delete_config = delete_config
         self.column_types = dict(get_column_types(model))
+
+        if include_relationships and joins_config:
+            raise ValueError(
+                "Cannot use both 'include_relationships' and 'joins_config'. "
+                "Use 'include_relationships' for auto-detection or 'joins_config' for manual control."
+            )
+
+        if include_relationships and include_relationships is not True:
+            relationship_names = list(include_relationships)
+            available_relationships = discover_model_relationships(model)
+            available_names = {name for name, _ in available_relationships}
+
+            invalid_names = set(relationship_names) - available_names
+            if invalid_names:
+                raise ValueError(
+                    f"Invalid relationship name(s): {sorted(invalid_names)}. "
+                    f"Available relationships on '{model.__name__}': {sorted(available_names)}. "
+                    f"Tip: Use `include_relationships=True` to include all relationships, "
+                    f"or check your model's relationship definitions."
+                )
+
         self.include_relationships = include_relationships
+        self.joins_config: Optional[List[JoinConfig]] = (
+            list(joins_config) if joins_config else None
+        )
         self.nest_joins = nest_joins
+        self.default_nested_limit = default_nested_limit
+        self.include_one_to_many = include_one_to_many
 
         if select_schema is not None:
             response_key = getattr(self.crud, "multi_response_key", "data")
@@ -386,6 +421,34 @@ class EndpointCreator:
                         f"Invalid filter column '{key}': not found in model '{self.model.__name__}' columns"
                     )
 
+    def _should_include_relationships(self) -> bool:
+        """Check if relationships should be included in responses."""
+        return bool(self.include_relationships or self.joins_config)
+
+    def _get_join_params(self) -> dict[str, Any]:
+        """
+        Get the join parameters for CRUD methods.
+
+        Returns a dict with either:
+        - `joins_config` if manually specified or built from auto-detection
+        - `auto_detect_relationships` for backward compatibility (deprecated path)
+
+        Note: When using auto-detection, one-to-many relationships are excluded
+        by default unless `include_one_to_many=True` is set.
+        """
+        if self.joins_config:
+            return {"joins_config": self.joins_config}
+        else:
+            config = resolve_relationship_config(
+                self.model,
+                self.include_relationships,
+                default_nested_limit=self.default_nested_limit,
+                include_one_to_many=self.include_one_to_many,
+            )
+            if config:
+                return {"joins_config": config}
+            return {}
+
     def _create_item(self) -> Callable[..., Awaitable[Any]]:
         """Creates an endpoint for creating items in the database.
 
@@ -429,31 +492,37 @@ class EndpointCreator:
                 await db.commit()
                 await db.refresh(db_object)
 
-                # Fetch back with relationships if enabled
-                if self.include_relationships:
-                    pk_values = {pk: getattr(db_object, pk) for pk in self.primary_key_names}
+                if self._should_include_relationships():
+                    pk_values = {
+                        pk: getattr(db_object, pk) for pk in self.primary_key_names
+                    }
                     result = await self.crud.get_joined(
                         db,
                         schema_to_select=cast(Type[BaseModel], self.select_schema)
                         if self.select_schema
                         else None,
                         return_as_model=True if self.select_schema else False,
-                        auto_detect_relationships=True,
                         nest_joins=self.nest_joins,
+                        **self._get_join_params(),
                         **pk_values,
                     )
                     return result
                 return db_object
 
-            created_item = await self.crud.create(db, item, schema_to_select=self.select_schema)
+            created_item = await self.crud.create(
+                db, item, schema_to_select=self.select_schema
+            )
 
-            # Fetch back with relationships if enabled
-            if self.include_relationships and created_item:
-                # Extract primary key values from created item
+            if self._should_include_relationships() and created_item:
                 if isinstance(created_item, dict):
-                    pk_values = {pk: created_item.get(pk) for pk in self.primary_key_names}
+                    pk_values = {
+                        pk: created_item.get(pk) for pk in self.primary_key_names
+                    }
                 else:
-                    pk_values = {pk: getattr(created_item, pk, None) for pk in self.primary_key_names}
+                    pk_values = {
+                        pk: getattr(created_item, pk, None)
+                        for pk in self.primary_key_names
+                    }
 
                 result = await self.crud.get_joined(
                     db,
@@ -461,8 +530,8 @@ class EndpointCreator:
                     if self.select_schema
                     else None,
                     return_as_model=True if self.select_schema else False,
-                    auto_detect_relationships=True,
                     nest_joins=self.nest_joins,
+                    **self._get_join_params(),
                     **pk_values,
                 )
                 return result
@@ -478,20 +547,18 @@ class EndpointCreator:
 
         @apply_model_pk(**self._primary_keys_types)
         async def endpoint(db: AsyncSession = Depends(self.session), **pkeys):
-            if self.include_relationships:
-                # Simple passthrough to CRUD method with auto-detection
+            if self._should_include_relationships():
                 item = await self.crud.get_joined(
                     db,
                     schema_to_select=cast(Type[BaseModel], self.select_schema)
                     if self.select_schema
                     else None,
                     return_as_model=True if self.select_schema else False,
-                    auto_detect_relationships=True,
                     nest_joins=self.nest_joins,
+                    **self._get_join_params(),
                     **pkeys,
                 )
             else:
-                # Original behavior when relationships not enabled
                 if self.select_schema is not None:
                     item = await self.crud.get(
                         db,
@@ -573,22 +640,20 @@ class EndpointCreator:
                         sort_columns.append(s)
                         sort_orders.append("asc")
 
-            if self.include_relationships:
-                # Simple passthrough to CRUD method with auto-detection
+            if self._should_include_relationships():
                 crud_data = await self.crud.get_multi_joined(
                     db,
                     offset=offset,  # type: ignore
                     limit=limit,  # type: ignore
                     schema_to_select=self.select_schema,
                     return_as_model=True if self.select_schema else False,
-                    auto_detect_relationships=True,
                     nest_joins=self.nest_joins,
                     sort_columns=sort_columns,
                     sort_orders=sort_orders,
+                    **self._get_join_params(),
                     **filters,
                 )
             else:
-                # Original behavior when relationships not enabled
                 if self.select_schema is not None:
                     crud_data = await self.crud.get_multi(
                         db,
@@ -648,16 +713,15 @@ class EndpointCreator:
                 else:
                     updated_item = await self.crud.update(db, item, **pkeys)
 
-                # Fetch back with relationships if enabled
-                if self.include_relationships:
+                if self._should_include_relationships():
                     result = await self.crud.get_joined(
                         db,
                         schema_to_select=cast(Type[BaseModel], self.select_schema)
                         if self.select_schema
                         else None,
                         return_as_model=True if self.select_schema else False,
-                        auto_detect_relationships=True,
                         nest_joins=self.nest_joins,
+                        **self._get_join_params(),
                         **pkeys,
                     )
                     return result
@@ -689,16 +753,15 @@ class EndpointCreator:
                         db, auto_fields, allow_multiple=False, **pkeys
                     )
 
-                # Fetch back with relationships if enabled
-                if self.include_relationships:
+                if self._should_include_relationships():
                     result = await self.crud.get_joined(
                         db,
                         schema_to_select=cast(Type[BaseModel], self.select_schema)
                         if self.select_schema
                         else None,
                         return_as_model=True if self.select_schema else False,
-                        auto_detect_relationships=True,
                         nest_joins=self.nest_joins,
+                        **self._get_join_params(),
                         **pkeys,
                     )
                     return result
@@ -723,23 +786,21 @@ class EndpointCreator:
         @apply_model_pk(**self._primary_keys_types)
         async def endpoint(db: AsyncSession = Depends(self.session), **pkeys):
             item_to_delete = None
-            # Fetch item with relationships before deleting if enabled
-            if self.include_relationships:
+            if self._should_include_relationships():
                 item_to_delete = await self.crud.get_joined(
                     db,
                     schema_to_select=cast(Type[BaseModel], self.select_schema)
                     if self.select_schema
                     else None,
                     return_as_model=True if self.select_schema else False,
-                    auto_detect_relationships=True,
                     nest_joins=self.nest_joins,
+                    **self._get_join_params(),
                     **pkeys,
                 )
 
             await self.crud.db_delete(db, **pkeys)
 
-            # Return the item with relationships if enabled
-            if self.include_relationships and item_to_delete:
+            if self._should_include_relationships() and item_to_delete:
                 return item_to_delete
 
             return {

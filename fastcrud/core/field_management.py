@@ -5,8 +5,9 @@ This module provides functions for managing Pydantic schemas, field injection,
 and column extraction with caching where beneficial for performance.
 """
 
+import logging
 from functools import lru_cache
-from typing import Any, Optional, Union, cast
+from typing import Any, Optional, Sequence, Union, cast
 
 from pydantic import BaseModel, create_model
 from sqlalchemy import inspect as sa_inspect
@@ -23,6 +24,8 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
     pass
+
+logger = logging.getLogger(__name__)
 
 
 @lru_cache(maxsize=128)
@@ -225,8 +228,6 @@ def _find_join_condition(
         return None
 
     fk_columns = [col for col in inspector.c if col.foreign_keys]
-
-    # Use alias for fk_model if provided, otherwise use the model's table
     fk_ref = fk_alias if fk_alias is not None else fk_model.__table__
 
     join_on = next(
@@ -272,12 +273,7 @@ def auto_detect_join_condition(
     validate_model_has_table(base_model)
     validate_model_has_table(join_model)
 
-    # Try forward direction: FKs on base_model pointing to join_model
-    # Base model is never aliased in auto-detection, so no alias needed
     join_on = _find_join_condition(base_model, join_model, fk_alias=None)
-
-    # Try reverse direction: FKs on join_model pointing to base_model
-    # Apply alias to join_model since it's the one being joined (has the FK)
     if join_on is None:
         join_on = _find_join_condition(join_model, base_model, fk_alias=join_alias)
 
@@ -319,9 +315,12 @@ def discover_model_relationships(
 
 def build_relationship_joins_config(
     model: ModelType,
-) -> list[Any]:
+    relationship_names: Optional[list[str]] = None,
+    default_nested_limit: Optional[int] = None,
+    include_one_to_many: bool = False,
+) -> list[JoinConfig]:
     """
-    Auto-detect all relationships and build JoinConfig list.
+    Auto-detect relationships and build JoinConfig list.
 
     For each relationship discovered on the model:
     - Auto-detects join condition via foreign keys using auto_detect_join_condition()
@@ -330,53 +329,207 @@ def build_relationship_joins_config(
     - Skips relationships where join condition cannot be auto-detected
     - Creates aliases for multiple relationships to the same model
 
+    By default, only one-to-one relationships are included for safety. One-to-many
+    relationships can return unbounded data via JOINs, which may cause performance
+    issues. To include one-to-many relationships, either:
+    - Explicitly list them in `relationship_names`
+    - Set `include_one_to_many=True`
+
     Args:
         model: The SQLAlchemy model to build join configurations for.
+        relationship_names: Optional list of relationship names to include.
+            If None, relationships are filtered by `include_one_to_many`.
+            If provided, only relationships with matching names will be included
+            (both one-to-one and one-to-many, regardless of `include_one_to_many`).
+        default_nested_limit: Optional default limit for nested items in
+            one-to-many relationships. When set, each one-to-many relationship
+            will return at most this many nested items. Note: This only filters
+            results at the application level after the database query returns.
+            Use None for no limit.
+        include_one_to_many: Whether to include one-to-many relationships when
+            auto-detecting. Defaults to False for safety. When False, only
+            one-to-one relationships are auto-detected. Set to True to include
+            all relationship types. This parameter is ignored when specific
+            `relationship_names` are provided.
 
     Returns:
-        List of JoinConfig objects for all detected relationships that can be auto-joined.
+        List of JoinConfig objects for detected relationships that can be auto-joined.
+
+    Raises:
+        ValueError: If relationship_names contains names that don't exist on the model.
+
+    Note:
+        Relationships that cannot be auto-detected are logged at DEBUG level.
+        Enable DEBUG logging to see which relationships were skipped and why.
 
     Example:
         ```python
+        # Include only one-to-one relationships (safe default)
         joins_config = build_relationship_joins_config(User)
-        # Returns JoinConfig for each relationship (e.g., profile, posts, etc.)
+
+        # Include all relationships including one-to-many
+        joins_config = build_relationship_joins_config(User, include_one_to_many=True)
+
+        # Include only specific relationships (bypasses include_one_to_many filter)
+        joins_config = build_relationship_joins_config(User, ["tier", "posts"])
+
+        # Limit nested items to 10 per one-to-many relationship
+        joins_config = build_relationship_joins_config(
+            User, include_one_to_many=True, default_nested_limit=10
+        )
         ```
     """
     relationships = discover_model_relationships(model)
-    joins_config = []
-    model_counts: dict[Any, int] = {}  # Track how many times we've seen each model
+
+    if relationship_names is not None:
+        available_names = {name for name, _ in relationships}
+        invalid_names = set(relationship_names) - available_names
+        if invalid_names:
+            raise ValueError(
+                f"Invalid relationship names: {invalid_names}. "
+                f"Available relationships on {model.__name__}: {available_names}"
+            )
+    joins_config: list[JoinConfig] = []
+    model_counts: dict[Any, int] = {}
+    skipped_relationships: list[tuple[str, str]] = []
 
     for rel_name, rel_prop in relationships:
-        related_model = rel_prop.mapper.class_
+        if relationship_names is not None and rel_name not in relationship_names:
+            continue
 
-        # Create alias if we've already seen this model (duplicate relationship)
+        is_one_to_many = rel_prop.uselist
+        if is_one_to_many and relationship_names is None and not include_one_to_many:
+            skipped_relationships.append(
+                (
+                    rel_name,
+                    "one-to-many excluded by default (use include_one_to_many=True)",
+                )
+            )
+            logger.debug(
+                "Skipping one-to-many relationship '%s' on %s. "
+                "Set include_one_to_many=True or explicitly list it to include.",
+                rel_name,
+                model.__name__,
+            )
+            continue
+
+        related_model = rel_prop.mapper.class_
         alias = None
         if related_model in model_counts:
             alias = aliased(related_model, name=rel_name)
         model_counts[related_model] = model_counts.get(related_model, 0) + 1
 
         try:
-            # Try to auto-detect join condition using existing function
-            # Pass the alias so the join condition uses it if needed
             join_on = auto_detect_join_condition(model, related_model, join_alias=alias)
-        except (ValueError, AttributeError):
-            # Skip relationships where join condition cannot be auto-detected
-            # (e.g., complex relationships, multiple primary keys, etc.)
+        except ValueError as e:
+            skipped_relationships.append((rel_name, str(e)))
+            logger.debug(
+                "Skipping relationship '%s' on %s: %s",
+                rel_name,
+                model.__name__,
+                str(e),
+            )
             continue
-
-        # Determine relationship type from SQLAlchemy property
-        relationship_type = "one-to-many" if rel_prop.uselist else "one-to-one"
+        except AttributeError as e:
+            skipped_relationships.append((rel_name, f"AttributeError: {e}"))
+            logger.debug(
+                "Skipping relationship '%s' on %s due to missing attribute: %s",
+                rel_name,
+                model.__name__,
+                str(e),
+            )
+            continue
+        relationship_type = "one-to-many" if is_one_to_many else "one-to-one"
+        nested_limit = (
+            default_nested_limit if relationship_type == "one-to-many" else None
+        )
 
         joins_config.append(
             JoinConfig(
                 model=related_model,
                 join_on=join_on,
                 join_prefix=f"{rel_name}_",
-                schema_to_select=None,  # Include all columns
+                schema_to_select=None,
                 join_type="left",
                 relationship_type=relationship_type,
-                alias=alias,  # Pass the alias to JoinConfig
+                alias=alias,
+                nested_limit=nested_limit,
             )
         )
 
+    if skipped_relationships:
+        logger.debug(
+            "Auto-detection for %s: %d relationships detected, %d skipped. "
+            "Skipped: %s",
+            model.__name__,
+            len(joins_config),
+            len(skipped_relationships),
+            [name for name, _ in skipped_relationships],
+        )
+
     return joins_config
+
+
+def resolve_relationship_config(
+    model: ModelType,
+    include_relationships: Union[bool, Sequence[str]],
+    default_nested_limit: Optional[int] = None,
+    include_one_to_many: bool = False,
+) -> Optional[list[JoinConfig]]:
+    """
+    Resolve include_relationships parameter to a list of JoinConfig objects.
+
+    This helper function handles the different forms of the include_relationships
+    parameter and returns the appropriate JoinConfig list for use in joined queries.
+
+    Args:
+        model: The SQLAlchemy model to resolve relationships for.
+        include_relationships: Controls which relationships to include:
+            - False: Don't include any relationships (returns None)
+            - True: Include auto-detectable relationships (filtered by include_one_to_many)
+            - List of strings: Include only the named relationships (all types included)
+        default_nested_limit: Optional default limit for nested items in
+            one-to-many relationships. When set, each one-to-many relationship
+            will return at most this many nested items. Note: This only filters
+            results at the application level. Use None for no limit.
+        include_one_to_many: Whether to include one-to-many relationships when
+            auto-detecting with `include_relationships=True`. Defaults to False
+            for safety since one-to-many JOINs can return unbounded data. This
+            parameter is ignored when specific relationship names are provided.
+
+    Returns:
+        List of JoinConfig objects, or None if include_relationships is False.
+
+    Raises:
+        ValueError: If include_relationships contains invalid relationship names.
+
+    Example:
+        ```python
+        # No relationships
+        config = resolve_relationship_config(User, False)  # Returns None
+
+        # Only one-to-one relationships (safe default)
+        config = resolve_relationship_config(User, True)
+
+        # All relationships including one-to-many
+        config = resolve_relationship_config(User, True, include_one_to_many=True)
+
+        # Specific relationships only (all types included)
+        config = resolve_relationship_config(User, ["tier", "posts"])
+
+        # With nested limit for one-to-many
+        config = resolve_relationship_config(
+            User, True, include_one_to_many=True, default_nested_limit=10
+        )
+        ```
+    """
+    if include_relationships is False:
+        return None
+
+    relationship_names: Optional[list[str]] = None
+    if include_relationships is not True:
+        relationship_names = list(include_relationships)
+
+    return build_relationship_joins_config(
+        model, relationship_names, default_nested_limit, include_one_to_many
+    )

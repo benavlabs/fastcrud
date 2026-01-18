@@ -16,7 +16,7 @@ class JoinConfig(BaseModel):
     Configuration for join operations in FastCRUD queries.
 
     This class defines how tables should be joined in multi-table queries,
-    including the relationship type, join conditions, and optional sorting.
+    including the relationship type, join conditions, and optional sorting/pagination.
 
     Attributes:
         model: The SQLAlchemy model to join with.
@@ -29,6 +29,9 @@ class JoinConfig(BaseModel):
         relationship_type: Type of relationship ("one-to-one" or "one-to-many").
         sort_columns: Optional column(s) to sort joined results by.
         sort_orders: Optional sort order(s) for the sort columns.
+        nested_limit: Optional limit for nested items in one-to-many relationships.
+            When set, only the first N nested items are returned (after sorting).
+            Use None for no limit (default).
 
     Example:
         >>> join_config = JoinConfig(
@@ -37,7 +40,8 @@ class JoinConfig(BaseModel):
         ...     join_prefix="articles_",
         ...     relationship_type="one-to-many",
         ...     sort_columns=["created_at", "title"],
-        ...     sort_orders=["desc", "asc"]
+        ...     sort_orders=["desc", "asc"],
+        ...     nested_limit=10  # Only return first 10 articles per author
         ... )
     """
 
@@ -51,6 +55,7 @@ class JoinConfig(BaseModel):
     relationship_type: Optional[str] = "one-to-one"
     sort_columns: Optional[Union[str, list[str]]] = None
     sort_orders: Optional[Union[str, list[str]]] = None
+    nested_limit: Optional[int] = None
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 

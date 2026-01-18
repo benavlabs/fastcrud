@@ -12,7 +12,7 @@ from fastcrud.types import (
     SelectSchemaType,
 )
 from .endpoint_creator import EndpointCreator
-from ..core import FilterConfig, CreateConfig, UpdateConfig, DeleteConfig
+from ..core import FilterConfig, CreateConfig, UpdateConfig, DeleteConfig, JoinConfig
 from ..core.filtering.operators import FilterCallable
 
 
@@ -45,8 +45,11 @@ def crud_router(
     update_config: Optional[UpdateConfig] = None,
     delete_config: Optional[DeleteConfig] = None,
     custom_filters: Optional[dict[str, FilterCallable]] = None,
-    include_relationships: bool = False,
+    include_relationships: Union[bool, Sequence[str]] = False,
+    joins_config: Optional[Sequence[JoinConfig]] = None,
     nest_joins: bool = True,
+    default_nested_limit: Optional[int] = None,
+    include_one_to_many: bool = False,
 ) -> APIRouter:
     """
     Creates and configures a FastAPI router with CRUD endpoints for a given model.
@@ -84,8 +87,20 @@ def crud_router(
         select_schema: Optional Pydantic schema for selecting an item.
         custom_filters: Optional dictionary of custom filter operators. Keys are operator names (e.g., 'year'),
                         values are callables that take a column and return a filter function.
-        include_relationships: If `True`, automatically detect and include related data from SQLAlchemy relationships in read endpoints. Defaults to `False`.
+        include_relationships: Controls automatic relationship detection for read endpoints. Can be:
+            - `False`: No automatic relationships (default)
+            - `True`: Include all auto-detectable relationships
+            - `["rel1", "rel2"]`: Include only the named relationships
+        joins_config: Optional list of `JoinConfig` objects for manual join control.
+            Cannot be used together with `include_relationships`.
         nest_joins: If `True`, nested data structures will be returned where joined model data are nested as dictionaries or lists. Defaults to `True`.
+        default_nested_limit: Optional limit for nested items in one-to-many relationships.
+            When set, each one-to-many relationship will return at most this many nested items.
+            Note: This only filters results at the application level after the database query.
+            Use `None` for no limit (default).
+        include_one_to_many: If `True`, include one-to-many relationships when auto-detecting.
+            Defaults to `False` for safety since one-to-many JOINs can return unbounded data.
+            This is ignored when specific relationship names are provided via `include_relationships`.
 
     Returns:
         Configured `APIRouter` instance with the CRUD endpoints.
@@ -560,7 +575,10 @@ def crud_router(
         update_config=update_config,
         delete_config=delete_config,
         include_relationships=include_relationships,
+        joins_config=joins_config,
         nest_joins=nest_joins,
+        default_nested_limit=default_nested_limit,
+        include_one_to_many=include_one_to_many,
         custom_filters=custom_filters,
     )
 

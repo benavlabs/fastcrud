@@ -5,9 +5,14 @@ This module contains functions for nesting joined data structures
 that require model introspection but don't create circular dependencies.
 """
 
+import logging
 from typing import Any, Optional, Callable, TYPE_CHECKING
 
 from .transforms import handle_one_to_one, handle_one_to_many, sort_nested_list
+
+logger = logging.getLogger(__name__)
+
+_LARGE_NESTED_THRESHOLD = 50
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..config import JoinConfig
@@ -198,10 +203,31 @@ def cleanup_null_joins(
                     item[join_primary_key] is None for item in nested_data[nested_key]
                 ):
                     nested_data[nested_key] = []
-                elif join.sort_columns and nested_data[nested_key]:
-                    nested_data[nested_key] = sort_nested_list(
-                        nested_data[nested_key], join.sort_columns, join.sort_orders
-                    )
+                else:
+                    nested_count = len(nested_data[nested_key])
+                    if (
+                        nested_count >= _LARGE_NESTED_THRESHOLD
+                        and join.nested_limit is None
+                    ):
+                        model_name = getattr(join.model, "__name__", str(join.model))
+                        logger.warning(
+                            "One-to-many relationship '%s' returned %d nested items. "
+                            "This may cause performance issues. Consider setting "
+                            "'nested_limit' in JoinConfig to enable SQL-level limiting "
+                            "with separate queries, or use 'default_nested_limit' "
+                            "in crud_router/EndpointCreator.",
+                            model_name,
+                            nested_count,
+                        )
+
+                    if join.sort_columns and nested_data[nested_key]:
+                        nested_data[nested_key] = sort_nested_list(
+                            nested_data[nested_key], join.sort_columns, join.sort_orders
+                        )
+                    if join.nested_limit is not None and nested_data[nested_key]:
+                        nested_data[nested_key] = nested_data[nested_key][
+                            : join.nested_limit
+                        ]
 
         if nested_key in nested_data and isinstance(nested_data[nested_key], dict):
             if (
