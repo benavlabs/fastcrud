@@ -261,14 +261,15 @@ async def fetch_and_merge_one_to_many(
     }
 
     for config in one_to_many_configs:
+        nested_key = (
+            config.join_prefix.rstrip("_")
+            if config.join_prefix
+            else config.model.__tablename__
+        )
+
         try:
             fk_column, _ = extract_foreign_key_info(
                 config.join_on, config.model, primary_model
-            )
-            nested_key = (
-                config.join_prefix.rstrip("_")
-                if config.join_prefix
-                else config.model.__tablename__
             )
             for pk in parent_ids:
                 if pk in results_by_pk:
@@ -300,11 +301,6 @@ async def fetch_and_merge_one_to_many(
                 "Falling back to empty list.",
                 config.model.__name__,
                 str(e),
-            )
-            nested_key = (
-                config.join_prefix.rstrip("_")
-                if config.join_prefix
-                else config.model.__tablename__
             )
             for result in main_results:
                 if nested_key not in result:
