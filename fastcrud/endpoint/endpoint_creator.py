@@ -492,7 +492,8 @@ class EndpointCreator:
                 await db.commit()
                 await db.refresh(db_object)
 
-                if self._should_include_relationships():
+                join_params = self._get_join_params()
+                if self._should_include_relationships() and join_params:
                     pk_values = {
                         pk: getattr(db_object, pk) for pk in self.primary_key_names
                     }
@@ -503,7 +504,7 @@ class EndpointCreator:
                         else None,
                         return_as_model=True if self.select_schema else False,
                         nest_joins=self.nest_joins,
-                        **self._get_join_params(),
+                        **join_params,
                         **pk_values,
                     )
                     return result
@@ -513,7 +514,8 @@ class EndpointCreator:
                 db, item, schema_to_select=self.select_schema
             )
 
-            if self._should_include_relationships() and created_item:
+            join_params = self._get_join_params()
+            if self._should_include_relationships() and join_params and created_item:
                 if isinstance(created_item, dict):
                     pk_values = {
                         pk: created_item.get(pk) for pk in self.primary_key_names
@@ -531,7 +533,7 @@ class EndpointCreator:
                     else None,
                     return_as_model=True if self.select_schema else False,
                     nest_joins=self.nest_joins,
-                    **self._get_join_params(),
+                    **join_params,
                     **pk_values,
                 )
                 return result
@@ -547,7 +549,8 @@ class EndpointCreator:
 
         @apply_model_pk(**self._primary_keys_types)
         async def endpoint(db: AsyncSession = Depends(self.session), **pkeys):
-            if self._should_include_relationships():
+            join_params = self._get_join_params()
+            if self._should_include_relationships() and join_params:
                 item = await self.crud.get_joined(
                     db,
                     schema_to_select=cast(Type[BaseModel], self.select_schema)
@@ -555,7 +558,7 @@ class EndpointCreator:
                     else None,
                     return_as_model=True if self.select_schema else False,
                     nest_joins=self.nest_joins,
-                    **self._get_join_params(),
+                    **join_params,
                     **pkeys,
                 )
             else:
@@ -640,7 +643,8 @@ class EndpointCreator:
                         sort_columns.append(s)
                         sort_orders.append("asc")
 
-            if self._should_include_relationships():
+            join_params = self._get_join_params()
+            if self._should_include_relationships() and join_params:
                 crud_data = await self.crud.get_multi_joined(
                     db,
                     offset=offset,  # type: ignore
@@ -650,7 +654,7 @@ class EndpointCreator:
                     nest_joins=self.nest_joins,
                     sort_columns=sort_columns,
                     sort_orders=sort_orders,
-                    **self._get_join_params(),
+                    **join_params,
                     **filters,
                 )
             else:
@@ -713,7 +717,8 @@ class EndpointCreator:
                 else:
                     updated_item = await self.crud.update(db, item, **pkeys)
 
-                if self._should_include_relationships():
+                join_params = self._get_join_params()
+                if self._should_include_relationships() and join_params:
                     result = await self.crud.get_joined(
                         db,
                         schema_to_select=cast(Type[BaseModel], self.select_schema)
@@ -721,7 +726,7 @@ class EndpointCreator:
                         else None,
                         return_as_model=True if self.select_schema else False,
                         nest_joins=self.nest_joins,
-                        **self._get_join_params(),
+                        **join_params,
                         **pkeys,
                     )
                     return result
@@ -753,7 +758,8 @@ class EndpointCreator:
                         db, auto_fields, allow_multiple=False, **pkeys
                     )
 
-                if self._should_include_relationships():
+                join_params = self._get_join_params()
+                if self._should_include_relationships() and join_params:
                     result = await self.crud.get_joined(
                         db,
                         schema_to_select=cast(Type[BaseModel], self.select_schema)
@@ -761,7 +767,7 @@ class EndpointCreator:
                         else None,
                         return_as_model=True if self.select_schema else False,
                         nest_joins=self.nest_joins,
-                        **self._get_join_params(),
+                        **join_params,
                         **pkeys,
                     )
                     return result
@@ -786,7 +792,8 @@ class EndpointCreator:
         @apply_model_pk(**self._primary_keys_types)
         async def endpoint(db: AsyncSession = Depends(self.session), **pkeys):
             item_to_delete = None
-            if self._should_include_relationships():
+            join_params = self._get_join_params()
+            if self._should_include_relationships() and join_params:
                 item_to_delete = await self.crud.get_joined(
                     db,
                     schema_to_select=cast(Type[BaseModel], self.select_schema)
@@ -794,13 +801,13 @@ class EndpointCreator:
                     else None,
                     return_as_model=True if self.select_schema else False,
                     nest_joins=self.nest_joins,
-                    **self._get_join_params(),
+                    **join_params,
                     **pkeys,
                 )
 
             await self.crud.db_delete(db, **pkeys)
 
-            if self._should_include_relationships() and item_to_delete:
+            if item_to_delete:
                 return item_to_delete
 
             return {
