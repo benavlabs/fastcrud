@@ -1,4 +1,4 @@
-from typing import Any, Generic, Union, Optional, overload, Literal, cast
+from typing import Any, Generic, Sequence, Union, Optional, overload, Literal, cast
 from datetime import datetime, timezone
 
 from sqlalchemy import (
@@ -32,6 +32,7 @@ from fastcrud.types import (
 from ..core import (
     extract_matching_columns_from_schema,
     auto_detect_join_condition,
+    build_relationship_joins_config,
     JoinConfig,
     CountConfig,
     get_primary_key_names,
@@ -44,6 +45,8 @@ from ..core import (
     build_joined_query,
     execute_joined_query,
     format_joined_response,
+    split_join_configs,
+    fetch_and_merge_one_to_many,
 )
 
 from .validation import (
@@ -1390,6 +1393,42 @@ class FastCRUD(
         self,
         db: AsyncSession,
         *,
+        auto_detect_relationships: Literal[True],
+        schema_to_select: type[SelectSchemaType],
+        return_as_model: Literal[True],
+        nest_joins: bool = False,
+        **kwargs: Any,
+    ) -> Optional[SelectSchemaType]: ...
+
+    @overload
+    async def get_joined(
+        self,
+        db: AsyncSession,
+        *,
+        auto_detect_relationships: Literal[True],
+        schema_to_select: type[SelectSchemaType],
+        return_as_model: Literal[False] = False,
+        nest_joins: bool = False,
+        **kwargs: Any,
+    ) -> Optional[dict[str, Any]]: ...
+
+    @overload
+    async def get_joined(
+        self,
+        db: AsyncSession,
+        *,
+        auto_detect_relationships: Literal[True],
+        schema_to_select: None = None,
+        return_as_model: bool = False,
+        nest_joins: bool = False,
+        **kwargs: Any,
+    ) -> Optional[dict[str, Any]]: ...
+
+    @overload
+    async def get_joined(
+        self,
+        db: AsyncSession,
+        *,
         schema_to_select: type[SelectSchemaType],
         return_as_model: Literal[True],
         join_model: Optional[ModelType] = None,
@@ -1480,6 +1519,8 @@ class FastCRUD(
         joins_config: Optional[list[JoinConfig]] = None,
         nest_joins: bool = False,
         relationship_type: Optional[str] = None,
+        auto_detect_relationships: Union[bool, Sequence[str]] = False,
+        include_one_to_many: bool = False,
         **kwargs: Any,
     ) -> Optional[Union[dict[str, Any], SelectSchemaType]]:
         """
@@ -1503,6 +1544,8 @@ class FastCRUD(
             joins_config: A list of `JoinConfig` instances, each specifying a model to join with, join condition, optional prefix for column names, schema for selecting specific columns, and the type of join. This parameter enables support for multiple joins.
             nest_joins: If `True`, nested data structures will be returned where joined model data are nested under the `join_prefix` as a dictionary.
             relationship_type: Specifies the relationship type, such as `"one-to-one"` or `"one-to-many"`. Used to determine how to nest the joined data. If `None`, uses `"one-to-one"`.
+            auto_detect_relationships: Automatically detect and join SQLAlchemy relationships. Can be `True` (all relationships), `False` (none), or a list of relationship names to include selectively (e.g., `["tier", "department"]`). Cannot be used with manual join parameters (`join_model`, `joins_config`, etc.). Gracefully falls back to regular `get()` if no relationships exist. Defaults to `False`.
+            include_one_to_many: When using `auto_detect_relationships=True`, whether to include one-to-many relationships. Defaults to `False` for safety since one-to-many JOINs can return unbounded data. Set to `True` to include all relationship types. This is ignored when specific relationship names are provided.
             **kwargs: Filters to apply to the primary model query, supporting advanced comparison operators for refined searching.
 
         Returns:
@@ -1723,15 +1766,62 @@ class FastCRUD(
             )
             # Expect 'result' to have 'posts' as a nested list of dictionaries
             ```
+
+            Example using auto-detection to automatically join all relationships:
+
+            ```python
+            # Automatically detect and join all relationships defined on the User model
+            user = await user_crud.get_joined(
+                db=session,
+                schema_to_select=ReadUserSchema,
+                auto_detect_relationships=True,
+                nest_joins=True,
+                id=1,
+            )
+            # All defined relationships (tier, department, etc.) are automatically joined
+            ```
         """
-        if joins_config and (
+        if auto_detect_relationships:
+            if (
+                joins_config
+                or join_model
+                or join_on
+                or join_prefix
+                or join_schema_to_select
+                or alias
+            ):
+                raise ValueError(
+                    "Cannot use auto_detect_relationships with manual join parameters. "
+                    "Use auto_detect_relationships with only db, schema_to_select, nest_joins, and **kwargs."
+                )
+
+            relationship_names: Optional[list[str]] = None
+            if auto_detect_relationships is not True:
+                relationship_names = list(auto_detect_relationships)
+            joins_config = build_relationship_joins_config(
+                self.model,
+                relationship_names,
+                include_one_to_many=include_one_to_many,
+            )
+
+            if not joins_config:
+                return await self.get(
+                    db=db,
+                    schema_to_select=schema_to_select,
+                    return_as_model=return_as_model,
+                    **kwargs,
+                )
+
+        elif joins_config and (
             join_model or join_prefix or join_on or join_schema_to_select or alias
         ):
             raise ValueError(
                 "Cannot use both single join parameters and joins_config simultaneously."
             )
-        elif not joins_config and not join_model:
-            raise ValueError("You need one of join_model or joins_config.")
+        elif not joins_config and not join_model and not auto_detect_relationships:
+            raise ValueError(
+                "You need one of join_model, joins_config, or auto_detect_relationships."
+            )
 
         primary_select = extract_matching_columns_from_schema(
             model=self.model,
@@ -1756,14 +1846,19 @@ class FastCRUD(
                 )
             )
 
+        regular_joins, one_to_many_with_limits = split_join_configs(join_definitions)
         stmt = self._query_builder.prepare_joins(
-            stmt=stmt, joins_config=join_definitions, use_temporary_prefix=nest_joins
+            stmt=stmt, joins_config=regular_joins, use_temporary_prefix=nest_joins
         )
         primary_filters = self._filter_processor.parse_filters(**kwargs)
         stmt = self._query_builder.apply_filters(stmt, primary_filters)
 
         db_rows = await db.execute(stmt)
-        if any(join.relationship_type == "one-to-many" for join in join_definitions):
+        has_regular_one_to_many = any(
+            join.relationship_type == "one-to-many" for join in regular_joins
+        )
+
+        if has_regular_one_to_many:
             if nest_joins is False:  # pragma: no cover
                 raise ValueError(
                     "Cannot use one-to-many relationship with nest_joins=False"
@@ -1778,8 +1873,21 @@ class FastCRUD(
                 data_list = []
 
         processed_data = process_joined_data(
-            data_list, join_definitions, nest_joins, self.model
+            data_list, regular_joins, nest_joins, self.model
         )
+        if one_to_many_with_limits and processed_data:
+            pk_names = get_primary_key_names(self.model)
+            pk_name = pk_names[0] if pk_names else "id"
+
+            results_list = [processed_data] if processed_data else []
+            merged_results = await fetch_and_merge_one_to_many(
+                db=db,
+                primary_model=self.model,
+                main_results=results_list,
+                one_to_many_configs=one_to_many_with_limits,
+                pk_column_name=pk_name,
+            )
+            processed_data = merged_results[0] if merged_results else None
 
         if processed_data is None or not return_as_model:
             return processed_data
@@ -1790,6 +1898,57 @@ class FastCRUD(
             )
 
         return schema_to_select(**processed_data)
+
+    @overload
+    async def get_multi_joined(
+        self,
+        db: AsyncSession,
+        *,
+        auto_detect_relationships: Literal[True],
+        schema_to_select: type[SelectSchemaType],
+        return_as_model: Literal[True],
+        nest_joins: bool = False,
+        offset: int = 0,
+        limit: Optional[int] = 100,
+        sort_columns: Optional[Union[str, list[str]]] = None,
+        sort_orders: Optional[Union[str, list[str]]] = None,
+        return_total_count: bool = True,
+        **kwargs: Any,
+    ) -> GetMultiResponseModel[SelectSchemaType]: ...
+
+    @overload
+    async def get_multi_joined(
+        self,
+        db: AsyncSession,
+        *,
+        auto_detect_relationships: Literal[True],
+        schema_to_select: type[SelectSchemaType],
+        return_as_model: Literal[False] = False,
+        nest_joins: bool = False,
+        offset: int = 0,
+        limit: Optional[int] = 100,
+        sort_columns: Optional[Union[str, list[str]]] = None,
+        sort_orders: Optional[Union[str, list[str]]] = None,
+        return_total_count: bool = True,
+        **kwargs: Any,
+    ) -> GetMultiResponseDict: ...
+
+    @overload
+    async def get_multi_joined(
+        self,
+        db: AsyncSession,
+        *,
+        auto_detect_relationships: Literal[True],
+        schema_to_select: None = None,
+        return_as_model: bool = False,
+        nest_joins: bool = False,
+        offset: int = 0,
+        limit: Optional[int] = 100,
+        sort_columns: Optional[Union[str, list[str]]] = None,
+        sort_orders: Optional[Union[str, list[str]]] = None,
+        return_total_count: bool = True,
+        **kwargs: Any,
+    ) -> GetMultiResponseDict: ...
 
     @overload
     async def get_multi_joined(
@@ -1918,6 +2077,8 @@ class FastCRUD(
         return_total_count: bool = True,
         relationship_type: Optional[str] = None,
         nested_schema_to_select: Optional[dict[str, type[SelectSchemaType]]] = None,
+        auto_detect_relationships: Union[bool, Sequence[str]] = False,
+        include_one_to_many: bool = False,
         **kwargs: Any,
     ) -> Union[GetMultiResponseModel[SelectSchemaType], GetMultiResponseDict]:
         """
@@ -1946,6 +2107,8 @@ class FastCRUD(
             return_total_count: If `True`, also returns the total count of rows with the selected filters. Useful for pagination.
             relationship_type: Specifies the relationship type, such as `"one-to-one"` or `"one-to-many"`. Used to determine how to nest the joined data. If `None`, uses `"one-to-one"`.
             nested_schema_to_select: A dictionary mapping join prefixes to their corresponding Pydantic schemas for nested data conversion. If not provided, schemas are auto-detected from `joins_config`.
+            auto_detect_relationships: Automatically detect and join SQLAlchemy relationships. Can be `True` (all relationships), `False` (none), or a list of relationship names to include selectively (e.g., `["tier", "department"]`). Cannot be used with manual join parameters (`join_model`, `joins_config`, etc.). Gracefully falls back to regular `get_multi()` if no relationships exist. Defaults to `False`.
+            include_one_to_many: When using `auto_detect_relationships=True`, whether to include one-to-many relationships. Defaults to `False` for safety since one-to-many JOINs can return unbounded data. Set to `True` to include all relationship types. This is ignored when specific relationship names are provided.
             **kwargs: Filters to apply to the primary query, including advanced comparison operators for refined searching.
 
         Returns:
@@ -2228,7 +2391,58 @@ class FastCRUD(
             #     "total_count": 3
             # }
             ```
+
+            Example using auto-detection to automatically join all relationships:
+
+            ```python
+            # Automatically detect and join all relationships defined on the User model
+            users = await user_crud.get_multi_joined(
+                db=session,
+                schema_to_select=ReadUserSchema,
+                auto_detect_relationships=True,
+                nest_joins=True,
+                offset=0,
+                limit=10,
+            )
+            # All defined relationships (tier, department, etc.) are automatically joined
+            ```
         """
+        if auto_detect_relationships:
+            if (
+                joins_config
+                or join_model
+                or join_on
+                or join_prefix
+                or join_schema_to_select
+                or alias
+            ):
+                raise ValueError(
+                    "Cannot use auto_detect_relationships with manual join parameters. "
+                    "Use auto_detect_relationships with only db, schema_to_select, nest_joins, "
+                    "offset, limit, sort_columns, sort_orders, and **kwargs."
+                )
+            relationship_names: Optional[list[str]] = None
+            if auto_detect_relationships is not True:
+                relationship_names = list(auto_detect_relationships)
+            joins_config = build_relationship_joins_config(
+                self.model,
+                relationship_names,
+                include_one_to_many=include_one_to_many,
+            )
+
+            if not joins_config:
+                return await self.get_multi(
+                    db=db,
+                    schema_to_select=schema_to_select,
+                    return_as_model=return_as_model,
+                    offset=offset,
+                    limit=limit,
+                    sort_columns=sort_columns,
+                    sort_orders=sort_orders,
+                    return_total_count=return_total_count,
+                    **kwargs,
+                )
+
         config = validate_joined_query_params(
             primary_model=self.model,
             joins_config=joins_config,
@@ -2245,11 +2459,18 @@ class FastCRUD(
             offset=offset,
         )
 
+        original_join_definitions = config["join_definitions"]
+        regular_joins, one_to_many_with_limits = split_join_configs(
+            original_join_definitions
+        )
+
+        main_query_config = {**config, "join_definitions": regular_joins}
+
         stmt = build_joined_query(
             model=self.model,
             query_builder=self._query_builder,
             filter_processor=self._filter_processor,
-            config=config,
+            config=main_query_config,
             schema_to_select=schema_to_select,
             nest_joins=nest_joins,
             **kwargs,
@@ -2263,6 +2484,18 @@ class FastCRUD(
             sort_columns=sort_columns,
             sort_orders=sort_orders,
         )
+
+        if one_to_many_with_limits and raw_data:
+            pk_names = get_primary_key_names(self.model)
+            pk_name = pk_names[0] if pk_names else "id"
+
+            raw_data = await fetch_and_merge_one_to_many(
+                db=db,
+                primary_model=self.model,
+                main_results=raw_data,
+                one_to_many_configs=one_to_many_with_limits,
+                pk_column_name=pk_name,
+            )
 
         return cast(
             Union[GetMultiResponseModel[SelectSchemaType], GetMultiResponseDict],

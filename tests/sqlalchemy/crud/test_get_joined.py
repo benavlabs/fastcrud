@@ -2,6 +2,7 @@ import pytest
 from typing import Optional
 from pydantic import BaseModel
 from sqlalchemy import and_
+from sqlalchemy.ext.asyncio import AsyncSession
 from fastcrud import FastCRUD, JoinConfig, aliased
 from ...sqlalchemy.conftest import (
     ModelTest,
@@ -14,6 +15,7 @@ from ...sqlalchemy.conftest import (
     BookingSchema,
     ReadSchemaTest,
     Article,
+    Author,
     Card,
     Client,
     Department,
@@ -23,6 +25,7 @@ from ...sqlalchemy.conftest import (
     DepartmentRead,
     UserReadSub,
     TaskRead,
+    ModelWithCustomColumns,
 )
 
 
@@ -398,7 +401,10 @@ async def test_get_joined_without_join_model_or_joins_config_raises_value_error(
     with pytest.raises(ValueError) as excinfo:
         await crud.get_joined(db=async_session)
 
-    assert "You need one of join_model or joins_config." in str(excinfo.value)
+    assert (
+        "You need one of join_model, joins_config, or auto_detect_relationships."
+        in str(excinfo.value)
+    )
 
 
 @pytest.mark.asyncio
@@ -884,3 +890,319 @@ async def test_get_joined_return_as_model_with_joins_config(async_session):
         result, "assignee_name"
     ), "Result should have assignee_name attribute"
     assert result.assignee_name == "John Doe"
+
+
+# Tests for auto_detect_relationships parameter
+@pytest.mark.asyncio
+async def test_get_joined_auto_detect_relationships(
+    async_session, test_data, test_data_tier, test_data_category
+):
+    """Test auto-detecting all relationships."""
+    # Setup tier and category data
+    for tier_item in test_data_tier:
+        async_session.add(TierModel(**tier_item))
+    for category_item in test_data_category:
+        async_session.add(CategoryModel(**category_item))
+    await async_session.commit()
+
+    # Add test data
+    for user_item in test_data:
+        async_session.add(ModelTest(**user_item))
+    await async_session.commit()
+
+    crud = FastCRUD(ModelTest)
+    result = await crud.get_joined(
+        db=async_session,
+        schema_to_select=ReadSchemaTest,
+        auto_detect_relationships=True,
+        nest_joins=True,  # Required for one-to-many relationships
+        name="Alice",
+    )
+
+    assert result is not None
+    assert "name" in result
+    assert result["name"] == "Alice"
+    # Should have tier relationship data (nested)
+    assert "tier" in result or "tier_id" in result
+
+
+@pytest.mark.asyncio
+async def test_get_joined_auto_detect_with_manual_error(async_session):
+    """Test that auto_detect + manual joins raises error."""
+    crud = FastCRUD(ModelTest)
+    with pytest.raises(ValueError, match="Cannot use auto_detect_relationships"):
+        await crud.get_joined(
+            db=async_session,
+            join_model=TierModel,
+            auto_detect_relationships=True,
+            id=1,
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_joined_auto_detect_no_relationships(
+    async_session: AsyncSession,
+) -> None:
+    """Test that auto_detect gracefully handles models with no relationships."""
+
+    class CustomSchema(BaseModel):
+        id: int
+        meta: str
+        name: str
+
+    # ModelWithCustomColumns has NO relationships defined
+    custom = ModelWithCustomColumns(id=1, meta="test", name="Test Name")
+    async_session.add(custom)
+    await async_session.commit()
+    await async_session.refresh(custom)
+
+    crud: FastCRUD = FastCRUD(ModelWithCustomColumns)  # type: ignore[type-arg]
+    # Should work without error - falls back to regular get()
+    result = await crud.get_joined(
+        db=async_session,
+        schema_to_select=CustomSchema,
+        auto_detect_relationships=True,
+        id=custom.id,
+    )
+
+    assert result is not None
+    assert result["id"] == custom.id
+    assert result["name"] == custom.name
+
+
+@pytest.mark.asyncio
+async def test_get_joined_auto_detect_with_nest_joins(
+    async_session, test_data, test_data_tier
+):
+    """Test auto-detection with nested joins enabled."""
+    for tier_item in test_data_tier:
+        async_session.add(TierModel(**tier_item))
+    await async_session.commit()
+
+    for user_item in test_data:
+        async_session.add(ModelTest(**user_item))
+    await async_session.commit()
+
+    crud = FastCRUD(ModelTest)
+    result = await crud.get_joined(
+        db=async_session,
+        schema_to_select=ReadSchemaTest,
+        auto_detect_relationships=True,
+        nest_joins=True,
+        name="Alice",
+    )
+
+    assert result is not None
+    assert "name" in result
+    # With nest_joins, joined data should be nested
+    assert "tier" in result or "category" in result
+
+
+@pytest.mark.asyncio
+async def test_get_joined_reverse_fk_direction(async_session):
+    """Test auto-detection when FK is on join_model (reverse direction).
+
+    Author has no FK, but Article has FK pointing to Author.
+    Join FROM Author TO Article.
+    """
+    author = Author(name="John Doe")
+    async_session.add(author)
+    await async_session.flush()
+
+    articles = [
+        Article(
+            title="Article 1",
+            content="Content 1",
+            published_date="2024-01-01",
+            author_id=author.id,
+        ),
+        Article(
+            title="Article 2",
+            content="Content 2",
+            published_date="2024-01-02",
+            author_id=author.id,
+        ),
+    ]
+    async_session.add_all(articles)
+    await async_session.commit()
+
+    # Join FROM Author TO Article (FK is on Article side - reverse direction)
+    author_crud = FastCRUD(Author)
+    result = await author_crud.get_joined(
+        db=async_session,
+        join_model=Article,
+        join_prefix="article_",
+        id=author.id,
+    )
+
+    assert result is not None
+    assert "name" in result
+    assert result["name"] == "John Doe"
+    # Should have joined article data (will get first article due to one-to-one behavior)
+    assert "article_title" in result
+
+
+@pytest.mark.asyncio
+async def test_get_joined_forward_fk_direction(async_session):
+    """Test auto-detection when FK is on base_model (forward direction).
+
+    Article has FK pointing to Author.
+    Join FROM Article TO Author.
+    """
+    author = Author(name="Jane Smith")
+    async_session.add(author)
+    await async_session.flush()
+
+    article = Article(
+        title="Great Article",
+        content="Amazing content",
+        published_date="2024-01-15",
+        author_id=author.id,
+    )
+    async_session.add(article)
+    await async_session.commit()
+
+    # Join FROM Article TO Author (FK is on Article side - forward direction)
+    article_crud = FastCRUD(Article)
+    result = await article_crud.get_joined(
+        db=async_session,
+        join_model=Author,
+        join_prefix="author_",
+        id=article.id,
+    )
+
+    assert result is not None
+    assert "title" in result
+    assert result["title"] == "Great Article"
+    # Should have joined author data
+    assert "author_name" in result
+    assert result["author_name"] == "Jane Smith"
+
+
+# ============================================================================
+# Tests for selective relationship inclusion (list of relationship names)
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_get_joined_selective_relationships(
+    async_session, test_data, test_data_tier
+):
+    """Test auto-detection with selective relationship inclusion."""
+    for tier_item in test_data_tier:
+        async_session.add(TierModel(**tier_item))
+    await async_session.commit()
+
+    for user_item in test_data:
+        async_session.add(ModelTest(**user_item))
+    await async_session.commit()
+
+    crud = FastCRUD(ModelTest)
+    # Only include 'tier' relationship, not all relationships
+    result = await crud.get_joined(
+        db=async_session,
+        schema_to_select=ReadSchemaTest,
+        auto_detect_relationships=["tier"],
+        nest_joins=True,
+        name="Alice",
+    )
+
+    assert result is not None
+    assert "name" in result
+    assert result["name"] == "Alice"
+    # Should have tier data since it was explicitly included
+    assert "tier" in result
+
+
+@pytest.mark.asyncio
+async def test_get_joined_invalid_relationship_name(async_session, test_data):
+    """Test that passing invalid relationship name raises ValueError."""
+    for user_item in test_data:
+        async_session.add(ModelTest(**user_item))
+    await async_session.commit()
+
+    crud = FastCRUD(ModelTest)
+    with pytest.raises(ValueError) as excinfo:
+        await crud.get_joined(
+            db=async_session,
+            auto_detect_relationships=["nonexistent_relationship"],
+            name="Alice",
+        )
+
+    error_message = str(excinfo.value)
+    assert "Invalid relationship names" in error_message
+    assert "nonexistent_relationship" in error_message
+
+
+@pytest.mark.asyncio
+async def test_get_joined_multiple_selective_relationships(
+    async_session, test_data, test_data_tier, test_data_category
+):
+    """Test auto-detection with multiple selective relationships."""
+    for tier_item in test_data_tier:
+        async_session.add(TierModel(**tier_item))
+    for category_item in test_data_category:
+        async_session.add(CategoryModel(**category_item))
+    await async_session.commit()
+
+    for user_item in test_data:
+        async_session.add(ModelTest(**user_item))
+    await async_session.commit()
+
+    crud = FastCRUD(ModelTest)
+    # Include both tier and category relationships
+    result = await crud.get_joined(
+        db=async_session,
+        schema_to_select=ReadSchemaTest,
+        auto_detect_relationships=["tier", "category"],
+        nest_joins=True,
+        name="Alice",
+    )
+
+    assert result is not None
+    assert "name" in result
+
+
+@pytest.mark.asyncio
+async def test_get_multi_joined_selective_relationships(
+    async_session, test_data, test_data_tier
+):
+    """Test get_multi_joined with selective relationship inclusion."""
+    for tier_item in test_data_tier:
+        async_session.add(TierModel(**tier_item))
+    await async_session.commit()
+
+    for user_item in test_data:
+        async_session.add(ModelTest(**user_item))
+    await async_session.commit()
+
+    crud = FastCRUD(ModelTest)
+    result = await crud.get_multi_joined(
+        db=async_session,
+        schema_to_select=ReadSchemaTest,
+        auto_detect_relationships=["tier"],
+        nest_joins=True,
+    )
+
+    assert result is not None
+    assert "data" in result
+    assert len(result["data"]) > 0
+
+
+@pytest.mark.asyncio
+async def test_get_multi_joined_invalid_relationship_name(async_session, test_data):
+    """Test that get_multi_joined with invalid relationship name raises ValueError."""
+    for user_item in test_data:
+        async_session.add(ModelTest(**user_item))
+    await async_session.commit()
+
+    crud = FastCRUD(ModelTest)
+    with pytest.raises(ValueError) as excinfo:
+        await crud.get_multi_joined(
+            db=async_session,
+            auto_detect_relationships=["bad_relationship"],
+        )
+
+    error_message = str(excinfo.value)
+    assert "Invalid relationship names" in error_message
+    assert "bad_relationship" in error_message
