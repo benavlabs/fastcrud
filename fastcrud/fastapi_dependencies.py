@@ -79,20 +79,20 @@ def create_auto_field_injector(
 
     return auto_fields_resolver
 
-def _str_to_bool(value: bool | str) -> bool:
+def _str_to_bool(value: Union[bool, str]) -> bool:
     """
     Helper function to properly convert string to bool
     """
-    
+
     if isinstance(value, bool):
         return value
-    
+
     str_value = str(value).lower()
     if str_value in ("true", "1"):
         return True
     elif str_value in ("false", "0"):
         return False
-    
+
     raise ValueError(f"Cannot convert '{value}' / (type {type(value)}) to bool")
 
 def create_dynamic_filters(
