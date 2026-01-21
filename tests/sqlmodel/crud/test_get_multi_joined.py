@@ -1361,3 +1361,139 @@ async def test_get_multi_joined_explicit_join_preserves_condition(async_session)
     assert (
         task3["department"]["name"] == "Engineering"
     ), "Task 3 should be in Engineering department"
+
+
+# Tests for auto_detect_relationships parameter
+@pytest.mark.asyncio
+async def test_get_multi_joined_auto_detect_relationships_sqlmodel(
+    async_session, test_data, test_data_tier, test_data_category
+):
+    """Test auto-detecting all relationships for multi-join queries (SQLModel)."""
+    # Setup tier and category data
+    for tier_item in test_data_tier:
+        async_session.add(TierModel(**tier_item))
+    for category_item in test_data_category:
+        async_session.add(CategoryModel(**category_item))
+    await async_session.commit()
+
+    # Add test data
+    for user_item in test_data:
+        async_session.add(ModelTest(**user_item))
+    await async_session.commit()
+
+    crud = FastCRUD(ModelTest)
+    result = await crud.get_multi_joined(
+        db=async_session,
+        schema_to_select=ReadSchemaTest,
+        auto_detect_relationships=True,
+        nest_joins=True,
+        limit=10,
+    )
+
+    assert result is not None
+    assert "data" in result
+    assert len(result["data"]) > 0
+    # Should have tier or category relationship data
+    first_item = result["data"][0]
+    assert "name" in first_item
+
+
+@pytest.mark.asyncio
+async def test_get_multi_joined_auto_detect_with_manual_error_sqlmodel(async_session):
+    """Test that auto_detect + manual joins raises error (SQLModel)."""
+    crud = FastCRUD(ModelTest)
+    with pytest.raises(ValueError, match="Cannot use auto_detect_relationships"):
+        await crud.get_multi_joined(
+            db=async_session,
+            join_model=TierModel,
+            auto_detect_relationships=True,
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_multi_joined_auto_detect_no_relationships_sqlmodel(async_session):
+    """Test that auto_detect gracefully handles models with no relationships (SQLModel)."""
+    from ...sqlmodel.conftest import ModelWithCustomColumns
+
+    # ModelWithCustomColumns has NO relationships defined
+    custom1 = ModelWithCustomColumns(id=1, meta="test1", name="Test 1")
+    custom2 = ModelWithCustomColumns(id=2, meta="test2", name="Test 2")
+    async_session.add_all([custom1, custom2])
+    await async_session.commit()
+
+    crud = FastCRUD(ModelWithCustomColumns)
+    # Should work without error - falls back to regular get_multi()
+    result = await crud.get_multi_joined(
+        db=async_session,
+        auto_detect_relationships=True,
+        limit=10,
+    )
+
+    assert result is not None
+    assert "data" in result
+    assert len(result["data"]) == 2
+
+
+@pytest.mark.asyncio
+async def test_get_multi_joined_auto_detect_with_pagination_sqlmodel(
+    async_session, test_data, test_data_tier, test_data_category
+):
+    """Test auto-detection with pagination (SQLModel)."""
+    for tier_item in test_data_tier:
+        async_session.add(TierModel(**tier_item))
+    for category_item in test_data_category:
+        async_session.add(CategoryModel(**category_item))
+    await async_session.commit()
+
+    for user_item in test_data:
+        async_session.add(ModelTest(**user_item))
+    await async_session.commit()
+
+    crud = FastCRUD(ModelTest)
+    result = await crud.get_multi_joined(
+        db=async_session,
+        schema_to_select=ReadSchemaTest,
+        auto_detect_relationships=True,
+        nest_joins=True,
+        offset=0,
+        limit=5,
+    )
+
+    assert result is not None
+    assert "data" in result
+    assert len(result["data"]) == 5
+    assert "total_count" in result
+
+
+@pytest.mark.asyncio
+async def test_get_multi_joined_auto_detect_with_sorting_sqlmodel(
+    async_session, test_data, test_data_tier, test_data_category
+):
+    """Test auto-detection with sorting (SQLModel)."""
+    for tier_item in test_data_tier:
+        async_session.add(TierModel(**tier_item))
+    for category_item in test_data_category:
+        async_session.add(CategoryModel(**category_item))
+    await async_session.commit()
+
+    for user_item in test_data:
+        async_session.add(ModelTest(**user_item))
+    await async_session.commit()
+
+    crud = FastCRUD(ModelTest)
+    result = await crud.get_multi_joined(
+        db=async_session,
+        schema_to_select=ReadSchemaTest,
+        auto_detect_relationships=True,
+        nest_joins=True,
+        sort_columns=["name"],
+        sort_orders=["asc"],
+        limit=10,
+    )
+
+    assert result is not None
+    assert "data" in result
+    assert len(result["data"]) > 0
+    # Verify sorting (first names alphabetically should be early)
+    names = [item["name"] for item in result["data"]]
+    assert names == sorted(names)
