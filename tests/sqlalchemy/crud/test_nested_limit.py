@@ -82,11 +82,41 @@ async def test_nested_limit_with_sorting(async_session):
     author1 = Author(id=1, name="Author 1")
 
     articles = [
-        Article(id=1, title="Z Article", content="C1", author_id=1, published_date="2023-01-01"),
-        Article(id=2, title="A Article", content="C2", author_id=1, published_date="2023-01-02"),
-        Article(id=3, title="M Article", content="C3", author_id=1, published_date="2023-01-03"),
-        Article(id=4, title="B Article", content="C4", author_id=1, published_date="2023-01-04"),
-        Article(id=5, title="Y Article", content="C5", author_id=1, published_date="2023-01-05"),
+        Article(
+            id=1,
+            title="Z Article",
+            content="C1",
+            author_id=1,
+            published_date="2023-01-01",
+        ),
+        Article(
+            id=2,
+            title="A Article",
+            content="C2",
+            author_id=1,
+            published_date="2023-01-02",
+        ),
+        Article(
+            id=3,
+            title="M Article",
+            content="C3",
+            author_id=1,
+            published_date="2023-01-03",
+        ),
+        Article(
+            id=4,
+            title="B Article",
+            content="C4",
+            author_id=1,
+            published_date="2023-01-04",
+        ),
+        Article(
+            id=5,
+            title="Y Article",
+            content="C5",
+            author_id=1,
+            published_date="2023-01-05",
+        ),
     ]
 
     async_session.add_all([author1] + articles)
@@ -122,11 +152,41 @@ async def test_nested_limit_with_descending_sort(async_session):
     author1 = Author(id=1, name="Author 1")
 
     articles = [
-        Article(id=1, title="A Article", content="C1", author_id=1, published_date="2023-01-01"),
-        Article(id=2, title="B Article", content="C2", author_id=1, published_date="2023-01-02"),
-        Article(id=3, title="C Article", content="C3", author_id=1, published_date="2023-01-03"),
-        Article(id=4, title="D Article", content="C4", author_id=1, published_date="2023-01-04"),
-        Article(id=5, title="E Article", content="C5", author_id=1, published_date="2023-01-05"),
+        Article(
+            id=1,
+            title="A Article",
+            content="C1",
+            author_id=1,
+            published_date="2023-01-01",
+        ),
+        Article(
+            id=2,
+            title="B Article",
+            content="C2",
+            author_id=1,
+            published_date="2023-01-02",
+        ),
+        Article(
+            id=3,
+            title="C Article",
+            content="C3",
+            author_id=1,
+            published_date="2023-01-03",
+        ),
+        Article(
+            id=4,
+            title="D Article",
+            content="C4",
+            author_id=1,
+            published_date="2023-01-04",
+        ),
+        Article(
+            id=5,
+            title="E Article",
+            content="C5",
+            author_id=1,
+            published_date="2023-01-05",
+        ),
     ]
 
     async_session.add_all([author1] + articles)
@@ -161,10 +221,22 @@ async def test_nested_limit_with_multiple_sort_columns(async_session):
     author1 = Author(id=1, name="Author 1")
 
     articles = [
-        Article(id=1, title="Same", content="C1", author_id=1, published_date="2023-01-03"),
-        Article(id=2, title="Same", content="C2", author_id=1, published_date="2023-01-01"),
-        Article(id=3, title="Same", content="C3", author_id=1, published_date="2023-01-02"),
-        Article(id=4, title="Different", content="C4", author_id=1, published_date="2023-01-04"),
+        Article(
+            id=1, title="Same", content="C1", author_id=1, published_date="2023-01-03"
+        ),
+        Article(
+            id=2, title="Same", content="C2", author_id=1, published_date="2023-01-01"
+        ),
+        Article(
+            id=3, title="Same", content="C3", author_id=1, published_date="2023-01-02"
+        ),
+        Article(
+            id=4,
+            title="Different",
+            content="C4",
+            author_id=1,
+            published_date="2023-01-04",
+        ),
     ]
 
     async_session.add_all([author1] + articles)
@@ -200,9 +272,27 @@ async def test_nested_limit_with_schema_to_select(async_session):
     author1 = Author(id=1, name="Author 1")
 
     articles = [
-        Article(id=1, title="Article 1", content="Content 1", author_id=1, published_date="2023-01-01"),
-        Article(id=2, title="Article 2", content="Content 2", author_id=1, published_date="2023-01-02"),
-        Article(id=3, title="Article 3", content="Content 3", author_id=1, published_date="2023-01-03"),
+        Article(
+            id=1,
+            title="Article 1",
+            content="Content 1",
+            author_id=1,
+            published_date="2023-01-01",
+        ),
+        Article(
+            id=2,
+            title="Article 2",
+            content="Content 2",
+            author_id=1,
+            published_date="2023-01-02",
+        ),
+        Article(
+            id=3,
+            title="Article 3",
+            content="Content 3",
+            author_id=1,
+            published_date="2023-01-03",
+        ),
     ]
 
     async_session.add_all([author1] + articles)
@@ -242,11 +332,41 @@ async def test_nested_limit_with_filters(async_session):
     author1 = Author(id=1, name="Author 1")
 
     articles = [
-        Article(id=1, title="Published 1", content="Content 1", author_id=1, published_date="2023-01-01"),
-        Article(id=2, title="Draft 1", content="Content 2", author_id=1, published_date="2023-01-02"),
-        Article(id=3, title="Published 2", content="Content 3", author_id=1, published_date="2023-01-03"),
-        Article(id=4, title="Published 3", content="Content 4", author_id=1, published_date="2023-01-04"),
-        Article(id=5, title="Draft 2", content="Content 5", author_id=1, published_date="2023-01-05"),
+        Article(
+            id=1,
+            title="Published 1",
+            content="Content 1",
+            author_id=1,
+            published_date="2023-01-01",
+        ),
+        Article(
+            id=2,
+            title="Draft 1",
+            content="Content 2",
+            author_id=1,
+            published_date="2023-01-02",
+        ),
+        Article(
+            id=3,
+            title="Published 2",
+            content="Content 3",
+            author_id=1,
+            published_date="2023-01-03",
+        ),
+        Article(
+            id=4,
+            title="Published 3",
+            content="Content 4",
+            author_id=1,
+            published_date="2023-01-04",
+        ),
+        Article(
+            id=5,
+            title="Draft 2",
+            content="Content 5",
+            author_id=1,
+            published_date="2023-01-05",
+        ),
     ]
 
     async_session.add_all([author1] + articles)
@@ -314,16 +434,34 @@ async def test_nested_limit_multiple_parents(async_session):
     # Author 1: 5 articles
     for i in range(1, 6):
         articles.append(
-            Article(id=i, title=f"A1-Art{i}", content=f"C{i}", author_id=1, published_date=f"2023-01-0{i}")
+            Article(
+                id=i,
+                title=f"A1-Art{i}",
+                content=f"C{i}",
+                author_id=1,
+                published_date=f"2023-01-0{i}",
+            )
         )
     # Author 2: 3 articles
     for i in range(6, 9):
         articles.append(
-            Article(id=i, title=f"A2-Art{i}", content=f"C{i}", author_id=2, published_date=f"2023-02-0{i-5}")
+            Article(
+                id=i,
+                title=f"A2-Art{i}",
+                content=f"C{i}",
+                author_id=2,
+                published_date=f"2023-02-0{i-5}",
+            )
         )
     # Author 3: 1 article
     articles.append(
-        Article(id=9, title="A3-Art9", content="C9", author_id=3, published_date="2023-03-01")
+        Article(
+            id=9,
+            title="A3-Art9",
+            content="C9",
+            author_id=3,
+            published_date="2023-03-01",
+        )
     )
 
     async_session.add_all([author1, author2, author3] + articles)
@@ -357,9 +495,27 @@ async def test_nested_limit_with_join_on_reversed(async_session):
     author1 = Author(id=1, name="Author 1")
 
     articles = [
-        Article(id=1, title="Article 1", content="C1", author_id=1, published_date="2023-01-01"),
-        Article(id=2, title="Article 2", content="C2", author_id=1, published_date="2023-01-02"),
-        Article(id=3, title="Article 3", content="C3", author_id=1, published_date="2023-01-03"),
+        Article(
+            id=1,
+            title="Article 1",
+            content="C1",
+            author_id=1,
+            published_date="2023-01-01",
+        ),
+        Article(
+            id=2,
+            title="Article 2",
+            content="C2",
+            author_id=1,
+            published_date="2023-01-02",
+        ),
+        Article(
+            id=3,
+            title="Article 3",
+            content="C3",
+            author_id=1,
+            published_date="2023-01-03",
+        ),
     ]
 
     async_session.add_all([author1] + articles)
@@ -391,8 +547,20 @@ async def test_nested_limit_no_matching_related_records(async_session):
     author1 = Author(id=1, name="Author 1")
 
     articles = [
-        Article(id=1, title="Article 1", content="C1", author_id=1, published_date="2023-01-01"),
-        Article(id=2, title="Article 2", content="C2", author_id=1, published_date="2023-01-02"),
+        Article(
+            id=1,
+            title="Article 1",
+            content="C1",
+            author_id=1,
+            published_date="2023-01-01",
+        ),
+        Article(
+            id=2,
+            title="Article 2",
+            content="C2",
+            author_id=1,
+            published_date="2023-01-02",
+        ),
     ]
 
     async_session.add_all([author1] + articles)

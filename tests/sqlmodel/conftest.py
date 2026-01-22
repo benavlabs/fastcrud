@@ -329,7 +329,7 @@ async def async_session(
                 url = make_url(mysql.get_connection_url())._replace(
                     drivername="mysql+aiomysql"
                 )
-                async with _setup_database(url) as session:
+                async with _setup_database(str(url)) as session:
                     yield session
     else:
         async with _setup_database("sqlite+aiosqlite:///:memory:") as session:
