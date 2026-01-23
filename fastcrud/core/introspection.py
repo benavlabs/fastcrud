@@ -9,7 +9,7 @@ for different use cases.
 from typing import Optional, Sequence, Union, Any, cast
 from uuid import UUID
 
-from sqlalchemy import Column, inspect as sa_inspect
+from sqlalchemy import Column, inspect as sa_inspect, Uuid as SQLAlchemyUuid
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.types import TypeEngine
 from sqlalchemy.sql.elements import KeyedColumnElement
@@ -306,13 +306,26 @@ def is_uuid_type(column_type: TypeEngine) -> bool:
     Returns:
         True if the column type represents a UUID, False otherwise.
     """
+    # Check for PostgreSQL UUID type
     if isinstance(column_type, PostgresUUID):
         return True
 
+    # Check for SQLAlchemy 2.0+ generic Uuid type (used by SQLModel)
+    if isinstance(column_type, SQLAlchemyUuid):
+        return True
+
+    # Check for SQLModel's GUID type (stores UUID as CHAR(32))
+    # sqlmodel.sql.sqltypes.GUID
+    type_class_name = type(column_type).__name__
+    if type_class_name == "GUID":
+        return True
+
+    # Check __visit_name__ for UUID variants
     type_name = getattr(column_type, "__visit_name__", "").lower()
     if "uuid" in type_name:
         return True
 
+    # Recursively check impl for wrapper types
     if hasattr(column_type, "impl"):
         return is_uuid_type(column_type.impl)
 
