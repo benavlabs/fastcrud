@@ -5,6 +5,47 @@
 The Changelog documents all notable changes made to FastCRUD. This includes new features, bug fixes, and improvements. It's organized by version and date, providing a clear history of the library's development.
 ___
 
+## [0.21.0] - Jan 23, 2026
+
+#### Added
+- **Automatic Relationship Detection** by [@F1nnM](https://github.com/F1nnM)
+  - New `auto_detect_relationships` parameter for `get_joined()` and `get_multi_joined()`
+  - New `include_relationships` parameter for `crud_router` and `EndpointCreator`
+  - Bidirectional foreign key detection (works regardless of which side has the FK)
+  - Automatic aliasing for multiple relationships to the same table
+  - Selective relationship inclusion by passing a list of relationship names
+  - Graceful fallback for models without relationships
+
+- **Safe One-to-Many Defaults** by [@F1nnM](https://github.com/F1nnM)
+  - One-to-many relationships excluded by default when using `auto_detect_relationships=True`
+  - New `include_one_to_many` parameter to opt-in to one-to-many relationships
+  - Prevents accidental unbounded data fetching
+
+- **SQL-Level Limiting** by [@F1nnM](https://github.com/F1nnM)
+  - `nested_limit` parameter now uses `ROW_NUMBER() OVER (PARTITION BY ...)` window functions
+  - Efficient database-level limiting for one-to-many relationships
+
+- **Python 3.13 Support** by [@igorbenav](https://github.com/igorbenav)
+  - Official support for Python 3.13
+
+#### Security
+- **CVE-2025-62611**: Upgraded aiomysql to 0.3.0+ to fix arbitrary file access vulnerability
+- **CVE-2026-22701**: Upgraded filelock to 3.20.3+ to fix TOCTOU symlink vulnerability
+
+#### Changed
+- **Python Version Requirement**: Minimum Python version is now 3.10 (dropped Python 3.9)
+  - Python 3.9 reached end-of-life in October 2025
+  - Required for security-patched dependency versions
+
+#### Fixed
+- **Endpoint Validation**: EndpointCreator now verifies model has valid `join_config` before attempting joined operations
+
+#### Improved
+- **Test Coverage**: Added comprehensive tests for one-to-many relationship handling by [@LucasQR](https://github.com/LucasQR)
+- **Documentation**: Enhanced joins documentation with auto-detection examples
+
+___
+
 ## [0.20.1] - Dec 16, 2025
 
 #### Fixed

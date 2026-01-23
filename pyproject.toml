@@ -1,9 +1,9 @@
 [project]
 name = "fastcrud"
-version = "0.20.1"
+version = "0.21.0"
 description = "FastCRUD is a Python package for FastAPI, offering robust async CRUD operations and flexible endpoint creation utilities."
 authors = [{ name = "Igor Benav", email = "igor@benav.io" }]
-requires-python = ">=3.9.2,<4"
+requires-python = ">=3.10,<4"
 readme = "README.md"
 license = "MIT"
 keywords = ["fastapi", "crud", "async", "sqlalchemy", "pydantic"]
@@ -13,10 +13,10 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Operating System :: OS Independent",
     "Framework :: FastAPI",
     "Typing :: Typed",
@@ -48,8 +48,9 @@ dev = [
     "asyncpg>=0.30.0,<0.31",
     "psycopg-binary>=3.2.9",
     "psycopg>=3.2.1,<4",
-    "aiomysql>=0.2.0,<0.3",
+    "aiomysql>=0.3.0,<0.4",
     "cryptography>=44.0.1,<45",
+    "filelock>=3.20.3",
 ]
 
 [tool.hatch.build.targets.sdist]

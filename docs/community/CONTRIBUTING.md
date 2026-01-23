@@ -8,7 +8,7 @@ We're excited that you're interested in contributing to FastCRUD! This guide wil
 
 Before you begin, make sure you have:
 
-- **Python 3.9+** installed
+- **Python 3.10+** installed
 - **UV** for dependency management ([install UV](https://docs.astral.sh/uv/))
 - **Git** for version control
 - A **GitHub account** for submitting pull requests
