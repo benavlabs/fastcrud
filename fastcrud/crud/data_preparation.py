@@ -5,12 +5,12 @@ This module contains utilities for preparing and validating data
 before CRUD operations.
 """
 
-from typing import Any, Union
+from typing import Any
 from datetime import datetime, timezone
 
 
 def prepare_update_data(
-    object: Union[dict[str, Any], Any],
+    object: dict[str, Any] | Any,
     model_col_names: list[str],
     updated_at_column: str,
     model_instance: Any,

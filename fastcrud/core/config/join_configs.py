@@ -5,7 +5,7 @@ This module defines the configuration classes used for specifying join relations
 and count operations in multi-table queries.
 """
 
-from typing import Any, Optional, Union
+from typing import Any
 from pydantic import BaseModel, ConfigDict
 from pydantic.functional_validators import field_validator
 from sqlalchemy.orm.util import AliasedClass
@@ -47,15 +47,15 @@ class JoinConfig(BaseModel):
 
     model: Any
     join_on: Any
-    join_prefix: Optional[str] = None
-    schema_to_select: Optional[type[BaseModel]] = None
+    join_prefix: str | None = None
+    schema_to_select: type[BaseModel] | None = None
     join_type: str = "left"
-    alias: Optional[AliasedClass] = None
-    filters: Optional[dict] = None
-    relationship_type: Optional[str] = "one-to-one"
-    sort_columns: Optional[Union[str, list[str]]] = None
-    sort_orders: Optional[Union[str, list[str]]] = None
-    nested_limit: Optional[int] = None
+    alias: AliasedClass | None = None
+    filters: dict | None = None
+    relationship_type: str | None = "one-to-one"
+    sort_columns: str | list[str] | None = None
+    sort_orders: str | list[str] | None = None
+    nested_limit: int | None = None
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -115,7 +115,7 @@ class CountConfig(BaseModel):
 
     model: Any
     join_on: Any
-    alias: Optional[str] = None
-    filters: Optional[dict] = None
+    alias: str | None = None
+    filters: dict | None = None
 
     model_config = ConfigDict(arbitrary_types_allowed=True)

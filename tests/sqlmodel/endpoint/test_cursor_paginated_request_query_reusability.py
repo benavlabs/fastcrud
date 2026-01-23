@@ -209,8 +209,8 @@ def test_subclassing_cursor_paginated_request_query() -> None:
     class CustomCursorQuery(CursorPaginatedRequestQuery):
         """Extended cursor query with custom filter."""
 
-        status: Optional[str] = Field(None, description="Filter by status")
-        category: Optional[str] = Field(None, description="Filter by category")
+        status: str | None = Field(None, description="Filter by status")
+        category: str | None = Field(None, description="Filter by category")
 
     # Test instantiation
     query = CustomCursorQuery(

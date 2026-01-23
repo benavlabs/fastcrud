@@ -5,7 +5,7 @@ This module provides the main SQLQueryBuilder class that coordinates
 query construction with support for filtering, sorting, pagination, and joins.
 """
 
-from typing import Optional, Union, Any, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 from sqlalchemy import Select, select, func
 from sqlalchemy.sql.elements import ColumnElement
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,7 +34,7 @@ class SQLQueryBuilder:
         self.sort_processor = SortProcessor(model)
         self.join_builder = JoinBuilder(model)
 
-    def build_base_select(self, columns: Optional[list[Any]] = None) -> Select:
+    def build_base_select(self, columns: list[Any] | None = None) -> Select:
         """
         Create base SELECT statement.
 
@@ -79,8 +79,8 @@ class SQLQueryBuilder:
     def apply_sorting(
         self,
         stmt: Select,
-        sort_columns: Union[str, list[str]],
-        sort_orders: Optional[Union[str, list[str]]] = None,
+        sort_columns: str | list[str],
+        sort_orders: str | list[str] | None = None,
     ) -> Select:
         """
         Apply ORDER BY to statement.
@@ -103,7 +103,7 @@ class SQLQueryBuilder:
         )
 
     def apply_pagination(
-        self, stmt: Select, offset: int = 0, limit: Optional[int] = None
+        self, stmt: Select, offset: int = 0, limit: int | None = None
     ) -> Select:
         """
         Apply OFFSET and LIMIT to statement.
@@ -161,7 +161,7 @@ def build_joined_query(
     query_builder: "SQLQueryBuilder",
     filter_processor: Any,
     config: dict[str, Any],
-    schema_to_select: Optional[type["SelectSchemaType"]] = None,
+    schema_to_select: type["SelectSchemaType"] | None = None,
     nest_joins: bool = False,
     **kwargs: Any,
 ) -> Select:
@@ -242,10 +242,10 @@ async def execute_joined_query(
     db: AsyncSession,
     stmt: Select,
     query_builder: "SQLQueryBuilder",
-    limit: Optional[int] = None,
+    limit: int | None = None,
     offset: int = 0,
-    sort_columns: Optional[Union[str, list[str]]] = None,
-    sort_orders: Optional[Union[str, list[str]]] = None,
+    sort_columns: str | list[str] | None = None,
+    sort_orders: str | list[str] | None = None,
 ) -> list[dict]:
     """
     Execute query and return raw results.

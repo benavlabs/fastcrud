@@ -5,7 +5,7 @@ This module contains execution logic for CRUD operations,
 including statement execution and response handling.
 """
 
-from typing import Any, Optional, Union, TYPE_CHECKING, cast
+from typing import Any, Union, TYPE_CHECKING, cast
 from sqlalchemy import column
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -20,12 +20,12 @@ async def execute_update_and_return_response(
     db: AsyncSession,
     stmt: Any,
     commit: bool,
-    return_columns: Optional[list[str]],
-    schema_to_select: Optional[type["SelectSchemaType"]],
+    return_columns: list[str] | None,
+    schema_to_select: type["SelectSchemaType"] | None,
     return_as_model: bool,
     allow_multiple: bool,
     one_or_none: bool,
-) -> Optional[Union[dict, "SelectSchemaType"]]:
+) -> Union[dict, "SelectSchemaType"] | None:
     """
     Execute update statement and format response using core utilities.
 
@@ -72,10 +72,10 @@ async def handle_joined_filters_delegation(
     joined_filters_info: dict[str, Any],
     db: AsyncSession,
     offset: int,
-    limit: Optional[int],
-    schema_to_select: Optional[type["SelectSchemaType"]],
-    sort_columns: Optional[Union[str, list[str]]],
-    sort_orders: Optional[Union[str, list[str]]],
+    limit: int | None,
+    schema_to_select: type["SelectSchemaType"] | None,
+    sort_columns: str | list[str] | None,
+    sort_orders: str | list[str] | None,
     return_as_model: bool,
     return_total_count: bool,
     **regular_filters: Any,
@@ -119,9 +119,9 @@ async def handle_joined_filters_delegation(
                 f"Invalid relationship '{relationship_name}' in model '{crud_instance.model.__name__}'"
             )
 
-        result: Union[
-            "GetMultiResponseModel[SelectSchemaType]", "GetMultiResponseDict"
-        ] = await crud_instance.get_multi_joined(
+        result: (
+            "GetMultiResponseModel[SelectSchemaType]" | "GetMultiResponseDict"
+        ) = await crud_instance.get_multi_joined(
             db=db,
             offset=offset,
             limit=limit,

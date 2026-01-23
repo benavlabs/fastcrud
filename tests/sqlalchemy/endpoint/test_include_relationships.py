@@ -29,9 +29,9 @@ class ReadSchemaWithRelationships(BaseModel):
     id: int
     name: str
     tier_id: int
-    category_id: Optional[int] = None
-    tier: Optional[TierNestedSchema] = None
-    category: Optional[dict] = None
+    category_id: int | None = None
+    tier: TierNestedSchema | None = None
+    category: dict | None = None
 
 
 @pytest.fixture

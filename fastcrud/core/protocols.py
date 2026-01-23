@@ -10,10 +10,7 @@ when multi-ORM support is implemented.
 from typing import (
     Protocol,
     Any,
-    Optional,
     Union,
-    List,
-    Dict,
     overload,
     Literal,
     TYPE_CHECKING,
@@ -39,23 +36,23 @@ class CRUDInstance(Protocol):
         db: Any,
         schema_to_select: "type[SelectSchemaType]",
         return_as_model: Literal[True],
-        join_model: Optional[Any] = None,
-        join_on: Optional[Any] = None,
-        join_prefix: Optional[str] = None,
-        join_schema_to_select: Optional[Any] = None,
+        join_model: Any | None = None,
+        join_on: Any | None = None,
+        join_prefix: str | None = None,
+        join_schema_to_select: Any | None = None,
         join_type: str = "left",
-        alias: Optional[Any] = None,
-        join_filters: Optional[Dict] = None,
+        alias: Any | None = None,
+        join_filters: dict | None = None,
         nest_joins: bool = False,
         offset: int = 0,
-        limit: Optional[int] = None,
-        sort_columns: Optional[Union[str, List[str]]] = None,
-        sort_orders: Optional[Union[str, List[str]]] = None,
-        joins_config: Optional[List[Any]] = None,
-        counts_config: Optional[List[Any]] = None,
+        limit: int | None = None,
+        sort_columns: str | list[str] | None = None,
+        sort_orders: str | list[str] | None = None,
+        joins_config: list[Any] | None = None,
+        counts_config: list[Any] | None = None,
         return_total_count: bool = True,
-        relationship_type: Optional[str] = None,
-        nested_schema_to_select: Optional[Dict[str, Any]] = None,
+        relationship_type: str | None = None,
+        nested_schema_to_select: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> "GetMultiResponseModel[SelectSchemaType]": ...  # pragma: no cover
 
@@ -65,23 +62,23 @@ class CRUDInstance(Protocol):
         db: Any,
         schema_to_select: None = None,
         return_as_model: Literal[False] = False,
-        join_model: Optional[Any] = None,
-        join_on: Optional[Any] = None,
-        join_prefix: Optional[str] = None,
-        join_schema_to_select: Optional[Any] = None,
+        join_model: Any | None = None,
+        join_on: Any | None = None,
+        join_prefix: str | None = None,
+        join_schema_to_select: Any | None = None,
         join_type: str = "left",
-        alias: Optional[Any] = None,
-        join_filters: Optional[Dict] = None,
+        alias: Any | None = None,
+        join_filters: dict | None = None,
         nest_joins: bool = False,
         offset: int = 0,
-        limit: Optional[int] = None,
-        sort_columns: Optional[Union[str, List[str]]] = None,
-        sort_orders: Optional[Union[str, List[str]]] = None,
-        joins_config: Optional[List[Any]] = None,
-        counts_config: Optional[List[Any]] = None,
+        limit: int | None = None,
+        sort_columns: str | list[str] | None = None,
+        sort_orders: str | list[str] | None = None,
+        joins_config: list[Any] | None = None,
+        counts_config: list[Any] | None = None,
         return_total_count: bool = True,
-        relationship_type: Optional[str] = None,
-        nested_schema_to_select: Optional[Dict[str, Any]] = None,
+        relationship_type: str | None = None,
+        nested_schema_to_select: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> "GetMultiResponseDict": ...  # pragma: no cover
 
@@ -90,25 +87,25 @@ class CRUDInstance(Protocol):
         self,
         db: Any,
         *,
-        schema_to_select: Optional[Any] = None,
+        schema_to_select: Any | None = None,
         return_as_model: bool = False,
-        join_model: Optional[Any] = None,
-        join_on: Optional[Any] = None,
-        join_prefix: Optional[str] = None,
-        join_schema_to_select: Optional[Any] = None,
+        join_model: Any | None = None,
+        join_on: Any | None = None,
+        join_prefix: str | None = None,
+        join_schema_to_select: Any | None = None,
         join_type: str = "left",
-        alias: Optional[Any] = None,
-        join_filters: Optional[Dict] = None,
+        alias: Any | None = None,
+        join_filters: dict | None = None,
         nest_joins: bool = False,
         offset: int = 0,
-        limit: Optional[int] = None,
-        sort_columns: Optional[Union[str, List[str]]] = None,
-        sort_orders: Optional[Union[str, List[str]]] = None,
-        joins_config: Optional[List[Any]] = None,
-        counts_config: Optional[List[Any]] = None,
+        limit: int | None = None,
+        sort_columns: str | list[str] | None = None,
+        sort_orders: str | list[str] | None = None,
+        joins_config: list[Any] | None = None,
+        counts_config: list[Any] | None = None,
         return_total_count: bool = True,
-        relationship_type: Optional[str] = None,
-        nested_schema_to_select: Optional[Dict[str, Any]] = None,
+        relationship_type: str | None = None,
+        nested_schema_to_select: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> Union[
         "GetMultiResponseModel[SelectSchemaType]", "GetMultiResponseDict"
@@ -117,25 +114,25 @@ class CRUDInstance(Protocol):
     async def get_multi_joined(
         self,
         db: Any,
-        schema_to_select: Optional[Any] = None,
+        schema_to_select: Any | None = None,
         return_as_model: bool = False,
-        join_model: Optional[Any] = None,
-        join_on: Optional[Any] = None,
-        join_prefix: Optional[str] = None,
-        join_schema_to_select: Optional[Any] = None,
+        join_model: Any | None = None,
+        join_on: Any | None = None,
+        join_prefix: str | None = None,
+        join_schema_to_select: Any | None = None,
         join_type: str = "left",
-        alias: Optional[Any] = None,
-        join_filters: Optional[Dict] = None,
+        alias: Any | None = None,
+        join_filters: dict | None = None,
         nest_joins: bool = False,
         offset: int = 0,
-        limit: Optional[int] = None,
-        sort_columns: Optional[Union[str, List[str]]] = None,
-        sort_orders: Optional[Union[str, List[str]]] = None,
-        joins_config: Optional[List[Any]] = None,
-        counts_config: Optional[List[Any]] = None,
+        limit: int | None = None,
+        sort_columns: str | list[str] | None = None,
+        sort_orders: str | list[str] | None = None,
+        joins_config: list[Any] | None = None,
+        counts_config: list[Any] | None = None,
         return_total_count: bool = True,
-        relationship_type: Optional[str] = None,
-        nested_schema_to_select: Optional[Dict[str, Any]] = None,
+        relationship_type: str | None = None,
+        nested_schema_to_select: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> Union[
         "GetMultiResponseModel[SelectSchemaType]", "GetMultiResponseDict"
@@ -150,19 +147,19 @@ class ModelIntrospector(Protocol):
     from ORM models in a framework-agnostic way.
     """
 
-    def get_primary_keys(self, model: Any) -> List[str]:
+    def get_primary_keys(self, model: Any) -> list[str]:
         """Get list of primary key column names for a model."""
         ...  # pragma: no cover
 
-    def get_column_names(self, model: Any) -> List[str]:
+    def get_column_names(self, model: Any) -> list[str]:
         """Get list of all column names for a model."""
         ...  # pragma: no cover
 
-    def get_column_types(self, model: Any) -> Dict[str, Any]:
+    def get_column_types(self, model: Any) -> dict[str, Any]:
         """Get mapping of column names to their types."""
         ...  # pragma: no cover
 
-    def get_relationships(self, model: Any) -> Dict[str, Any]:
+    def get_relationships(self, model: Any) -> dict[str, Any]:
         """Get relationship information for a model."""
         ...  # pragma: no cover
 
@@ -177,11 +174,11 @@ class DataProcessor(Protocol):
 
     def process_joined_data(
         self,
-        data_list: List[Dict],
-        join_definitions: List[Any],
+        data_list: list[dict],
+        join_definitions: list[Any],
         nest_joins: bool,
         primary_model: Any,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """Process joined data for complex relationship scenarios."""
         ...  # pragma: no cover
 
@@ -196,16 +193,16 @@ class FilterProcessor(Protocol):
 
     def parse_filters(
         self,
-        model: Optional[Any] = None,
+        model: Any | None = None,
         **kwargs: Any,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """Parse filter arguments into database query conditions."""
         ...  # pragma: no cover
 
     def separate_joined_filters(
         self,
         **kwargs: Any,
-    ) -> tuple[Dict[str, Any], Dict[str, Any]]:
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
         """Separate regular filters from joined table filters."""
         ...  # pragma: no cover
 
@@ -218,19 +215,19 @@ class QueryBuilder(Protocol):
     with support for filters, sorting, and pagination.
     """
 
-    def build_base_select(self, columns: Optional[List[Any]] = None) -> Any:
+    def build_base_select(self, columns: list[Any] | None = None) -> Any:
         """Build a base SELECT statement."""
         ...  # pragma: no cover
 
-    def apply_filters(self, stmt: Any, filters: List[Any]) -> Any:
+    def apply_filters(self, stmt: Any, filters: list[Any]) -> Any:
         """Apply WHERE conditions to a statement."""
         ...  # pragma: no cover
 
     def apply_sorting(
         self,
         stmt: Any,
-        sort_columns: Union[str, List[str]],
-        sort_orders: Optional[Union[str, List[str]]] = None,
+        sort_columns: str | list[str],
+        sort_orders: str | list[str] | None = None,
     ) -> Any:
         """Apply ORDER BY to a statement."""
         ...  # pragma: no cover
@@ -239,7 +236,7 @@ class QueryBuilder(Protocol):
         self,
         stmt: Any,
         offset: int = 0,
-        limit: Optional[int] = None,
+        limit: int | None = None,
     ) -> Any:
         """Apply OFFSET and LIMIT to a statement."""
         ...  # pragma: no cover
@@ -256,28 +253,28 @@ class ResponseFormatter(Protocol):
     def format_single_response(
         self,
         data: Any,
-        schema_to_select: Optional[Any] = None,
+        schema_to_select: Any | None = None,
         return_as_model: bool = False,
-    ) -> Union[Dict, Any]:
+    ) -> dict | Any:
         """Format single record response."""
         ...  # pragma: no cover
 
     def format_multi_response(
         self,
-        data: List[Any],
-        schema_to_select: Optional[Any] = None,
+        data: list[Any],
+        schema_to_select: Any | None = None,
         return_as_model: bool = False,
-    ) -> List[Any]:
+    ) -> list[Any]:
         """Format multiple records response."""
         ...  # pragma: no cover
 
     async def format_joined_response(
         self,
         primary_model: Any,
-        raw_data: List[Dict],
-        config: Dict[str, Any],
+        raw_data: list[dict],
+        config: dict[str, Any],
         **kwargs: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Format response for joined query results."""
         ...  # pragma: no cover
 
@@ -293,11 +290,11 @@ class DatabaseAdapter(Protocol):
     async def upsert_multiple(
         self,
         model_class: Any,
-        instances: List[Any],
-        filters: Optional[List[Any]] = None,
-        update_override: Optional[Dict[str, Any]] = None,
+        instances: list[Any],
+        filters: list[Any] | None = None,
+        update_override: dict[str, Any] | None = None,
         **kwargs: Any,
-    ) -> tuple[Any, List[Dict]]:
+    ) -> tuple[Any, list[dict]]:
         """Execute database-specific upsert operation."""
         ...  # pragma: no cover
 
@@ -336,7 +333,7 @@ class ValidationProcessor(Protocol):
     def validate_pagination_params(
         self,
         offset: int,
-        limit: Optional[int],
+        limit: int | None,
     ) -> None:
         """Validate pagination parameters."""
         ...  # pragma: no cover
@@ -345,6 +342,6 @@ class ValidationProcessor(Protocol):
         self,
         primary_model: Any,
         **kwargs: Any,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Validate joined query parameters."""
         ...  # pragma: no cover

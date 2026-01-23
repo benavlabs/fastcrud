@@ -25,41 +25,41 @@ from fastcrud import EndpointCreator, FilterConfig
 
 class MultiPKModel(SQLModel, table=True):
     __tablename__ = "multi_pk"
-    id: Optional[int] = Field(default=None, primary_key=True)
-    uuid: Optional[str] = Field(default=None, primary_key=True, max_length=25)
+    id: int | None = Field(default=None, primary_key=True)
+    uuid: str | None = Field(default=None, primary_key=True, max_length=25)
     name: str = Field(index=True)
-    test_id: Optional[int] = Field(default=None, foreign_key="test.id")
+    test_id: int | None = Field(default=None, foreign_key="test.id")
     test: "ModelTest" = Relationship(back_populates="multi_pk")
 
 
 class CategoryModel(SQLModel, table=True):
     __tablename__ = "category"
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     name: str = Field(index=True)
     tests: list["ModelTest"] = Relationship(back_populates="category")
 
 
 class ModelTest(SQLModel, table=True):
     __tablename__ = "test"
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     name: str
     tier_id: int = Field(default=None, foreign_key="tier.id")
-    category_id: Optional[int] = Field(default=None, foreign_key="category.id")
+    category_id: int | None = Field(default=None, foreign_key="category.id")
     tier: "TierModel" = Relationship(back_populates="tests")
     multi_pk: "MultiPKModel" = Relationship(back_populates="test")
     category: "CategoryModel" = Relationship(back_populates="tests")
     is_deleted: bool = Field(default=False)
-    deleted_at: Optional[datetime] = Field(default=None)
+    deleted_at: datetime | None = Field(default=None)
 
 
 class ModelTestWithTimestamp(SQLModel, table=True):
     __tablename__ = "model_test_with_timestamp"
     id: int = Field(primary_key=True)
     name: str
-    tier_id: Optional[int] = Field(foreign_key="tier.id")
-    category_id: Optional[int] = Field(default=None, foreign_key="category.id")
+    tier_id: int | None = Field(foreign_key="tier.id")
+    category_id: int | None = Field(default=None, foreign_key="category.id")
     is_deleted: bool = Field(default=False)
-    deleted_at: Optional[datetime] = Field(default=None)
+    deleted_at: datetime | None = Field(default=None)
     updated_at: datetime = Field(default=func.now(), nullable=False)
 
 
@@ -78,9 +78,9 @@ class ProjectsParticipantsAssociation(SQLModel, table=True):
 
 class Project(SQLModel, table=True):
     __tablename__ = "projects"
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     name: str
-    description: Optional[str] = None
+    description: str | None = None
     participants: list["Participant"] = Relationship(
         back_populates="projects", link_model=ProjectsParticipantsAssociation
     )
@@ -88,9 +88,9 @@ class Project(SQLModel, table=True):
 
 class Participant(SQLModel, table=True):
     __tablename__ = "participants"
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     name: str
-    role: Optional[str] = None
+    role: str | None = None
     projects: list["Project"] = Relationship(
         back_populates="participants", link_model=ProjectsParticipantsAssociation
     )
@@ -98,22 +98,22 @@ class Participant(SQLModel, table=True):
 
 class Card(SQLModel, table=True):
     __tablename__ = "cards"
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     title: str
     articles: list["Article"] = Relationship(back_populates="card")
 
 
 class Article(SQLModel, table=True):
     __tablename__ = "articles"
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     title: str
-    card_id: Optional[int] = Field(foreign_key="cards.id")
-    card: Optional[Card] = Relationship(back_populates="articles")
+    card_id: int | None = Field(foreign_key="cards.id")
+    card: Card | None = Relationship(back_populates="articles")
 
 
 class Client(SQLModel, table=True):
     __tablename__ = "clients"
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     name: str = Field(nullable=False)
     contact: str = Field(nullable=False)
     phone: str = Field(nullable=False)
@@ -124,7 +124,7 @@ class Client(SQLModel, table=True):
 
 class Department(SQLModel, table=True):
     __tablename__ = "departments"
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     name: str = Field(nullable=False)
     tasks: list["Task"] = Relationship(back_populates="department")
     users: list["User"] = Relationship(back_populates="department")
@@ -132,30 +132,30 @@ class Department(SQLModel, table=True):
 
 class User(SQLModel, table=True):
     __tablename__ = "users"
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     name: str = Field(nullable=False)
     username: str = Field(nullable=False, unique=True)
     email: str = Field(nullable=False, unique=True)
-    phone: Optional[str] = Field(default=None)
-    profile_image_url: Optional[str] = Field(default=None)
-    department_id: Optional[int] = Field(default=None, foreign_key="departments.id")
-    company_id: Optional[int] = Field(default=None, foreign_key="clients.id")
-    department: Optional[Department] = Relationship(back_populates="users")
-    company: Optional[Client] = Relationship(back_populates="users")
+    phone: str | None = Field(default=None)
+    profile_image_url: str | None = Field(default=None)
+    department_id: int | None = Field(default=None, foreign_key="departments.id")
+    company_id: int | None = Field(default=None, foreign_key="clients.id")
+    department: Department | None = Relationship(back_populates="users")
+    company: Client | None = Relationship(back_populates="users")
     tasks: list["Task"] = Relationship(back_populates="assignee")
 
 
 class Task(SQLModel, table=True):
     __tablename__ = "tasks"
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     name: str = Field(nullable=False)
-    description: Optional[str] = Field(default=None)
-    client_id: Optional[int] = Field(default=None, foreign_key="clients.id")
-    department_id: Optional[int] = Field(default=None, foreign_key="departments.id")
-    assignee_id: Optional[int] = Field(default=None, foreign_key="users.id")
-    client: Optional[Client] = Relationship(back_populates="tasks")
-    department: Optional[Department] = Relationship(back_populates="tasks")
-    assignee: Optional[User] = Relationship(back_populates="tasks")
+    description: str | None = Field(default=None)
+    client_id: int | None = Field(default=None, foreign_key="clients.id")
+    department_id: int | None = Field(default=None, foreign_key="departments.id")
+    assignee_id: int | None = Field(default=None, foreign_key="users.id")
+    client: Client | None = Relationship(back_populates="tasks")
+    department: Department | None = Relationship(back_populates="tasks")
+    assignee: User | None = Relationship(back_populates="tasks")
 
 
 class CreateSchemaTest(SQLModel):
@@ -166,7 +166,7 @@ class CreateSchemaTest(SQLModel):
 
 class BookingModel(SQLModel, table=True):
     __tablename__ = "booking"
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     owner_id: int = Field(default=None, foreign_key="test.id")
     user_id: int = Field(default=None, foreign_key="test.id")
     booking_date: datetime
@@ -181,7 +181,7 @@ class BookingModel(SQLModel, table=True):
 class ModelWithCustomColumns(SQLModel, table=True):
     __tablename__ = "test_custom"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     meta: str = Field(sa_column=Column("metadata", String(32), nullable=False))
     name: str = Field(sa_column=Column("display_name", String(32), nullable=False))
 
@@ -209,12 +209,12 @@ class TierDeleteSchemaTest(SQLModel):
 
 
 class CategorySchemaTest(SQLModel):
-    id: Optional[int] = None
+    id: int | None = None
     name: str
 
 
 class BookingSchema(SQLModel):
-    id: Optional[int] = None
+    id: int | None = None
     owner_id: int
     user_id: int
     booking_date: datetime
@@ -224,12 +224,12 @@ class MultiPkCreate(SQLModel):
     id: int
     uuid: str
     name: str
-    test_id: Optional[int] = None
+    test_id: int | None = None
 
 
 class MultiPkSchema(SQLModel):
     name: str
-    test_id: Optional[int] = None
+    test_id: int | None = None
 
 
 class ArticleSchema(SQLModel):
@@ -241,7 +241,7 @@ class ArticleSchema(SQLModel):
 class CardSchema(SQLModel):
     id: int
     title: str
-    articles: Optional[list[ArticleSchema]] = []
+    articles: list[ArticleSchema] | None = []
 
 
 class DepartmentRead(SQLModel):
@@ -254,10 +254,10 @@ class UserReadSub(SQLModel):
     name: str
     username: str
     email: str
-    phone: Optional[str]
+    phone: str | None
     profile_image_url: str
-    department_id: Optional[int]
-    company_id: Optional[int]
+    department_id: int | None
+    company_id: int | None
 
 
 class ClientRead(SQLModel):
@@ -271,13 +271,13 @@ class ClientRead(SQLModel):
 class TaskReadSub(SQLModel):
     id: int
     name: str
-    description: Optional[str]
+    description: str | None
 
 
 class TaskRead(TaskReadSub):
-    department: Optional[DepartmentRead]
-    assignee: Optional[UserReadSub]
-    client: Optional[ClientRead]
+    department: DepartmentRead | None
+    assignee: UserReadSub | None
+    client: ClientRead | None
 
 
 def is_docker_running() -> bool:  # pragma: no cover

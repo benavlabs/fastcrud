@@ -40,9 +40,9 @@ class JoinedTestTier(BaseModel):
 class TaskWithJoinedData(BaseModel):
     id: int
     name: str
-    description: Optional[str] = None
-    assignee_name: Optional[str] = None
-    department_name: Optional[str] = None
+    description: str | None = None
+    assignee_name: str | None = None
+    department_name: str | None = None
 
 
 @pytest.mark.asyncio

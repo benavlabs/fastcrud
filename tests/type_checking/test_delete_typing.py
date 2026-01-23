@@ -30,16 +30,16 @@ class CreateUserSchema(BaseModel):
 
 
 class UpdateUserSchema(BaseModel):
-    name: Optional[str] = None
+    name: str | None = None
 
 
 class UpdateUserInternalSchema(BaseModel):
-    name: Optional[str] = None
+    name: str | None = None
 
 
 class DeleteUserSchema(BaseModel):
-    id: Optional[int] = None
-    name: Optional[str] = None
+    id: int | None = None
+    name: str | None = None
 
 
 class SelectUserSchema(BaseModel):

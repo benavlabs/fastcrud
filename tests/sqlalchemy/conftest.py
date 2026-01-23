@@ -243,14 +243,14 @@ class CreateSchemaTest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str
     tier_id: int
-    category_id: Optional[int] = None
+    category_id: int | None = None
 
 
 class ReadSchemaTest(BaseModel):
     id: int
     name: str
     tier_id: int
-    category_id: Optional[int]
+    category_id: int | None
 
 
 class UpdateSchemaTest(BaseModel):
@@ -270,7 +270,7 @@ class TierDeleteSchemaTest(BaseModel):
 
 
 class CategorySchemaTest(BaseModel):
-    id: Optional[int] = None
+    id: int | None = None
     name: str
 
 
@@ -285,7 +285,7 @@ class MultiPkCreate(MultiPkSchema):
 
 
 class BookingSchema(BaseModel):
-    id: Optional[int] = None
+    id: int | None = None
     owner_id: int
     user_id: int
     booking_date: datetime
@@ -294,22 +294,22 @@ class BookingSchema(BaseModel):
 class ArticleSchema(BaseModel):
     id: int
     title: str
-    content: Optional[str] = None
-    published_date: Optional[str] = None
-    author_id: Optional[int] = None
-    card_id: Optional[int] = None
+    content: str | None = None
+    published_date: str | None = None
+    author_id: int | None = None
+    card_id: int | None = None
 
 
 class AuthorSchema(BaseModel):
     id: int
     name: str
-    articles: Optional[list[ArticleSchema]] = []
+    articles: list[ArticleSchema] | None = []
 
 
 class CardSchema(BaseModel):
     id: int
     title: str
-    articles: Optional[list[ArticleSchema]] = []
+    articles: list[ArticleSchema] | None = []
 
 
 class DepartmentRead(BaseModel):
@@ -322,10 +322,10 @@ class UserReadSub(BaseModel):
     name: str
     username: str
     email: str
-    phone: Optional[str]
+    phone: str | None
     profile_image_url: str
-    department_id: Optional[int]
-    company_id: Optional[int]
+    department_id: int | None
+    company_id: int | None
 
 
 class ClientRead(BaseModel):
@@ -339,40 +339,40 @@ class ClientRead(BaseModel):
 class TaskReadSub(BaseModel):
     id: int
     name: str
-    description: Optional[str]
+    description: str | None
 
 
 class TaskRead(TaskReadSub):
-    department: Optional[DepartmentRead]
-    assignee: Optional[UserReadSub]
-    client: Optional[ClientRead]
+    department: DepartmentRead | None
+    assignee: UserReadSub | None
+    client: ClientRead | None
 
 
 # Schemas for joined model filtering tests
 class CompanySchema(BaseModel):
-    id: Optional[int] = None
+    id: int | None = None
     name: str
-    industry: Optional[str] = None
+    industry: str | None = None
 
 
 class CompanyRead(BaseModel):
     id: int
     name: str
-    industry: Optional[str] = None
+    industry: str | None = None
 
 
 class UserModelSchema(BaseModel):
-    id: Optional[int] = None
+    id: int | None = None
     name: str
     email: str
-    company_id: Optional[int] = None
+    company_id: int | None = None
 
 
 class UserModelRead(BaseModel):
     id: int
     name: str
     email: str
-    company_id: Optional[int] = None
+    company_id: int | None = None
 
 
 def is_docker_running() -> bool:  # pragma: no cover

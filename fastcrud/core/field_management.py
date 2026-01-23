@@ -7,7 +7,7 @@ and column extraction with caching where beneficial for performance.
 
 import logging
 from functools import lru_cache
-from typing import Any, Optional, Sequence, Union, cast
+from typing import Any, Sequence, cast
 
 from pydantic import BaseModel, create_model
 from sqlalchemy import inspect as sa_inspect
@@ -81,10 +81,10 @@ def create_modified_schema(
 
 
 def extract_schema_columns(
-    model_or_alias: Union[ModelType, AliasedClass],
+    model_or_alias: ModelType | AliasedClass,
     schema: type[SelectSchemaType],
     mapper,
-    prefix: Optional[str],
+    prefix: str | None,
     use_temporary_prefix: bool,
     temp_prefix: str,
 ) -> list[Any]:
@@ -123,9 +123,9 @@ def extract_schema_columns(
 
 
 def extract_all_columns(
-    model_or_alias: Union[ModelType, AliasedClass],
+    model_or_alias: ModelType | AliasedClass,
     mapper,
-    prefix: Optional[str],
+    prefix: str | None,
     use_temporary_prefix: bool,
     temp_prefix: str,
 ) -> list[Any]:
@@ -161,12 +161,12 @@ def extract_all_columns(
 
 
 def extract_matching_columns_from_schema(
-    model: Union[ModelType, AliasedClass],
-    schema: Optional[type[SelectSchemaType]],
-    prefix: Optional[str] = None,
-    alias: Optional[AliasedClass] = None,
-    use_temporary_prefix: Optional[bool] = False,
-    temp_prefix: Optional[str] = "joined__",
+    model: ModelType | AliasedClass,
+    schema: type[SelectSchemaType] | None,
+    prefix: str | None = None,
+    alias: AliasedClass | None = None,
+    use_temporary_prefix: bool | None = False,
+    temp_prefix: str | None = "joined__",
 ) -> list[Any]:
     """
     Retrieves a list of ORM column objects from a SQLAlchemy model that match the field names in a given Pydantic schema,
@@ -210,8 +210,8 @@ def extract_matching_columns_from_schema(
 def _find_join_condition(
     fk_model: ModelType,
     target_model: ModelType,
-    fk_alias: Optional[AliasedClass] = None,
-) -> Optional[ColumnElement]:
+    fk_alias: AliasedClass | None = None,
+) -> ColumnElement | None:
     """
     Helper function to find a join condition from fk_model to target_model.
 
@@ -249,7 +249,7 @@ def _find_join_condition(
 def auto_detect_join_condition(
     base_model: ModelType,
     join_model: ModelType,
-    join_alias: Optional[AliasedClass] = None,
+    join_alias: AliasedClass | None = None,
 ):
     """
     Automatically detects the join condition for SQLAlchemy models based on foreign key relationships.
@@ -315,8 +315,8 @@ def discover_model_relationships(
 
 def build_relationship_joins_config(
     model: ModelType,
-    relationship_names: Optional[list[str]] = None,
-    default_nested_limit: Optional[int] = None,
+    relationship_names: list[str] | None = None,
+    default_nested_limit: int | None = None,
     include_one_to_many: bool = False,
 ) -> list[JoinConfig]:
     """
@@ -472,10 +472,10 @@ def build_relationship_joins_config(
 
 def resolve_relationship_config(
     model: ModelType,
-    include_relationships: Union[bool, Sequence[str]],
-    default_nested_limit: Optional[int] = None,
+    include_relationships: bool | Sequence[str],
+    default_nested_limit: int | None = None,
     include_one_to_many: bool = False,
-) -> Optional[list[JoinConfig]]:
+) -> list[JoinConfig] | None:
     """
     Resolve include_relationships parameter to a list of JoinConfig objects.
 
@@ -526,7 +526,7 @@ def resolve_relationship_config(
     if include_relationships is False:
         return None
 
-    relationship_names: Optional[list[str]] = None
+    relationship_names: list[str] | None = None
     if include_relationships is not True:
         relationship_names = list(include_relationships)
 
