@@ -1776,11 +1776,12 @@
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">model</span><span class="o">=</span><span class="n">Item</span><span class="p">,</span>
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">create_schema</span><span class="o">=</span><span class="n">CreateItemSchema</span><span class="p">,</span>
 </span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">update_schema</span><span class="o">=</span><span class="n">UpdateItemSchema</span><span class="p">,</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">path</span><span class="o">=</span><span class="s2">&quot;/items&quot;</span><span class="p">,</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">tags</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Items&quot;</span><span class="p">],</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="p">)</span>
-</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a>
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="n">app</span><span class="o">.</span><span class="n">include_router</span><span class="p">(</span><span class="n">item_router</span><span class="p">)</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>    <span class="n">include_relationships</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>  <span class="c1"># Optional: automatically include related data</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>    <span class="n">path</span><span class="o">=</span><span class="s2">&quot;/items&quot;</span><span class="p">,</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a>    <span class="n">tags</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;Items&quot;</span><span class="p">],</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="p">)</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a>
+</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="n">app</span><span class="o">.</span><span class="n">include_router</span><span class="p">(</span><span class="n">item_router</span><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="available-endpoints">Available Endpoints<a class="headerlink" href="#available-endpoints" title="Permanent link">&para;</a></h3>
 <p>For a comprehensive list of all available endpoints, read the <a href="../../advanced/endpoint/">advanced section</a>.</p>
@@ -1793,6 +1794,11 @@
 <li><code>GET /items?sort=category,-price</code> - Sort by category ascending, then price descending</li>
 </ul>
 <p>For detailed sorting documentation, see <a href="../../advanced/endpoint/#sorting-results">Sorting Results</a>.</p>
+</div>
+<div class="admonition tip">
+<p class="admonition-title">Including Related Data</p>
+<p>Set <code>include_relationships=True</code> to automatically include related models in responses. This uses FastCRUD's auto-detection feature to discover and join all SQLAlchemy relationships defined on your model.</p>
+<p>For more details and configuration options, see <a href="../../advanced/endpoint/#including-relationships-in-endpoints">Including Relationships in Endpoints</a>.</p>
 </div>
 <h2 id="usage-and-testing">Usage and Testing<a class="headerlink" href="#usage-and-testing" title="Permanent link">&para;</a></h2>
 <p>Once the application is running, you can test the automatically created endpoints using tools like Swagger UI, which FastAPI provides by default. The endpoints for creating, reading, updating, and deleting Item instances are now accessible at <code>/items</code>.</p>
