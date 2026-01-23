@@ -36,11 +36,13 @@ ___
 - **Python Version Requirement**: Minimum Python version is now 3.10 (dropped Python 3.9)
   - Python 3.9 reached end-of-life in October 2025
   - Required for security-patched dependency versions
+  - Codebase now uses modern type hint syntax (`X | Y` instead of `Union`, `Optional`)
 
 #### Fixed
 - **Endpoint Validation**: EndpointCreator now verifies model has valid `join_config` before attempting joined operations
 
 #### Improved
+- **Modern Type Hints**: Updated codebase to use Python 3.10+ syntax (`list` instead of `List`, `X | None` instead of `Optional[X]`)
 - **Test Coverage**: Added comprehensive tests for one-to-many relationship handling by [@LucasQR](https://github.com/LucasQR)
 - **Documentation**: Enhanced joins documentation with auto-detection examples
 

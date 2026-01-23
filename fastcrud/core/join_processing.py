@@ -5,7 +5,7 @@ This module provides classes and functions for handling complex multi-join scena
 with proper caching of model introspection results and composite primary key handling.
 """
 
-from typing import Sequence, Union, Optional, Any, TYPE_CHECKING
+from typing import Sequence, Any, TYPE_CHECKING
 from pydantic import BaseModel
 
 from .introspection import (
@@ -61,7 +61,7 @@ class JoinProcessor:
     def initialize_pre_nested_data(
         self,
         base_primary_key: str,
-        data: Sequence[Union[dict, BaseModel]],
+        data: Sequence[dict | BaseModel],
     ) -> dict:
         """
         Initializes a dictionary for organizing multi-record joined data by primary key.
@@ -147,7 +147,7 @@ class JoinProcessor:
     def process_one_to_many_join(
         self,
         join_config,
-        data: Sequence[Union[dict, BaseModel]],
+        data: Sequence[dict | BaseModel],
         pre_nested_data: dict,
         base_primary_key: str,
         join_primary_key: str,
@@ -206,7 +206,7 @@ class JoinProcessor:
 
     def process_one_to_one_join(
         self,
-        data: Sequence[Union[dict, BaseModel]],
+        data: Sequence[dict | BaseModel],
         pre_nested_data: dict,
         base_primary_key: str,
         join_primary_key: str,
@@ -294,12 +294,12 @@ class JoinProcessor:
 
     def process_multi_join(
         self,
-        data: Sequence[Union[dict, BaseModel]],
+        data: Sequence[dict | BaseModel],
         joins_config: Sequence["JoinConfig"],
         return_as_model: bool = False,
-        schema_to_select: Optional[type[SelectSchemaType]] = None,
-        nested_schema_to_select: Optional[dict[str, type[SelectSchemaType]]] = None,
-    ) -> Sequence[Union[dict, SelectSchemaType]]:
+        schema_to_select: type[SelectSchemaType] | None = None,
+        nested_schema_to_select: dict[str, type[SelectSchemaType]] | None = None,
+    ) -> Sequence[dict | SelectSchemaType]:
         """
         Nests joined data based on join definitions provided for multiple records. This function processes the input list of
         dictionaries, identifying keys that correspond to joined tables using the provided `joins_config`, and nests them
@@ -421,9 +421,9 @@ class JoinProcessor:
 
 
 def handle_null_primary_key_multi_join(
-    data: list[Union[dict[str, Any], SelectSchemaType]],
+    data: list[dict[str, Any] | SelectSchemaType],
     join_definitions: list,
-) -> list[Union[dict[str, Any], SelectSchemaType]]:
+) -> list[dict[str, Any] | SelectSchemaType]:
     """
     Handles null primary keys in multi-join results by cleaning up invalid nested data.
 

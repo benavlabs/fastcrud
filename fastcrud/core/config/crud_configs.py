@@ -5,7 +5,7 @@ This module defines configuration classes for customizing create, update, delete
 and filter operations, including automatic field injection and endpoint customization.
 """
 
-from typing import Any, Callable, Sequence, Optional, Annotated
+from typing import Any, Callable, Sequence, Annotated
 from pydantic import BaseModel, Field
 from pydantic.functional_validators import field_validator
 from fastapi import Depends, Query
@@ -371,9 +371,7 @@ class FilterConfig(BaseModel):
         field_path = filter_key.split("__")[0] if "__" in filter_key else filter_key
         return "." in field_path
 
-    def parse_joined_filter(
-        self, filter_key: str
-    ) -> tuple[list[str], str, Optional[str]]:
+    def parse_joined_filter(self, filter_key: str) -> tuple[list[str], str, str | None]:
         """
         Parse a joined filter key into its components.
 

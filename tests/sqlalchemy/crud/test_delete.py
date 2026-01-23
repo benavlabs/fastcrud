@@ -201,13 +201,13 @@ async def test_delete_no_records_match_filters_raises_no_result_found(
 
 # Test classes for new typing functionality
 class DeleteTestSchema(BaseModel):
-    id: Optional[int] = None
-    name: Optional[str] = None
+    id: int | None = None
+    name: str | None = None
 
 
 class DeleteTierSchema(BaseModel):
-    id: Optional[int] = None
-    name: Optional[str] = None
+    id: int | None = None
+    name: str | None = None
 
 
 # Tests for new filters parameter functionality

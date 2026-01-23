@@ -16,9 +16,9 @@ from typing import Optional, List
 # Test models that reproduce the composite PK deduplication bug
 class ParentModel(SQLModel, table=True):
     __tablename__ = "parent_dedup_test"
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     name: str
-    children: List["ChildModel"] = Relationship(back_populates="parent")
+    children: list["ChildModel"] = Relationship(back_populates="parent")
 
 
 class ChildModel(SQLModel, table=True):
@@ -27,16 +27,16 @@ class ChildModel(SQLModel, table=True):
     child_id: int = Field(primary_key=True)  # First PK - used for deduplication
     version: int = Field(primary_key=True)  # Second PK - ignored by deduplication
     name: str
-    parent_id: Optional[int] = Field(default=None, foreign_key="parent_dedup_test.id")
-    parent: Optional[ParentModel] = Relationship(back_populates="children")
+    parent_id: int | None = Field(default=None, foreign_key="parent_dedup_test.id")
+    parent: ParentModel | None = Relationship(back_populates="children")
 
 
 # Alternative scenario: same product in same warehouse but different batches
 class WarehouseModel(SQLModel, table=True):
     __tablename__ = "warehouse_dedup_test"
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     name: str
-    inventory: List["InventoryModel"] = Relationship(back_populates="warehouse")
+    inventory: list["InventoryModel"] = Relationship(back_populates="warehouse")
 
 
 class InventoryModel(SQLModel, table=True):
@@ -45,10 +45,10 @@ class InventoryModel(SQLModel, table=True):
     product_id: int = Field(primary_key=True)  # First PK - causes deduplication issue
     batch_id: int = Field(primary_key=True)  # Second PK - ignored
     quantity: int
-    warehouse_id: Optional[int] = Field(
+    warehouse_id: int | None = Field(
         default=None, foreign_key="warehouse_dedup_test.id"
     )
-    warehouse: Optional[WarehouseModel] = Relationship(back_populates="inventory")
+    warehouse: WarehouseModel | None = Relationship(back_populates="inventory")
 
 
 # Pydantic schemas

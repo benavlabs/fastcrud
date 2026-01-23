@@ -5,7 +5,7 @@ This module defines the mapping between filter operator strings and their
 corresponding SQLAlchemy column methods, along with validation logic.
 """
 
-from typing import Callable, Any, Optional
+from typing import Callable, Any
 from sqlalchemy import Column
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -41,8 +41,8 @@ SUPPORTED_FILTERS: dict[str, FilterCallable] = {
 def get_sqlalchemy_filter(
     operator: str,
     value: FilterValueType,
-    custom_filters: Optional[dict[str, FilterCallable]] = None,
-) -> Optional[FilterCallable]:
+    custom_filters: dict[str, FilterCallable] | None = None,
+) -> FilterCallable | None:
     """
     Get SQLAlchemy filter function for operator with validation.
 

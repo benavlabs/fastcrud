@@ -24,7 +24,7 @@ class CreateSchemaWithoutTierId(BaseModel):
 class UpdateSchemaWithoutTierId(BaseModel):
     """Schema for updating items without tier_id."""
 
-    name: Optional[str] = None
+    name: str | None = None
 
 
 class EmptyCreateSchema(BaseModel):

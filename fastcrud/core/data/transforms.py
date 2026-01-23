@@ -6,7 +6,7 @@ formatting, and transformation that don't depend on FastCRUD internals.
 All functions are pure (no side effects) and have minimal dependencies.
 """
 
-from typing import Any, Optional, Union
+from typing import Any
 
 from ...types import SelectSchemaType
 
@@ -151,8 +151,8 @@ def handle_one_to_many(
 
 def sort_nested_list(
     nested_list: list[dict],
-    sort_columns: Union[str, list[str]],
-    sort_orders: Optional[Union[str, list[str]]] = None,
+    sort_columns: str | list[str],
+    sort_orders: str | list[str] | None = None,
 ) -> list[dict]:
     """
     Sorts a list of dictionaries based on specified sort columns and orders.
@@ -209,7 +209,7 @@ def sort_nested_list(
     return sorted_list
 
 
-def build_column_label(temp_prefix: str, prefix: Optional[str], field_name: str) -> str:
+def build_column_label(temp_prefix: str, prefix: str | None, field_name: str) -> str:
     """
     Builds a column label with appropriate prefixes for SQLAlchemy column selection.
 
@@ -235,8 +235,8 @@ def build_column_label(temp_prefix: str, prefix: Optional[str], field_name: str)
 
 
 def format_single_response(
-    data: Any, schema_to_select: Optional[type] = None, return_as_model: bool = False
-) -> Union[dict, Any]:
+    data: Any, schema_to_select: type | None = None, return_as_model: bool = False
+) -> dict | Any:
     """
     Format single record response with optional model conversion.
 
@@ -266,7 +266,7 @@ def format_single_response(
 
 def format_multi_response(
     data: list[Any],
-    schema_to_select: Optional[type] = None,
+    schema_to_select: type | None = None,
     return_as_model: bool = False,
 ) -> list[Any]:
     """
@@ -312,7 +312,7 @@ def create_paginated_response_data(
     items: list,
     total_count: int,
     offset: int = 0,
-    limit: Optional[int] = None,
+    limit: int | None = None,
     data_key: str = "data",
 ) -> dict[str, Any]:
     """
@@ -357,7 +357,7 @@ def create_paginated_response_data(
 def convert_to_pydantic_models(
     nested_data: list,
     schema_to_select: type[SelectSchemaType],
-    nested_schema_to_select: Optional[dict[str, type[SelectSchemaType]]],
+    nested_schema_to_select: dict[str, type[SelectSchemaType]] | None,
 ) -> list:
     """
     Converts nested dictionary data to Pydantic model instances.

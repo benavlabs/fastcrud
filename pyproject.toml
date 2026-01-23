@@ -65,3 +65,15 @@ build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
 markers = ["dialect(name): mark test to run only on specific SQL dialect"]
+filterwarnings = [
+    "ignore:The @wait_container_is_ready decorator is deprecated:DeprecationWarning",
+]
+
+[tool.ruff]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+    "UP006",  # Use `type` instead of `Type` for type annotations (list, dict, set, etc.)
+    "UP007",  # Use `X | Y` for type unions instead of `Union[X, Y]` or `Optional[X]`
+]

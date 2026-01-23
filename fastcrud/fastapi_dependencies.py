@@ -15,7 +15,7 @@ All functions preserve their original signatures and behavior from field_managem
 """
 
 import inspect
-from typing import Annotated, Callable, Any, Optional, Union, Sequence, TYPE_CHECKING
+from typing import Annotated, Callable, Any, Union, Sequence, TYPE_CHECKING
 from uuid import UUID
 
 from fastapi import Depends, Query, Path, params
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 
 def create_auto_field_injector(
-    config: Optional[Union["CreateConfig", "UpdateConfig", "DeleteConfig"]],
+    config: Union["CreateConfig", "UpdateConfig", "DeleteConfig"] | None,
 ) -> Callable[..., dict[str, Any]]:
     """
     Creates a dynamic dependency function that resolves auto_fields.
@@ -81,7 +81,7 @@ def create_auto_field_injector(
 
 
 def create_dynamic_filters(
-    filter_config: Optional["FilterConfig"], column_types: dict[str, type]
+    filter_config: "FilterConfig | None", column_types: dict[str, type]
 ) -> Callable[..., dict[str, Any]]:
     """
     Create dynamic filter function for handling query parameters.
@@ -156,8 +156,8 @@ def create_dynamic_filters(
 
 
 def inject_dependencies(
-    funcs: Optional[Sequence[Callable]] = None,
-) -> Optional[Sequence[params.Depends]]:
+    funcs: Sequence[Callable] | None = None,
+) -> Sequence[params.Depends] | None:
     """
     Wraps a list of functions in FastAPI's Depends.
 

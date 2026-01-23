@@ -6,7 +6,7 @@ into SQLAlchemy WHERE clauses. It supports complex filtering scenarios including
 OR conditions, NOT conditions, and joined model filters.
 """
 
-from typing import Any, Optional, Union
+from typing import Any
 from sqlalchemy import Column, or_, not_, and_
 from sqlalchemy.orm.util import AliasedClass
 from sqlalchemy.sql.elements import ColumnElement
@@ -48,7 +48,7 @@ class FilterProcessor:
     def __init__(
         self,
         model: type[ModelType],
-        custom_filters: Optional[dict[str, FilterCallable]] = None,
+        custom_filters: dict[str, FilterCallable] | None = None,
     ):
         """
         Initialize the filter processor.
@@ -63,7 +63,7 @@ class FilterProcessor:
         self.custom_filters = custom_filters
 
     def parse_filters(
-        self, model: Optional[Union[type[ModelType], AliasedClass]] = None, **kwargs
+        self, model: type[ModelType] | AliasedClass | None = None, **kwargs
     ) -> list[ColumnElement]:
         """
         Parse and convert filter arguments into SQLAlchemy filter conditions.
@@ -127,7 +127,7 @@ class FilterProcessor:
 
     def _handle_simple_filter(
         self,
-        model: Union[type[ModelType], AliasedClass],
+        model: type[ModelType] | AliasedClass,
         key: str,
         value: FilterValueType,
     ) -> list[ColumnElement]:
@@ -271,7 +271,7 @@ class FilterProcessor:
             return [filter_func(col)(value)]
 
     def _handle_multi_field_or_filter(
-        self, model: Union[type[ModelType], AliasedClass], or_dict: dict
+        self, model: type[ModelType] | AliasedClass, or_dict: dict
     ) -> list[ColumnElement]:
         """
         Handle multi-field OR: _or={'field1': value1, 'field2': value2}
