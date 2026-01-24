@@ -6,7 +6,7 @@ queries with window functions, enabling proper SQL-level limiting per parent rec
 """
 
 import logging
-from typing import Any, Optional, Union, TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from pydantic import BaseModel
 from sqlalchemy import select, func
@@ -87,10 +87,10 @@ async def fetch_one_to_many_with_limit(
     fk_column: Any,
     parent_ids: list[Any],
     limit_per_parent: int,
-    sort_columns: Optional[Union[str, list[str]]] = None,
-    sort_orders: Optional[Union[str, list[str]]] = None,
-    schema_to_select: Optional[type[BaseModel]] = None,
-    filters: Optional[dict[str, Any]] = None,
+    sort_columns: str | list[str] | None = None,
+    sort_orders: str | list[str] | None = None,
+    schema_to_select: type[BaseModel] | None = None,
+    filters: dict[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
     """
     Fetch one-to-many related records with SQL-level limiting using window functions.

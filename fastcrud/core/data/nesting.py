@@ -6,7 +6,7 @@ that require model introspection but don't create circular dependencies.
 """
 
 import logging
-from typing import Any, Optional, Callable, TYPE_CHECKING
+from typing import Any, Callable, TYPE_CHECKING
 
 from .transforms import handle_one_to_one, handle_one_to_many, sort_nested_list
 
@@ -244,7 +244,7 @@ def nest_join_data(
     join_definitions: list["JoinConfig"],
     get_primary_key_func: Callable,
     temp_prefix: str = "joined__",
-    nested_data: Optional[dict[str, Any]] = None,
+    nested_data: dict[str, Any] | None = None,
 ) -> dict:
     """
     Nests joined data based on join definitions provided. This function processes the input `data` dictionary,

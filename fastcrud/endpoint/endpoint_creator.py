@@ -1,4 +1,4 @@
-from typing import Type, Optional, Callable, Sequence, Union, Any, cast, Awaitable, List
+from typing import Callable, Sequence, Any, cast, Awaitable
 from enum import Enum
 
 from fastapi import Depends, Body, APIRouter
@@ -268,27 +268,27 @@ class EndpointCreator:
         self,
         session: Callable,
         model: ModelType,
-        create_schema: Type[CreateSchemaType],
-        update_schema: Type[UpdateSchemaType],
-        crud: Optional[FastCRUD] = None,
+        create_schema: type[CreateSchemaType],
+        update_schema: type[UpdateSchemaType],
+        crud: FastCRUD | None = None,
         include_in_schema: bool = True,
-        delete_schema: Optional[Type[DeleteSchemaType]] = None,
+        delete_schema: type[DeleteSchemaType] | None = None,
         path: str = "",
-        tags: Optional[list[Union[str, Enum]]] = None,
+        tags: list[str | Enum] | None = None,
         is_deleted_column: str = "is_deleted",
         deleted_at_column: str = "deleted_at",
         updated_at_column: str = "updated_at",
-        endpoint_names: Optional[dict[str, str]] = None,
-        filter_config: Optional[Union[FilterConfig, dict]] = None,
-        select_schema: Optional[Type[SelectSchemaType]] = None,
-        create_config: Optional[CreateConfig] = None,
-        update_config: Optional[UpdateConfig] = None,
-        delete_config: Optional[DeleteConfig] = None,
-        custom_filters: Optional[dict[str, FilterCallable]] = None,
-        include_relationships: Union[bool, Sequence[str]] = False,
-        joins_config: Optional[Sequence[JoinConfig]] = None,
+        endpoint_names: dict[str, str] | None = None,
+        filter_config: FilterConfig | dict | None = None,
+        select_schema: type[SelectSchemaType] | None = None,
+        create_config: CreateConfig | None = None,
+        update_config: UpdateConfig | None = None,
+        delete_config: DeleteConfig | None = None,
+        custom_filters: dict[str, FilterCallable] | None = None,
+        include_relationships: bool | Sequence[str] = False,
+        joins_config: Sequence[JoinConfig] | None = None,
         nest_joins: bool = True,
-        default_nested_limit: Optional[int] = None,
+        default_nested_limit: int | None = None,
         include_one_to_many: bool = False,
     ) -> None:
         self._primary_keys = get_primary_key_columns(model)
@@ -332,7 +332,7 @@ class EndpointCreator:
             if isinstance(filter_config, dict):
                 filter_config = FilterConfig(**filter_config)
             self._validate_filter_config(filter_config)
-            self.filter_config: Optional[FilterConfig] = filter_config
+            self.filter_config: FilterConfig | None = filter_config
         else:
             self.filter_config = None
         self.create_config = create_config
@@ -361,7 +361,7 @@ class EndpointCreator:
                 )
 
         self.include_relationships = include_relationships
-        self.joins_config: Optional[List[JoinConfig]] = (
+        self.joins_config: list[JoinConfig] | None = (
             list(joins_config) if joins_config else None
         )
         self.nest_joins = nest_joins
@@ -499,7 +499,7 @@ class EndpointCreator:
                     }
                     result = await self.crud.get_joined(
                         db,
-                        schema_to_select=cast(Type[BaseModel], self.select_schema)
+                        schema_to_select=cast(type[BaseModel], self.select_schema)
                         if self.select_schema
                         else None,
                         return_as_model=True if self.select_schema else False,
@@ -528,7 +528,7 @@ class EndpointCreator:
 
                 result = await self.crud.get_joined(
                     db,
-                    schema_to_select=cast(Type[BaseModel], self.select_schema)
+                    schema_to_select=cast(type[BaseModel], self.select_schema)
                     if self.select_schema
                     else None,
                     return_as_model=True if self.select_schema else False,
@@ -553,7 +553,7 @@ class EndpointCreator:
             if self._should_include_relationships() and join_params:
                 item = await self.crud.get_joined(
                     db,
-                    schema_to_select=cast(Type[BaseModel], self.select_schema)
+                    schema_to_select=cast(type[BaseModel], self.select_schema)
                     if self.select_schema
                     else None,
                     return_as_model=True if self.select_schema else False,
@@ -565,7 +565,7 @@ class EndpointCreator:
                 if self.select_schema is not None:
                     item = await self.crud.get(
                         db,
-                        schema_to_select=cast(Type[BaseModel], self.select_schema),
+                        schema_to_select=cast(type[BaseModel], self.select_schema),
                         return_as_model=True,
                         **pkeys,
                     )
@@ -581,7 +581,7 @@ class EndpointCreator:
         self,
     ) -> Callable[
         ...,
-        Awaitable[Union[dict[str, Any], PaginatedListResponse[Any], ListResponse[Any]]],
+        Awaitable[dict[str, Any] | PaginatedListResponse[Any] | ListResponse[Any]],
     ]:
         """Creates an endpoint for reading multiple items from the database.
 
@@ -604,7 +604,7 @@ class EndpointCreator:
             db: AsyncSession = Depends(self.session),
             query: PaginatedRequestQuery = Depends(),
             filters: dict = Depends(dynamic_filters),
-        ) -> Union[dict[str, Any], PaginatedListResponse, ListResponse]:
+        ) -> dict[str, Any] | PaginatedListResponse | ListResponse:
             is_paginated = (query.page is not None) or (
                 query.items_per_page is not None
             )
@@ -721,7 +721,7 @@ class EndpointCreator:
                 if self._should_include_relationships() and join_params:
                     result = await self.crud.get_joined(
                         db,
-                        schema_to_select=cast(Type[BaseModel], self.select_schema)
+                        schema_to_select=cast(type[BaseModel], self.select_schema)
                         if self.select_schema
                         else None,
                         return_as_model=True if self.select_schema else False,
@@ -762,7 +762,7 @@ class EndpointCreator:
                 if self._should_include_relationships() and join_params:
                     result = await self.crud.get_joined(
                         db,
-                        schema_to_select=cast(Type[BaseModel], self.select_schema)
+                        schema_to_select=cast(type[BaseModel], self.select_schema)
                         if self.select_schema
                         else None,
                         return_as_model=True if self.select_schema else False,
@@ -796,7 +796,7 @@ class EndpointCreator:
             if self._should_include_relationships() and join_params:
                 item_to_delete = await self.crud.get_joined(
                     db,
-                    schema_to_select=cast(Type[BaseModel], self.select_schema)
+                    schema_to_select=cast(type[BaseModel], self.select_schema)
                     if self.select_schema
                     else None,
                     return_as_model=True if self.select_schema else False,
@@ -838,8 +838,8 @@ class EndpointCreator:
         update_deps: Sequence[Callable] = [],
         delete_deps: Sequence[Callable] = [],
         db_delete_deps: Sequence[Callable] = [],
-        included_methods: Optional[Sequence[str]] = None,
-        deleted_methods: Optional[Sequence[str]] = None,
+        included_methods: Sequence[str] | None = None,
+        deleted_methods: Sequence[str] | None = None,
     ):
         """
         Adds CRUD operation routes to the FastAPI router with specified dependencies for each type of operation.
@@ -961,12 +961,11 @@ class EndpointCreator:
 
         if ("read_multi" in included_methods) and ("read_multi" not in deleted_methods):
             if self.select_schema is not None:
-                response_model: Optional[
-                    Type[Union[PaginatedListResponse[Any], ListResponse[Any]]]
-                ] = Union[
-                    self.paginated_response_model,  # type: ignore
-                    self.list_response_model,  # type: ignore
-                ]
+                response_model: (
+                    type[PaginatedListResponse[Any] | ListResponse[Any]] | None
+                ) = (
+                    self.paginated_response_model | self.list_response_model  # type: ignore
+                )
             else:
                 response_model = None
 
@@ -1038,13 +1037,13 @@ class EndpointCreator:
     def add_custom_route(
         self,
         endpoint: Callable,
-        methods: Optional[Union[set[str], list[str]]],
-        path: Optional[str] = None,
-        dependencies: Optional[Sequence[Callable]] = None,
+        methods: set[str] | list[str] | None,
+        path: str | None = None,
+        dependencies: Sequence[Callable] | None = None,
         include_in_schema: bool = True,
-        tags: Optional[list[Union[str, Enum]]] = None,
-        summary: Optional[str] = None,
-        description: Optional[str] = None,
+        tags: list[str | Enum] | None = None,
+        summary: str | None = None,
+        description: str | None = None,
         response_description: str = "Successful Response",
     ) -> None:
         """
