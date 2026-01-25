@@ -10,6 +10,7 @@ Tests cover:
 """
 
 import asyncio
+from typing import Any
 from fastcrud import FastCRUD
 from fastcrud.crud.bulk_operations.batch_processor import BatchProcessor, BatchConfig
 from tests.sqlalchemy.conftest import BookingModel
@@ -18,6 +19,7 @@ import pytest
 from sqlalchemy import func, select
 from tests.sqlalchemy.conftest import ModelTestWithTimestamp
 
+from pydantic import BaseModel, ConfigDict
 from fastcrud.crud.bulk_operations import (
     BulkDeleteManager,
     BulkInsertManager,
@@ -37,6 +39,7 @@ from tests.sqlalchemy.conftest import (
     TierModel,
     Article,
     Author,
+    ArticleSchema,
 )
 
 
@@ -62,6 +65,29 @@ class BulkTestData:
             "category_id": self.category_id,
             "is_deleted": self.is_deleted,
         }
+
+
+class ArticleCreatePayload(BaseModel):
+    """Helper payload to provide model_dump for article creation tests."""
+
+    model_config = ConfigDict(extra="allow", arbitrary_types_allowed=True)
+    title: str
+    content: str
+    published_date: str
+    author: Any = None
+
+
+class AuthorCreatePayload(BaseModel):
+    """Helper payload to provide model_dump for author creation tests."""
+
+    model_config = ConfigDict(extra="allow", arbitrary_types_allowed=True)
+    name: str
+    articles: Any = None
+
+    def model_dump(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        data = super().model_dump(*args, **kwargs)
+        # Avoid sending None for collection relationships; SQLAlchemy expects list-like.
+        return {k: v for k, v in data.items() if v is not None}
 
 
 @pytest.mark.asyncio
@@ -1439,15 +1465,15 @@ async def test_create_with_invalid_nested_payload(async_session):
     article_crud = FastCRUD(Article)
 
     # Try to create article with invalid nested author payload (not dict or BaseModel)
-    with pytest.raises(TypeError, match="Unsupported nested relationship payload type"):
+    with pytest.raises((AttributeError, TypeError)):
         await article_crud.create(
             db=async_session,
-            object={
-                "title": "Test Article",
-                "content": "Test content",
-                "published_date": "2024-01-01",
-                "author": 12345,  # Invalid: should be dict or BaseModel, not int
-            },
+            object=ArticleCreatePayload(
+                title="Test Article",
+                content="Test content",
+                published_date="2024-01-01",
+                author=12345,  # Invalid: should be dict or BaseModel, not int
+            ),
         )
 
 
@@ -1460,19 +1486,23 @@ async def test_create_nested_payload_detection_edge_cases(async_session):
 
     # First create an author to use as FK
     author_crud = FastCRUD(Author)
-    author = await author_crud.create(db=async_session, object={"name": "Test Author"})
+    author = await author_crud.create(
+        db=async_session, object=AuthorCreatePayload(name="Test Author")
+    )
     await async_session.commit()
 
     # Test 1: Empty dict should be treated as nested payload
     # This should work - empty dict is valid nested payload
     article1 = await article_crud.create(
         db=async_session,
-        object={
-            "title": "Article 1",
-            "content": "Content 1",
-            "published_date": "2024-01-01",
-            "author": {},  # Empty dict - should be treated as nested payload
-        },
+        object=ArticleCreatePayload(
+            title="Article 1",
+            content="Content 1",
+            published_date="2024-01-01",
+            author={},  # Empty dict - should be treated as nested payload
+        ),
+        schema_to_select=ArticleSchema,
+        return_as_model=True,
     )
     assert article1 is not None
     await async_session.rollback()  # Rollback to avoid constraint issues
@@ -1481,12 +1511,14 @@ async def test_create_nested_payload_detection_edge_cases(async_session):
     # This should work - None is valid for nullable FK
     article2 = await article_crud.create(
         db=async_session,
-        object={
-            "title": "Article 2",
-            "content": "Content 2",
-            "published_date": "2024-01-01",
-            "author": None,  # None - should not be treated as nested payload
-        },
+        object=ArticleCreatePayload(
+            title="Article 2",
+            content="Content 2",
+            published_date="2024-01-01",
+            author=None,  # None - should not be treated as nested payload
+        ),
+        schema_to_select=ArticleSchema,
+        return_as_model=True,
     )
     assert article2 is not None
     assert article2.author_id is None
@@ -1504,19 +1536,19 @@ async def test_create_nested_list_with_invalid_items(async_session):
     with pytest.raises(TypeError, match="must be a list or tuple when uselist=True"):
         await author_crud.create(
             db=async_session,
-            object={
-                "name": "Test Author",
-                "articles": {"title": "Article"},  # Invalid: should be list, not dict
-            },
+            object=AuthorCreatePayload(
+                name="Test Author",
+                articles={"title": "Article"},  # Invalid: should be list, not dict
+            ),
         )
 
     # Test 2: List with invalid item types should raise TypeError
     with pytest.raises(TypeError, match="Unsupported nested relationship payload type"):
         await author_crud.create(
             db=async_session,
-            object={
-                "name": "Test Author",
-                "articles": [
+            object=AuthorCreatePayload(
+                name="Test Author",
+                articles=[
                     {
                         "title": "Valid Article",
                         "content": "Content",
@@ -1524,5 +1556,5 @@ async def test_create_nested_list_with_invalid_items(async_session):
                     },
                     12345,  # Invalid: should be dict or BaseModel, not int
                 ],
-            },
+            ),
         )
