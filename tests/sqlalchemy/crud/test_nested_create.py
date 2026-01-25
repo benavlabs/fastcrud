@@ -39,7 +39,7 @@ class NestedParentCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str
-    child: Optional[NestedChildCreate] = None
+    child: NestedChildCreate | None = None
 
 
 class NestedParentRead(BaseModel):
@@ -57,7 +57,7 @@ class NestedParentReadWithChild(BaseModel):
 
     id: int
     name: str
-    child: Optional[NestedChildRead] = None
+    child: NestedChildRead | None = None
 
 
 class OneToManyParent(Base):
@@ -89,7 +89,7 @@ class OneToManyParentCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str
-    children: List[OneToManyChildCreate] = []
+    children: list[OneToManyChildCreate] = []
 
 
 class ConstrainedParent(Base):
@@ -115,14 +115,14 @@ class ConstrainedChildCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     # Optional at the schema level, but NOT NULL at the database level
-    code: Optional[str] = None
+    code: str | None = None
 
 
 class ConstrainedParentCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str
-    children: List[ConstrainedChildCreate]
+    children: list[ConstrainedChildCreate]
 
 
 @pytest.mark.asyncio

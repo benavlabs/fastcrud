@@ -44,7 +44,7 @@ class BatchConfig:
             enable_transactions: bool = True,
             commit_strategy: str = "batch",
             allow_partial_success: bool = True,
-            timeout_seconds: Optional[float] = None,
+            timeout_seconds: float | None = None,
             retry_attempts: int = 0,
             retry_delay: float = 0.1,
     ):
@@ -77,15 +77,15 @@ class BatchProcessor:
     and performance monitoring.
     """
 
-    def __init__(self, config: Optional[BatchConfig] = None):
+    def __init__(self, config: BatchConfig | None = None):
         self.config = config or BatchConfig()
-        self._operation_start_time: Optional[datetime] = None
+        self._operation_start_time: datetime | None = None
 
     async def process_batches(
             self,
-            items: List[T],
-            processor_func: Callable[[List[T], int], Coroutine[Any, Any, BulkOperationResult]],
-            db: Optional[AsyncSession] = None,
+            items: list[T],
+            processor_func: Callable[[list[T], int], Coroutine[Any, Any, BulkOperationResult]],
+            db: AsyncSession | None = None,
             operation_name: str = "batch_operation",
     ) -> BulkOperationSummary:
         """
@@ -114,10 +114,10 @@ class BatchProcessor:
 
     async def _process_all_batches(
             self,
-            batches: List[List[T]],
-            processor_func: Callable[[List[T], int], Coroutine[Any, Any, BulkOperationResult]],
-            db: Optional[AsyncSession],
-    ) -> List[BulkOperationResult]:
+            batches: list[list[T]],
+            processor_func: Callable[[list[T], int], Coroutine[Any, Any, BulkOperationResult]],
+            db: AsyncSession | None,
+    ) -> list[BulkOperationResult]:
         """Process all batches sequentially and return results."""
         results = []
         for i, batch in enumerate(batches):
@@ -125,7 +125,7 @@ class BatchProcessor:
             results.append(result)
         return results
 
-    async def _handle_final_commit(self, db: Optional[AsyncSession]) -> None:
+    async def _handle_final_commit(self, db: AsyncSession | None) -> None:
         """Handle final commit if using 'all' strategy."""
         if self.config.commit_strategy == "all" and db and db.in_transaction():
             await db.commit()
@@ -134,7 +134,7 @@ class BatchProcessor:
             self,
             operation_name: str,
             total_items: int,
-            batch_results: List[BulkOperationResult]
+            batch_results: list[BulkOperationResult]
     ) -> BulkOperationSummary:
         """Create the final operation summary from batch results."""
         successful_count, failed_count, failed_items = self._aggregate_batch_results(batch_results)
@@ -172,12 +172,12 @@ class BatchProcessor:
         )
 
     @staticmethod
-    def _aggregate_batch_results(batch_results: List[BulkOperationResult]) -> tuple[
-        int, int, List[Dict[str, Any]]]:
+    def _aggregate_batch_results(batch_results: list[BulkOperationResult]) -> tuple[
+        int, int, list[dict[str, Any]]]:
         """Aggregate results from all batches."""
         successful_count = 0
         failed_count = 0
-        failed_items: List[Dict[str, Any]] = []
+        failed_items: list[dict[str, Any]] = []
         for result in batch_results:
             if result.success:
                 successful_count += result.items_processed
@@ -189,10 +189,10 @@ class BatchProcessor:
 
     async def _process_single_batch(
             self,
-            batch_items: List[T],
+            batch_items: list[T],
             batch_index: int,
-            processor_func: Callable[[List[T], int], Coroutine[Any, Any, BulkOperationResult]],
-            db: Optional[AsyncSession],
+            processor_func: Callable[[list[T], int], Coroutine[Any, Any, BulkOperationResult]],
+            db: AsyncSession | None,
     ) -> BulkOperationResult:
         """
         Process a single batch with error handling and retry logic.
@@ -219,10 +219,10 @@ class BatchProcessor:
 
     async def _execute_batch_step(
             self,
-            batch_items: List[T],
+            batch_items: list[T],
             batch_index: int,
-            processor_func: Callable[[List[T], int], Coroutine[Any, Any, BulkOperationResult]],
-            db: Optional[AsyncSession],
+            processor_func: Callable[[list[T], int], Coroutine[Any, Any, BulkOperationResult]],
+            db: AsyncSession | None,
     ) -> BulkOperationResult:
         """
         Execute the batch processing step, managing transactions if configured.
@@ -268,7 +268,7 @@ class BatchProcessor:
         )
 
     @staticmethod
-    def create_chunks(items: List[T], chunk_size: int) -> List[List[T]]:
+    def create_chunks(items: list[T], chunk_size: int) -> list[list[T]]:
         """
         Create chunks from a list of items.
         """

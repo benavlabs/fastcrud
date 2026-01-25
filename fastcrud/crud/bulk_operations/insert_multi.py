@@ -26,24 +26,24 @@ class BulkInsertManager:
     error handling, transaction management, and detailed reporting.
     """
 
-    def __init__(self, config: Optional[BatchConfig] = None):
+    def __init__(self, config: BatchConfig | None = None):
         self.config = config or BatchConfig()
         self.batch_processor = BatchProcessor(self.config)
-        self._current_db_session: Optional[AsyncSession] = None
+        self._current_db_session: AsyncSession | None = None
 
     async def insert_multi(
             self,
             db: AsyncSession,
             model_class: Any,
-            objects: List[Union[dict, Any]],
+            objects: list[dict | Any],
             *,
             batch_size: int = 1000,
             commit: bool = True,
             allow_partial_success: bool = True,
             return_summary: bool = False,
-            schema_to_select: Optional[Type[BaseModel]] = None,
+            schema_to_select: type[BaseModel] | None = None,
             return_as_model: bool = False,
-    ) -> Union[BulkInsertSummary, List[Union[dict, Any]]]:
+    ) -> BulkInsertSummary | list[dict | Any]:
         """
         Insert multiple objects efficiently with batch processing.
 
@@ -92,7 +92,7 @@ class BulkInsertManager:
 
         return self._extract_inserted_records(result)
 
-    def _handle_empty_input(self, batch_size: int, return_summary: bool) -> Union[BulkInsertSummary, List[Any]]:
+    def _handle_empty_input(self, batch_size: int, return_summary: bool) -> BulkInsertSummary | list[Any]:
         if return_summary:
             return self._create_empty_summary(batch_size=batch_size)
         return []
@@ -133,7 +133,7 @@ class BulkInsertManager:
         return duplicate_count, constraint_violations
 
     @staticmethod
-    def _extract_inserted_records(result: Any) -> List[Any]:
+    def _extract_inserted_records(result: Any) -> list[Any]:
         inserted_records = []
         for batch_result in result.batch_results:
             if batch_result.success and batch_result.error_details:
@@ -144,10 +144,10 @@ class BulkInsertManager:
 
     async def _process_insert_batch(
             self,
-            batch_items: List[Any],
+            batch_items: list[Any],
             batch_index: int,
             model_class: Any,
-            schema_to_select: Optional[Type[BaseModel]] = None,
+            schema_to_select: type[BaseModel] | None = None,
             return_as_model: bool = False,
     ) -> BulkOperationResult:
         """Process a single batch of insert operations."""
@@ -183,7 +183,7 @@ class BulkInsertManager:
         except Exception as e:
             return self._handle_general_error(e, batch_index, batch_items, start_time)
 
-    def _prepare_insert_data(self, batch_items: List[Any], model_class: Any) -> List[dict]:
+    def _prepare_insert_data(self, batch_items: list[Any], model_class: Any) -> list[dict]:
         """Convert a list of items into a list of dictionaries for insertion."""
         insert_data = []
         for item in batch_items:
@@ -223,10 +223,10 @@ class BulkInsertManager:
     async def _execute_insert(
             db: AsyncSession,
             model_class: Any,
-            insert_data: List[dict],
-            schema_to_select: Optional[Type[BaseModel]],
+            insert_data: list[dict],
+            schema_to_select: type[BaseModel] | None,
             return_as_model: bool
-    ) -> List[Any]:
+    ) -> list[Any]:
         """Execute the SQL insert statement."""
         stmt = insert(model_class).values(insert_data)
         needs_return = schema_to_select is not None or return_as_model
@@ -248,7 +248,7 @@ class BulkInsertManager:
             self,
             e: IntegrityError,
             batch_index: int,
-            batch_items: List[Any],
+            batch_items: list[Any],
             start_time: float
     ) -> BulkOperationResult:
         error_message = str(e)
@@ -284,7 +284,7 @@ class BulkInsertManager:
             self,
             e: Exception,
             batch_index: int,
-            batch_items: List[Any],
+            batch_items: list[Any],
             start_time: float
     ) -> BulkOperationResult:
         return self._create_result(
@@ -310,7 +310,7 @@ class BulkInsertManager:
             success: bool,
             start_time: float,
             error_message: str = "",
-            details: Optional[dict] = None
+            details: dict | None = None
     ) -> BulkOperationResult:
         return BulkOperationResult(
             batch_index=batch_index,

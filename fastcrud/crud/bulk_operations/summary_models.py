@@ -39,8 +39,8 @@ class BulkOperationResult(BaseModel):
     batch_index: int = Field(..., description="Zero-based index of the batch")
     items_processed: int = Field(..., ge=0, description="Number of items processed in this batch")
     success: bool = Field(..., description="Whether the batch completed successfully")
-    error_message: Optional[str] = Field(None, description="Error message if the batch failed")
-    error_details: Optional[Dict[str, Any]] = Field(None, description="Additional error details and context")
+    error_message: str | None = Field(None, description="Error message if the batch failed")
+    error_details: dict[str, Any] | None = Field(None, description="Additional error details and context")
     duration_ms: float = Field(..., ge=0, description="Time taken to process this batch in milliseconds")
 
 
@@ -87,14 +87,14 @@ class BulkOperationSummary(BaseModel):
     items_per_second: float = Field(..., ge=0.0, description="Processing rate in items per second")
 
     # Error and detailed information
-    failed_items: List[Dict[str, Any]] = Field(default_factory=list,
+    failed_items: list[dict[str, Any]] = Field(default_factory=list,
                                                description="List of failed items with error details")
-    batch_results: List[BulkOperationResult] = Field(default_factory=list,
+    batch_results: list[BulkOperationResult] = Field(default_factory=list,
                                                      description="Detailed results for each batch")
 
     # Configuration used
-    batch_size: Optional[int] = Field(None, description="Batch size used for processing")
-    commit_strategy: Optional[str] = Field(None, description="Commit strategy used (e.g., 'batch', 'all')")
+    batch_size: int | None = Field(None, description="Batch size used for processing")
+    commit_strategy: str | None = Field(None, description="Commit strategy used (e.g., 'batch', 'all')")
     allow_partial_success: bool = Field(False, description="Whether partial success was allowed")
 
     @property

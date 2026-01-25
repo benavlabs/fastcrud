@@ -3207,15 +3207,15 @@ class FastCRUD(
     async def insert_multi(
         self,
         db: AsyncSession,
-        objects: List[Union[CreateSchemaType, dict[str, Any]]],
+        objects: list[CreateSchemaType | dict[str, Any]],
         *,
         batch_size: int = 1000,
         commit: bool = True,
         allow_partial_success: bool = True,
         return_summary: bool = False,
-        schema_to_select: Optional[type[SelectSchemaType]] = None,
+        schema_to_select: type[SelectSchemaType] | None = None,
         return_as_model: bool = False,
-    ) -> Union["BulkInsertSummary", List[Union[dict[str, Any], SelectSchemaType]]]:
+    ) -> "BulkInsertSummary | list[dict[str, Any] | SelectSchemaType]":
         """
         Insert multiple objects efficiently with batch processing.
 
@@ -3295,15 +3295,15 @@ class FastCRUD(
     async def update_multi(
         self,
         db: AsyncSession,
-        objects: List[Union[UpdateSchemaType, dict[str, Any]]],
+        objects: list[UpdateSchemaType | dict[str, Any]],
         *,
         batch_size: int = 1000,
         commit: bool = True,
         allow_partial_success: bool = True,
         return_summary: bool = False,
-        schema_to_select: Optional[type[SelectSchemaType]] = None,
+        schema_to_select: type[SelectSchemaType] | None = None,
         return_as_model: bool = False,
-    ) -> Union["BulkUpdateSummary", List[Union[dict[str, Any], SelectSchemaType]]]:
+    ) -> "BulkUpdateSummary | list[dict[str, Any] | SelectSchemaType]":
         """
         Update multiple objects efficiently with batch processing.
 
@@ -3384,9 +3384,9 @@ class FastCRUD(
         commit: bool = True,
         allow_partial_success: bool = True,
         return_summary: bool = False,
-        soft_delete: Optional[bool] = None,
+        soft_delete: bool | None = None,
         **filters: Any,
-    ) -> Union["BulkDeleteSummary", int]:
+    ) -> "BulkDeleteSummary | int":
         """
         Delete multiple objects efficiently with batch processing.
 

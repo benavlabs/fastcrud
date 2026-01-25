@@ -25,7 +25,7 @@ class BulkUpdateManager:
     error handling, transaction management, and detailed reporting.
     """
 
-    def __init__(self, config: Optional[BatchConfig] = None):
+    def __init__(self, config: BatchConfig | None = None):
         self.config = config or BatchConfig()
         self.batch_processor = BatchProcessor(self.config)
 
@@ -33,15 +33,15 @@ class BulkUpdateManager:
             self,
             db: AsyncSession,
             model_class: Any,
-            objects: List[Union[dict, Any]],
+            objects: list[dict | Any],
             *,
             batch_size: int = 1000,
             commit: bool = True,
             allow_partial_success: bool = True,
             return_summary: bool = False,
-            schema_to_select: Optional[type] = None,
+            schema_to_select: type | None = None,
             return_as_model: bool = False,
-    ) -> Union[BulkUpdateSummary, List[Union[dict, Any]]]:
+    ) -> BulkUpdateSummary | list[dict | Any]:
         """
         Update multiple objects efficiently with batch processing.
 
@@ -66,7 +66,7 @@ class BulkUpdateManager:
         processor = BatchProcessor(config)
         primary_key_columns = self._get_model_primary_keys(model_class)
 
-        async def _batch_handler(batch_items: List[Any], batch_idx: int):
+        async def _batch_handler(batch_items: list[Any], batch_idx: int):
             return await self._process_update_batch(
                 db=db,
                 batch_items=batch_items,
@@ -89,11 +89,11 @@ class BulkUpdateManager:
     @staticmethod
     async def _process_update_batch(
             db: AsyncSession,
-            batch_items: List[Any],
+            batch_items: list[Any],
             batch_index: int,
             model_class: Any,
-            primary_key_columns: List[str],
-            schema_to_select: Optional[Type[BaseModel]] = None,
+            primary_key_columns: list[str],
+            schema_to_select: type[BaseModel] | None = None,
             return_as_model: bool = False,
     ) -> BulkOperationResult:
         """
@@ -114,7 +114,7 @@ class BulkUpdateManager:
         start_time = time.perf_counter()
 
         try:
-            updated_records: List[Any] = []
+            updated_records: list[Any] = []
             rows_updated = 0
 
             for item in batch_items:
@@ -239,7 +239,7 @@ class BulkUpdateManager:
             unchanged_count=0,
         )
 
-    def _validate_update_request(self, objects: List[Any], model_class: Any) -> None:
+    def _validate_update_request(self, objects: list[Any], model_class: Any) -> None:
         """Validates the input objects for the update operation."""
         if not objects:
             raise ValueError("No objects provided for update operation")
@@ -249,7 +249,7 @@ class BulkUpdateManager:
             raise ValueError("Model class must have a primary key for update operations")
 
     @staticmethod
-    def _get_model_primary_keys(model_class: Any) -> List[str]:
+    def _get_model_primary_keys(model_class: Any) -> list[str]:
         """Extracts primary key column names from the SQLAlchemy model."""
         return [key.name for key in model_class.__table__.primary_key.columns]
 
@@ -268,8 +268,7 @@ class BulkUpdateManager:
         )
 
     @staticmethod
-    def _handle_update_results(summary: BulkOperationSummary, return_summary: bool) -> Union[
-        BulkUpdateSummary, List[Union[dict, Any]]]:
+    def _handle_update_results(summary: BulkOperationSummary, return_summary: bool) -> BulkUpdateSummary | list[dict | Any]:
         # Convert to update-specific summary
         update_summary = BulkUpdateSummary(**summary.model_dump())
 
@@ -292,7 +291,7 @@ class BulkUpdateManager:
             return update_summary
 
         # Return a list of updated records
-        updated_records: List[Any] = []
+        updated_records: list[Any] = []
         for batch_result in summary.batch_results:
             if batch_result.success and batch_result.error_details and "updated_records" in batch_result.error_details:
                 updated_records.extend(batch_result.error_details["updated_records"])
