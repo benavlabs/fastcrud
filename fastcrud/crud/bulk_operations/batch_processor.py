@@ -12,7 +12,7 @@ Classes:
 
 import asyncio
 from datetime import datetime
-from typing import Any, Callable, Coroutine, Dict, List, Optional, TypeVar
+from typing import Any, Callable, Coroutine, TypeVar
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -92,7 +92,7 @@ class BatchProcessor:
         Process items in batches using the provided processor function.
         Args:
             items: List of items to process
-            processor_func: Async function that processes a batch and returns result
+            processor_func: Async function that processes a batch and returns a result
             db: Optional database session for transaction management
             operation_name: Name of the operation for reporting
         Returns:
@@ -103,8 +103,27 @@ class BatchProcessor:
 
         self._operation_start_time = datetime.now()
         batches = self.create_chunks(items, self.config.batch_size)
-        batch_results = await self._process_all_batches(batches, processor_func, db)
-        await self._handle_final_commit(db)
+        use_single_commit = self.config.commit_strategy == "all" and db is not None
+        started_transaction = False
+
+        try:
+            if use_single_commit and db is not None and not db.in_transaction():
+                await db.begin()
+                started_transaction = True
+
+            batch_results = await self._process_all_batches(batches, processor_func, db)
+
+            if use_single_commit and db is not None and db.in_transaction():
+                await db.commit()
+            else:
+                await self._handle_final_commit(db)
+        except Exception:
+            if use_single_commit and db is not None and db.in_transaction():
+                await db.rollback()
+            raise
+        finally:
+            if started_transaction and db is not None and db.in_transaction():
+                await db.rollback()
 
         return self._create_operation_summary(
             operation_name,

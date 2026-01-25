@@ -8,7 +8,7 @@ import time
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import and_, delete, update
+from sqlalchemy import and_, delete, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -87,6 +87,15 @@ class BulkDeleteManager:
             commit_strategy="batch" if commit else "never",
             allow_partial_success=allow_partial_success,
         )
+
+        # Ensure SQLite enforces FK constraints so integrity errors surface properly
+        bind = getattr(db, "bind", None)
+        try:
+            if bind is not None and bind.dialect.name == "sqlite":
+                await db.execute(text("PRAGMA foreign_keys=ON"))
+        except Exception:
+            # Best-effort enforcement; continue even if pragma fails
+            pass
 
         # Create a processor with the specific config
         processor = BatchProcessor(config)
@@ -223,7 +232,7 @@ class BulkDeleteManager:
 
             return BulkOperationResult(
                 batch_index=batch_index,
-                items_processed=0,
+                items_processed=len(batch_filters),
                 success=False,
                 error_message=str(e),
                 error_details={
@@ -239,7 +248,7 @@ class BulkDeleteManager:
 
             return BulkOperationResult(
                 batch_index=batch_index,
-                items_processed=0,
+                items_processed=len(batch_filters),
                 success=False,
                 error_message=str(e),
                 error_details={

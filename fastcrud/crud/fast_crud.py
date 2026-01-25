@@ -576,7 +576,11 @@ class FastCRUD(
                 "schema_to_select must be provided when return_as_model is True."
             )
 
-        object_dict = object.model_dump()
+        if isinstance(object, dict):
+            object_dict = object
+        else:
+            object_dict = object.model_dump()
+
         db_object: ModelType = self._build_with_nested(self.model, object_dict)
         db.add(db_object)
 
@@ -588,7 +592,7 @@ class FastCRUD(
             await db.refresh(db_object)
 
         if not schema_to_select:
-            return None
+            return db_object
 
         data_dict = {
             col.key: getattr(db_object, col.key) for col in db_object.__table__.columns
@@ -619,8 +623,18 @@ class FastCRUD(
                 continue
             raw_value = payload[key]
             if not self._is_nested_payload(raw_value):
-                # Leave scalar FK / plain values as-is for backward compatibility.
-                continue
+                # Allow plain assignment of relationship instances or nulls.
+                if raw_value is None or isinstance(raw_value, rel.mapper.class_):
+                    continue
+                # Treat empty collections for uselist relationships as valid empties.
+                if rel.uselist and isinstance(raw_value, (list, tuple)) and len(raw_value) == 0:
+                    relationship_values[key] = []
+                    payload.pop(key, None)
+                    continue
+                raise TypeError(
+                    f"Unsupported nested relationship payload type for '{key}': {type(raw_value)!r}. "
+                    "Expected a Pydantic model, mapping, or iterable of those."
+                )
 
             relationship_values[key] = self._build_related(rel, raw_value)
             # Remove from constructor kwargs so SQLAlchemy doesn't see a dict/list here.
@@ -3467,4 +3481,3 @@ class FastCRUD(
             soft_delete=soft_delete,
             **filters,
         )
-

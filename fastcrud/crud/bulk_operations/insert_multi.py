@@ -8,10 +8,10 @@ error handling, and comprehensive reporting.
 import time
 from datetime import datetime
 from functools import partial
-from typing import Any, List, Optional, Type, Union
+from typing import Any
 
 from pydantic import BaseModel
-from sqlalchemy import insert
+from sqlalchemy import DateTime, insert
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -188,8 +188,25 @@ class BulkInsertManager:
         insert_data = []
         for item in batch_items:
             data = self._extract_item_data(item, model_class)
+            data = self._coerce_column_types(data, model_class)
             insert_data.append(data)
         return insert_data
+
+    @staticmethod
+    def _coerce_column_types(data: dict[str, Any], model_class: Any) -> dict[str, Any]:
+        """Best-effort coercion of common column types (e.g., DateTime from ISO strings)."""
+        for column in model_class.__table__.columns:
+            name = column.name
+            if name not in data or data[name] is None:
+                continue
+            value = data[name]
+            if isinstance(column.type, DateTime) and isinstance(value, str):
+                try:
+                    data[name] = datetime.fromisoformat(value)
+                except ValueError:
+                    # Leave as-is if parsing fails; SQLAlchemy will surface a clear error
+                    pass
+        return data
 
     @staticmethod
     def _extract_item_data(item: Any, model_class: Any) -> dict:
@@ -208,7 +225,7 @@ class BulkInsertManager:
             for column in model_class.__table__.columns:
                 if hasattr(item, column.name):
                     value = getattr(item, column.name)
-                    # Only include if the value is set (not None), allowing DB defaults for None
+                    # Only include it if the value is set (not None), allowing DB defaults for None
                     if value is not None:
                         data[column.name] = value
             return data

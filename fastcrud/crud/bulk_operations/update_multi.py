@@ -6,7 +6,7 @@ error handling, and comprehensive reporting.
 """
 import time
 from datetime import datetime
-from typing import Any, List, Optional, Type, Union
+from typing import Any
 
 from pydantic import BaseModel
 from sqlalchemy import and_, update
@@ -59,6 +59,9 @@ class BulkUpdateManager:
         Returns:
             Either BulkUpdateSummary (if return_summary=True) or a list of updated records
         """
+        if not objects:
+            return self._create_empty_summary(batch_size) if return_summary else []
+
         self._validate_update_request(objects, model_class)
 
         # Create a processor with the specific config
