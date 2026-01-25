@@ -576,11 +576,7 @@ class FastCRUD(
                 "schema_to_select must be provided when return_as_model is True."
             )
 
-        if isinstance(object, dict):
-            object_dict = object
-        else:
-            object_dict = object.model_dump()
-
+        object_dict = object.model_dump()
         db_object: ModelType = self._build_with_nested(self.model, object_dict)
         db.add(db_object)
 
@@ -592,7 +588,7 @@ class FastCRUD(
             await db.refresh(db_object)
 
         if not schema_to_select:
-            return db_object
+            return None
 
         data_dict = {
             col.key: getattr(db_object, col.key) for col in db_object.__table__.columns
