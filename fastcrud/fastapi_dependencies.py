@@ -15,7 +15,7 @@ All functions preserve their original signatures and behavior from field_managem
 """
 
 import inspect
-from typing import Annotated, Callable, Any, Union, Sequence, TYPE_CHECKING
+from typing import Annotated, Callable, Any, Sequence, TYPE_CHECKING
 from uuid import UUID
 
 from fastapi import Depends, Query, Path, params
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 
 def create_auto_field_injector(
-    config: Union["CreateConfig", "UpdateConfig", "DeleteConfig"] | None,
+    config: "CreateConfig | UpdateConfig | DeleteConfig | None",
 ) -> Callable[..., dict[str, Any]]:
     """
     Creates a dynamic dependency function that resolves auto_fields.
@@ -79,7 +79,7 @@ def create_auto_field_injector(
 
     return auto_fields_resolver
 
-def _str_to_bool(value: Union[bool, str]) -> bool:
+def _str_to_bool(value: bool | str) -> bool:
     """
     Helper function to properly convert string to bool
     """
