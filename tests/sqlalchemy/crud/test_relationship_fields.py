@@ -26,7 +26,7 @@ class ReadSchemaWithRelationship(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str
     tier_id: int
-    tier: Optional[TierReadSchemaIssue199] = None
+    tier: TierReadSchemaIssue199 | None = None
 
 
 @pytest.fixture(scope="function")

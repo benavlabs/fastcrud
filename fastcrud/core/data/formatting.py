@@ -6,7 +6,7 @@ the potential for circular dependencies. These are separated to maintain
 clean dependency hierarchy.
 """
 
-from typing import Any, Optional, Union, Callable, TYPE_CHECKING, cast
+from typing import Any, Callable, TYPE_CHECKING, cast
 
 from ...types import SelectSchemaType
 from ..introspection import get_primary_key_names
@@ -23,7 +23,7 @@ def process_joined_data(
     join_definitions: list["JoinConfig"],
     nest_joins: bool,
     primary_model: Any,
-) -> Optional[dict[str, Any]]:
+) -> dict[str, Any] | None:
     """
     Process joined data using core utilities for nesting and relationships.
 
@@ -91,13 +91,13 @@ async def format_joined_response(
     primary_model: Any,
     raw_data: list[dict],
     config: dict[str, Any],
-    schema_to_select: Optional[type[SelectSchemaType]] = None,
+    schema_to_select: type[SelectSchemaType] | None = None,
     return_as_model: bool = False,
     nest_joins: bool = False,
     return_total_count: bool = True,
-    db: Optional["AsyncSession"] = None,
-    nested_schema_to_select: Optional[dict[str, type[SelectSchemaType]]] = None,
-    count_func: Optional[Callable] = None,
+    db: "AsyncSession | None" = None,
+    nested_schema_to_select: dict[str, type[SelectSchemaType]] | None = None,
+    count_func: Callable | None = None,
     **kwargs: Any,
 ) -> dict[str, Any]:
     """
@@ -131,7 +131,7 @@ async def format_joined_response(
             )
         processed_data.append(row_dict)
 
-    nested_data: list[Union[dict[str, Any], SelectSchemaType]]
+    nested_data: list[dict[str, Any] | SelectSchemaType]
     if nest_joins and any(
         join.relationship_type == "one-to-many" for join in join_definitions
     ):
@@ -159,7 +159,7 @@ async def format_joined_response(
         from ..join_processing import handle_null_primary_key_multi_join
 
         nested_data = handle_null_primary_key_multi_join(
-            cast(list[Union[dict[str, Any], SelectSchemaType]], processed_data),
+            cast(list[dict[str, Any] | SelectSchemaType], processed_data),
             join_definitions,
         )
 

@@ -5,7 +5,7 @@ This module defines the configuration classes used for specifying join relations
 and count operations in multi-table queries.
 """
 
-from typing import Any, Optional, Union
+from typing import Any
 from pydantic import BaseModel, ConfigDict
 from pydantic.functional_validators import field_validator
 from sqlalchemy.orm.util import AliasedClass
@@ -16,7 +16,7 @@ class JoinConfig(BaseModel):
     Configuration for join operations in FastCRUD queries.
 
     This class defines how tables should be joined in multi-table queries,
-    including the relationship type, join conditions, and optional sorting.
+    including the relationship type, join conditions, and optional sorting/pagination.
 
     Attributes:
         model: The SQLAlchemy model to join with.
@@ -29,6 +29,9 @@ class JoinConfig(BaseModel):
         relationship_type: Type of relationship ("one-to-one" or "one-to-many").
         sort_columns: Optional column(s) to sort joined results by.
         sort_orders: Optional sort order(s) for the sort columns.
+        nested_limit: Optional limit for nested items in one-to-many relationships.
+            When set, only the first N nested items are returned (after sorting).
+            Use None for no limit (default).
 
     Example:
         >>> join_config = JoinConfig(
@@ -37,20 +40,22 @@ class JoinConfig(BaseModel):
         ...     join_prefix="articles_",
         ...     relationship_type="one-to-many",
         ...     sort_columns=["created_at", "title"],
-        ...     sort_orders=["desc", "asc"]
+        ...     sort_orders=["desc", "asc"],
+        ...     nested_limit=10  # Only return first 10 articles per author
         ... )
     """
 
     model: Any
     join_on: Any
-    join_prefix: Optional[str] = None
-    schema_to_select: Optional[type[BaseModel]] = None
+    join_prefix: str | None = None
+    schema_to_select: type[BaseModel] | None = None
     join_type: str = "left"
-    alias: Optional[AliasedClass] = None
-    filters: Optional[dict] = None
-    relationship_type: Optional[str] = "one-to-one"
-    sort_columns: Optional[Union[str, list[str]]] = None
-    sort_orders: Optional[Union[str, list[str]]] = None
+    alias: AliasedClass | None = None
+    filters: dict | None = None
+    relationship_type: str | None = "one-to-one"
+    sort_columns: str | list[str] | None = None
+    sort_orders: str | list[str] | None = None
+    nested_limit: int | None = None
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -110,7 +115,7 @@ class CountConfig(BaseModel):
 
     model: Any
     join_on: Any
-    alias: Optional[str] = None
-    filters: Optional[dict] = None
+    alias: str | None = None
+    filters: dict | None = None
 
     model_config = ConfigDict(arbitrary_types_allowed=True)

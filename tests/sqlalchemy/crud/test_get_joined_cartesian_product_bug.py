@@ -72,8 +72,8 @@ class BookCartesianTestSchema(BaseModel):
 
     id: int
     title: str
-    authors: Optional[List[AuthorCartesianTestSchema]] = []
-    genres: Optional[List[GenreCartesianTestSchema]] = []
+    authors: list[AuthorCartesianTestSchema] | None = []
+    genres: list[GenreCartesianTestSchema] | None = []
 
 
 @pytest.mark.asyncio

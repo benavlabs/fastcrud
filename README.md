@@ -47,7 +47,7 @@
 <h2>Requirements</h2>
 <p>Before installing FastCRUD, ensure you have the following prerequisites:</p>
 <ul>
-  <li><b>Python:</b> Version 3.9 or newer.</li>
+  <li><b>Python:</b> Version 3.10 or newer.</li>
   <li><b>FastAPI:</b> FastCRUD is built to work with FastAPI, so having FastAPI in your project is essential.</li>
   <li><b>SQLAlchemy:</b> Version 2.0.21 or newer. FastCRUD uses SQLAlchemy for database operations.</li>
   <li><b>Pydantic:</b> Version 2.4.1 or newer. FastCRUD leverages Pydantic models for data validation and serialization.</li>

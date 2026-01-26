@@ -22,8 +22,8 @@ class CustomEndpointCreator(EndpointCreator):
         update_deps: Sequence[Callable] = [],
         delete_deps: Sequence[Callable] = [],
         db_delete_deps: Sequence[Callable] = [],
-        included_methods: Optional[Sequence[str]] = None,
-        deleted_methods: Optional[Sequence[str]] = None,
+        included_methods: Sequence[str] | None = None,
+        deleted_methods: Sequence[str] | None = None,
     ):
         super().add_routes_to_router(
             create_deps,

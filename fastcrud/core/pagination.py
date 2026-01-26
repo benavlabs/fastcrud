@@ -8,7 +8,7 @@ This module consolidates all pagination-related functionality including:
 - Dynamic response model creation
 """
 
-from typing import Generic, TypeVar, Optional, Type, Any, Union
+from typing import Generic, TypeVar, Any
 
 from pydantic import BaseModel, create_model, Field, field_validator
 
@@ -42,7 +42,7 @@ def compute_offset(page: int, items_per_page: int) -> int:
 
 
 def paginated_response(
-    crud_data: Union[GetMultiResponseDict, dict[str, Any]],
+    crud_data: GetMultiResponseDict | dict[str, Any],
     page: int,
     items_per_page: int,
     multi_response_key: str = "data",
@@ -111,13 +111,13 @@ class PaginatedRequestQuery(BaseModel):
         ```
     """
 
-    offset: Optional[int] = Field(None, description="Offset for unpaginated queries")
-    limit: Optional[int] = Field(None, description="Limit for unpaginated queries")
-    page: Optional[int] = Field(None, alias="page", description="Page number")
-    items_per_page: Optional[int] = Field(
+    offset: int | None = Field(None, description="Offset for unpaginated queries")
+    limit: int | None = Field(None, description="Limit for unpaginated queries")
+    page: int | None = Field(None, alias="page", description="Page number")
+    items_per_page: int | None = Field(
         None, alias="itemsPerPage", description="Number of items per page"
     )
-    sort: Optional[str] = Field(
+    sort: str | None = Field(
         None,
         description="Sort results by one or more fields. Format: 'field1,-field2' where '-' prefix indicates descending order. Example: 'name' (ascending), '-age' (descending), 'name,-age' (name ascending, then age descending).",
     )
@@ -160,11 +160,11 @@ class CursorPaginatedRequestQuery(BaseModel):
         None,
         description="Cursor value for pagination (typically the ID of the last item from previous page). Supports int, datetime (ISO format), or UUID string.",
     )
-    limit: Optional[int] = Field(
+    limit: int | None = Field(
         100, description="Maximum number of items to return per page", gt=0, le=1000
     )
-    sort_column: Optional[str] = Field("id", description="Column name to sort by")
-    sort_order: Optional[str] = Field(
+    sort_column: str | None = Field("id", description="Column name to sort by")
+    sort_order: str | None = Field(
         "asc",
         description="Sort order: 'asc' for ascending, 'desc' for descending",
         pattern="^(asc|desc)$",
@@ -192,22 +192,22 @@ class CursorPaginatedRequestQuery(BaseModel):
 
 # ------------- Response Schema Factories -------------
 def create_list_response(
-    schema: Type[SchemaType], response_key: str = "data"
-) -> Type[BaseModel]:
+    schema: type[SchemaType], response_key: str = "data"
+) -> type[BaseModel]:
     """Creates a dynamic ListResponse model with the specified response key."""
     return create_model("DynamicListResponse", **{response_key: (list[schema], ...)})  # type: ignore
 
 
 def create_paginated_response(
-    schema: Type[SchemaType], response_key: str = "data"
-) -> Type[BaseModel]:
+    schema: type[SchemaType], response_key: str = "data"
+) -> type[BaseModel]:
     """Creates a dynamic PaginatedResponse model with the specified response key."""
     fields = {
         response_key: (list[schema], ...),  # type: ignore
         "total_count": (int, ...),
         "has_more": (bool, ...),
-        "page": (Optional[int], None),
-        "items_per_page": (Optional[int], None),
+        "page": (int | None, None),
+        "items_per_page": (int | None, None),
     }
     return create_model("DynamicPaginatedResponse", **fields)  # type: ignore
 
@@ -220,5 +220,5 @@ class ListResponse(BaseModel, Generic[SchemaType]):
 class PaginatedListResponse(ListResponse[SchemaType]):
     total_count: int
     has_more: bool
-    page: Optional[int] = None
-    items_per_page: Optional[int] = None
+    page: int | None = None
+    items_per_page: int | None = None

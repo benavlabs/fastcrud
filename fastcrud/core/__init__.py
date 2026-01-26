@@ -31,6 +31,9 @@ from .query import (
     JoinBuilder,
     build_joined_query,
     execute_joined_query,
+    split_join_configs,
+    fetch_and_merge_one_to_many,
+    fetch_one_to_many_with_limit,
 )
 
 from .introspection import (
@@ -85,6 +88,9 @@ from .field_management import (
     create_modified_schema,
     extract_matching_columns_from_schema,
     auto_detect_join_condition,
+    discover_model_relationships,
+    build_relationship_joins_config,
+    resolve_relationship_config,
 )
 
 # FastAPI-specific utilities
@@ -132,6 +138,9 @@ __all__ = [
     "JoinBuilder",
     "build_joined_query",
     "execute_joined_query",
+    "split_join_configs",
+    "fetch_and_merge_one_to_many",
+    "fetch_one_to_many_with_limit",
     # Introspection functions
     "get_primary_key_names",
     "get_primary_key_columns",
@@ -178,6 +187,9 @@ __all__ = [
     "inject_dependencies",
     "apply_model_pk",
     "auto_detect_join_condition",
+    "discover_model_relationships",
+    "build_relationship_joins_config",
+    "resolve_relationship_config",
     # Configuration classes
     "JoinConfig",
     "CountConfig",
