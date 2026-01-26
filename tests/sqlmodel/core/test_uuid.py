@@ -222,11 +222,12 @@ async def test_uuid_list_endpoint(uuid_client):
 
 
 def test_create_dynamic_filters_type_conversion():
-    filter_config = FilterConfig(uuid_field=None, int_field=None, str_field=None)
+    filter_config = FilterConfig(uuid_field=None, int_field=None, str_field=None, bool_field=None)
     column_types = {
         "uuid_field": UUID,
         "int_field": int,
         "str_field": str,
+        "bool_field": bool
     }
 
     filters_func = create_dynamic_filters(filter_config, column_types)
@@ -240,7 +241,7 @@ def test_create_dynamic_filters_type_conversion():
     assert result["int_field"] == 123
     assert isinstance(result["str_field"], str)
     assert result["str_field"] == "456"
-
+    
     result = filters_func(
         uuid_field="not-a-uuid", int_field="not-an-int", str_field=456
     )
@@ -256,6 +257,38 @@ def test_create_dynamic_filters_type_conversion():
 
     result = filters_func(unknown_field="test")
     assert result["unknown_field"] == "test"
+
+    # Test bool conversion - string 'false' should become False, not True
+    result = filters_func(bool_field="false")
+    assert result["bool_field"] is False
+
+    result = filters_func(bool_field="true")
+    assert result["bool_field"] is True
+
+    # Test case insensitivity
+    result = filters_func(bool_field="False")
+    assert result["bool_field"] is False
+
+    result = filters_func(bool_field="TRUE")
+    assert result["bool_field"] is True
+
+    # Test numeric strings
+    result = filters_func(bool_field="1")
+    assert result["bool_field"] is True
+
+    result = filters_func(bool_field="0")
+    assert result["bool_field"] is False
+
+    # Test actual bool values pass through unchanged
+    result = filters_func(bool_field=True)
+    assert result["bool_field"] is True
+
+    result = filters_func(bool_field=False)
+    assert result["bool_field"] is False
+
+    # Test invalid bool string falls back to original value
+    result = filters_func(bool_field="invalid")
+    assert result["bool_field"] == "invalid"
 
     empty_filters_func = create_dynamic_filters(None, {})
     assert empty_filters_func() == {}
