@@ -1,4 +1,4 @@
-from typing import Callable, Sequence, Any, cast, Awaitable
+from typing import Type, Optional, Callable, Sequence, Union, Any, cast, Awaitable
 from enum import Enum
 from datetime import datetime
 from uuid import UUID
@@ -432,8 +432,8 @@ class EndpointCreator:
     @staticmethod
     def _validate_cursor_value(
         cursor: Any,
-        sqlalchemy_type: Optional[TypeEngine],
-        python_type: Optional[type],
+        sqlalchemy_type: TypeEngine | None,
+        python_type: type | None,
         column_name: str,
     ) -> None:
         """

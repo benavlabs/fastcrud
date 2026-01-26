@@ -8,7 +8,7 @@ This module consolidates all pagination-related functionality including:
 - Dynamic response model creation
 """
 
-from typing import Generic, TypeVar, Any
+from typing import Generic, TypeVar, Optional, Type, Any, Union
 
 from pydantic import BaseModel, create_model, Field, field_validator
 
@@ -156,7 +156,7 @@ class CursorPaginatedRequestQuery(BaseModel):
         ```
     """
 
-    cursor: Optional[Union[int, str]] = Field(
+    cursor: int | str | None = Field(
         None,
         description="Cursor value for pagination (typically the ID of the last item from previous page). Supports int, datetime (ISO format), or UUID string.",
     )

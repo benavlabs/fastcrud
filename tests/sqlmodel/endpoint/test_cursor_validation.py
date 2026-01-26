@@ -20,10 +20,10 @@ from fastcrud.core import CursorPaginatedRequestQuery
 class TestCursorModelSQLModel(SQLModel, table=True):
     __tablename__ = "test_cursor_validation_sqlmodel"
     
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     name: str
-    created_at: Optional[datetime] = None
-    uuid_field: Optional[UUID] = None
+    created_at: datetime | None = None
+    uuid_field: UUID | None = None
 
 
 class CreateSchema(SQLModel):
