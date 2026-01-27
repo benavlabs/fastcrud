@@ -218,9 +218,7 @@ def test_subclassing_paginated_request_query() -> None:
     class CustomPaginatedQuery(PaginatedRequestQuery):
         """Extended query with custom filter."""
 
-        custom_filter: Optional[str] = Field(
-            None, description="Custom filter parameter"
-        )
+        custom_filter: str | None = Field(None, description="Custom filter parameter")
 
     # Test instantiation
     query = CustomPaginatedQuery(

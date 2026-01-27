@@ -5,7 +5,6 @@ This module handles SQL ORDER BY clause generation with support for
 single and multi-column sorting with customizable sort directions.
 """
 
-from typing import Union, Optional
 from sqlalchemy import Select, asc, desc
 from sqlalchemy.exc import ArgumentError
 
@@ -27,8 +26,8 @@ class SortProcessor:
     def apply_sorting_to_statement(
         self,
         stmt: Select,
-        sort_columns: Union[str, list[str]],
-        sort_orders: Optional[Union[str, list[str]]] = None,
+        sort_columns: str | list[str],
+        sort_orders: str | list[str] | None = None,
     ) -> Select:
         """
         Apply sorting to a SQLAlchemy SELECT statement.

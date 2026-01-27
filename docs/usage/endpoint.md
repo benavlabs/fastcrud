@@ -74,6 +74,7 @@ item_router = crud_router(
     model=Item,
     create_schema=CreateItemSchema,
     update_schema=UpdateItemSchema,
+    include_relationships=True,  # Optional: automatically include related data
     path="/items",
     tags=["Items"],
 )
@@ -94,6 +95,12 @@ For a comprehensive list of all available endpoints, read the [advanced section]
     - `GET /items?sort=category,-price` - Sort by category ascending, then price descending
     
     For detailed sorting documentation, see [Sorting Results](../advanced/endpoint.md#sorting-results).
+
+!!! tip "Including Related Data"
+
+    Set `include_relationships=True` to automatically include related models in responses. This uses FastCRUD's auto-detection feature to discover and join all SQLAlchemy relationships defined on your model.
+
+    For more details and configuration options, see [Including Relationships in Endpoints](../advanced/endpoint.md#including-relationships-in-endpoints).
 
 ## Usage and Testing
 

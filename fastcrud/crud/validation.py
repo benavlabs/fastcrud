@@ -5,7 +5,7 @@ This module contains validation logic that is specific to CRUD operations
 but generic enough to be reused across different CRUD classes.
 """
 
-from typing import Any, Callable, Awaitable, Optional, TYPE_CHECKING
+from typing import Any, Callable, Awaitable, TYPE_CHECKING
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound
 
@@ -49,7 +49,7 @@ async def validate_update_delete_operation(
     return total_count
 
 
-def validate_pagination_params(offset: int, limit: Optional[int]) -> None:
+def validate_pagination_params(offset: int, limit: int | None) -> None:
     """
     Validate pagination parameters.
 
@@ -66,17 +66,17 @@ def validate_pagination_params(offset: int, limit: Optional[int]) -> None:
 
 def validate_joined_query_params(
     primary_model: Any,
-    joins_config: Optional[list["JoinConfig"]] = None,
-    join_model: Optional[type["ModelType"]] = None,
-    join_prefix: Optional[str] = None,
-    join_on: Optional[Any] = None,
-    join_schema_to_select: Optional[type["SelectSchemaType"]] = None,
-    alias: Optional["AliasedClass[Any]"] = None,
-    relationship_type: Optional[str] = None,
+    joins_config: list["JoinConfig"] | None = None,
+    join_model: type["ModelType"] | None = None,
+    join_prefix: str | None = None,
+    join_on: Any | None = None,
+    join_schema_to_select: type["SelectSchemaType"] | None = None,
+    alias: "AliasedClass[Any] | None" = None,
+    relationship_type: str | None = None,
     join_type: str = "left",
-    join_filters: Optional[dict] = None,
-    counts_config: Optional[list["CountConfig"]] = None,
-    limit: Optional[int] = None,
+    join_filters: dict | None = None,
+    counts_config: list["CountConfig"] | None = None,
+    limit: int | None = None,
     offset: int = 0,
 ) -> dict[str, Any]:
     """

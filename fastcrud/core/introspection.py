@@ -6,7 +6,7 @@ repeated expensive operations. It includes both class-based and functional appro
 for different use cases.
 """
 
-from typing import Optional, Sequence, Union, Any, cast
+from typing import Sequence, Any, cast
 from uuid import UUID
 
 from sqlalchemy import Column, inspect as sa_inspect
@@ -39,8 +39,8 @@ class ModelInspector:
     def __init__(self, model: ModelType):
         self.model = model
         self._inspector = None
-        self._pk_names_cache: Optional[list[str]] = None
-        self._column_types_cache: Optional[dict[str, Union[type, None]]] = None
+        self._pk_names_cache: list[str] | None = None
+        self._column_types_cache: dict[str, type | None] | None = None
 
     @property
     def inspector(self):
@@ -92,7 +92,7 @@ class ModelInspector:
         return cast(Sequence[Column], self.inspector.mapper.primary_key)
 
     @property
-    def column_types(self) -> dict[str, Union[type, None]]:
+    def column_types(self) -> dict[str, type | None]:
         """
         Get column types using cached inspector with UUID handling.
 
@@ -105,7 +105,7 @@ class ModelInspector:
             {'id': <class 'int'>, 'name': <class 'str'>, 'uuid_field': <class 'uuid.UUID'>}
         """
         if self._column_types_cache is None:
-            column_types: dict[str, Union[type, None]] = {}
+            column_types: dict[str, type | None] = {}
             for column in self.inspector.mapper.columns:
                 column_type = get_python_type(column)
                 if (
@@ -293,7 +293,7 @@ def is_uuid_type(column_type: TypeEngine) -> bool:
     return False
 
 
-def get_python_type(column: Column) -> Optional[type]:
+def get_python_type(column: Column) -> type | None:
     """
     Get the Python type for a SQLAlchemy column, with special handling for UUIDs.
 
@@ -310,13 +310,13 @@ def get_python_type(column: Column) -> Optional[type]:
         if is_uuid_type(column.type):
             return UUID
 
-        direct_type: Optional[type] = column.type.python_type
+        direct_type: type | None = column.type.python_type
         return direct_type
     except NotImplementedError:
         if hasattr(column.type, "impl") and hasattr(column.type.impl, "python_type"):
             if is_uuid_type(column.type.impl):
                 return UUID
-            indirect_type: Optional[type] = column.type.impl.python_type
+            indirect_type: type | None = column.type.impl.python_type
             return indirect_type
         else:
             raise NotImplementedError(
@@ -342,9 +342,7 @@ def create_composite_key(item: dict, pk_names: list[str]) -> tuple:
     return tuple(item.get(pk_name) for pk_name in pk_names)
 
 
-def get_model_column(
-    model: Union[ModelType, AliasedClass], field_name: str
-) -> Column[Any]:
+def get_model_column(model: ModelType | AliasedClass, field_name: str) -> Column[Any]:
     """
     Get column from model, raising ValueError if not found.
 

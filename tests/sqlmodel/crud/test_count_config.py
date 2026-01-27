@@ -13,17 +13,17 @@ from ...sqlmodel.conftest import (
 # Additional models for SQLModel tests
 class Author(SQLModel, table=True):
     __tablename__ = "authors"
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     name: str
-    articles: List["ArticleWithAuthor"] = Relationship(back_populates="author")
+    articles: list["ArticleWithAuthor"] = Relationship(back_populates="author")
 
 
 class ArticleWithAuthor(SQLModel, table=True):
     __tablename__ = "articles_with_author"
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     title: str
-    author_id: Optional[int] = Field(default=None, foreign_key="authors.id")
-    author: Optional[Author] = Relationship(back_populates="articles")
+    author_id: int | None = Field(default=None, foreign_key="authors.id")
+    author: Author | None = Relationship(back_populates="articles")
 
 
 class CustomPKModel(SQLModel, table=True):
@@ -34,7 +34,7 @@ class CustomPKModel(SQLModel, table=True):
 
 class RelatedModel(SQLModel, table=True):
     __tablename__ = "related_model"
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     user_code: str = Field(foreign_key="custom_pk_model.user_code", max_length=10)
     description: str = Field(max_length=100)
 
@@ -48,7 +48,7 @@ class CompositePKModel(SQLModel, table=True):
 
 class CompositePKRelated(SQLModel, table=True):
     __tablename__ = "composite_pk_related"
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     part_a: str = Field(max_length=10)
     part_b: int
     info: str = Field(max_length=50)

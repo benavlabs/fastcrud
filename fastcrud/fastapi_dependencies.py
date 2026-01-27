@@ -15,7 +15,7 @@ All functions preserve their original signatures and behavior from field_managem
 """
 
 import inspect
-from typing import Annotated, Callable, Any, Optional, Union, Sequence, TYPE_CHECKING
+from typing import Annotated, Callable, Any, Sequence, TYPE_CHECKING
 from uuid import UUID
 
 from fastapi import Depends, Query, Path, params
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 
 def create_auto_field_injector(
-    config: Optional[Union["CreateConfig", "UpdateConfig", "DeleteConfig"]],
+    config: "CreateConfig | UpdateConfig | DeleteConfig | None",
 ) -> Callable[..., dict[str, Any]]:
     """
     Creates a dynamic dependency function that resolves auto_fields.
@@ -79,9 +79,24 @@ def create_auto_field_injector(
 
     return auto_fields_resolver
 
+def _str_to_bool(value: bool | str) -> bool:
+    """
+    Helper function to properly convert string to bool
+    """
+
+    if isinstance(value, bool):
+        return value
+
+    str_value = str(value).lower()
+    if str_value in ("true", "1"):
+        return True
+    elif str_value in ("false", "0"):
+        return False
+
+    raise ValueError(f"Cannot convert '{value}' / (type {type(value)}) to bool")
 
 def create_dynamic_filters(
-    filter_config: Optional["FilterConfig"], column_types: dict[str, type]
+    filter_config: "FilterConfig | None", column_types: dict[str, type]
 ) -> Callable[..., dict[str, Any]]:
     """
     Create dynamic filter function for handling query parameters.
@@ -121,7 +136,8 @@ def create_dynamic_filters(
                 parse_func = column_types.get(key_without_op)
                 if parse_func:
                     try:
-                        filtered_params[original_key] = parse_func(value)
+                        # Special handling for bool bool('false') = True
+                        filtered_params[original_key] = _str_to_bool(value) if (parse_func is bool) else parse_func(value)
                     except (ValueError, TypeError):
                         filtered_params[original_key] = value
                 else:
@@ -156,8 +172,8 @@ def create_dynamic_filters(
 
 
 def inject_dependencies(
-    funcs: Optional[Sequence[Callable]] = None,
-) -> Optional[Sequence[params.Depends]]:
+    funcs: Sequence[Callable] | None = None,
+) -> Sequence[params.Depends] | None:
     """
     Wraps a list of functions in FastAPI's Depends.
 

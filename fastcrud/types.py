@@ -1,15 +1,13 @@
-from typing import TypeVar, Any, Union, Generic
+from typing import TypeVar, Any, Generic
 from datetime import datetime
 from decimal import Decimal
 
 from pydantic import BaseModel
 from typing_extensions import TypedDict, NotRequired
 
-FilterValue = Union[str, int, float, bool, datetime, Decimal, None]
-FilterValueSequence = Union[
-    list[FilterValue], tuple[FilterValue, ...], set[FilterValue]
-]
-FilterValueType = Union[FilterValue, FilterValueSequence, dict[str, FilterValue]]
+FilterValue = str | int | float | bool | datetime | Decimal | None
+FilterValueSequence = list[FilterValue] | tuple[FilterValue, ...] | set[FilterValue]
+FilterValueType = FilterValue | FilterValueSequence | dict[str, FilterValue]
 
 ModelType = TypeVar("ModelType", bound=Any)
 

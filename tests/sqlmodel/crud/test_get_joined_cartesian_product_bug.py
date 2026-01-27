@@ -19,32 +19,32 @@ from pydantic import BaseModel, ConfigDict
 class BookCartesianSQLModel(SQLModel, table=True):
     __tablename__ = "books_cartesian_sqlmodel"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     title: str
 
     # One-to-many relationships
-    authors: List["AuthorCartesianSQLModel"] = Relationship(back_populates="book")
-    genres: List["GenreCartesianSQLModel"] = Relationship(back_populates="book")
+    authors: list["AuthorCartesianSQLModel"] = Relationship(back_populates="book")
+    genres: list["GenreCartesianSQLModel"] = Relationship(back_populates="book")
 
 
 class AuthorCartesianSQLModel(SQLModel, table=True):
     __tablename__ = "authors_cartesian_sqlmodel"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     book_id: int = Field(foreign_key="books_cartesian_sqlmodel.id")
     name: str
 
-    book: Optional[BookCartesianSQLModel] = Relationship(back_populates="authors")
+    book: BookCartesianSQLModel | None = Relationship(back_populates="authors")
 
 
 class GenreCartesianSQLModel(SQLModel, table=True):
     __tablename__ = "genres_cartesian_sqlmodel"
 
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
     book_id: int = Field(foreign_key="books_cartesian_sqlmodel.id")
     name: str
 
-    book: Optional[BookCartesianSQLModel] = Relationship(back_populates="genres")
+    book: BookCartesianSQLModel | None = Relationship(back_populates="genres")
 
 
 # Pydantic Schemas
@@ -69,8 +69,8 @@ class BookCartesianSQLModelSchema(BaseModel):
 
     id: int
     title: str
-    authors: Optional[List[AuthorCartesianSQLModelSchema]] = []
-    genres: Optional[List[GenreCartesianSQLModelSchema]] = []
+    authors: list[AuthorCartesianSQLModelSchema] | None = []
+    genres: list[GenreCartesianSQLModelSchema] | None = []
 
 
 @pytest.mark.asyncio
