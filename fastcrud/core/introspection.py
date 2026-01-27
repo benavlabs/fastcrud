@@ -9,7 +9,7 @@ for different use cases.
 from typing import Sequence, Any, cast
 from uuid import UUID
 
-from sqlalchemy import Column, inspect as sa_inspect
+from sqlalchemy import Column, inspect as sa_inspect, Uuid as SQLAlchemyUuid
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.types import TypeEngine
 from sqlalchemy.sql.elements import KeyedColumnElement
@@ -203,6 +203,32 @@ def get_column_types(model: ModelType) -> tuple:
     return tuple(inspector.column_types.items())
 
 
+def get_sqlalchemy_column_types(model: ModelType) -> dict[str, TypeEngine]:
+    """
+    Get SQLAlchemy type objects for each column.
+
+    Unlike get_column_types which returns Python types (int, str, etc.),
+    this returns the actual SQLAlchemy type objects (Integer, BigInteger, etc.),
+    which is necessary for precise type validation (e.g., distinguishing
+    INT32 vs INT64 ranges).
+
+    Args:
+        model: The SQLAlchemy model to inspect.
+
+    Returns:
+        Dictionary mapping column names to SQLAlchemy TypeEngine objects.
+
+    Example:
+        >>> get_sqlalchemy_column_types(User)
+        {'id': Integer(), 'name': String(length=255), 'big_id': BigInteger()}
+    """
+    inspector = get_model_inspector(model)
+    return {
+        column.name: column.type
+        for column in inspector.inspector.mapper.columns
+    }
+
+
 def get_first_primary_key(model: ModelType) -> str:
     """
     Get the first primary key name for a model.
@@ -280,13 +306,26 @@ def is_uuid_type(column_type: TypeEngine) -> bool:
     Returns:
         True if the column type represents a UUID, False otherwise.
     """
+    # Check for PostgreSQL UUID type
     if isinstance(column_type, PostgresUUID):
         return True
 
+    # Check for SQLAlchemy 2.0+ generic Uuid type (used by SQLModel)
+    if isinstance(column_type, SQLAlchemyUuid):
+        return True
+
+    # Check for SQLModel's GUID type (stores UUID as CHAR(32))
+    # sqlmodel.sql.sqltypes.GUID
+    type_class_name = type(column_type).__name__
+    if type_class_name == "GUID":
+        return True
+
+    # Check __visit_name__ for UUID variants
     type_name = getattr(column_type, "__visit_name__", "").lower()
     if "uuid" in type_name:
         return True
 
+    # Recursively check impl for wrapper types
     if hasattr(column_type, "impl"):
         return is_uuid_type(column_type.impl)
 

@@ -41,7 +41,7 @@ def cursor_app(async_session) -> FastAPI:
     ):
         """Custom endpoint with cursor-based pagination logic."""
         # Simulate cursor-based pagination logic
-        current_cursor = query.cursor or 0
+        current_cursor = int(query.cursor) if query.cursor is not None else 0
         limit = query.limit or 100
         has_next = current_cursor < 1000
         next_cursor = current_cursor + limit if has_next else None
