@@ -33,6 +33,7 @@ class Base(DeclarativeBase):
     pass
 
 
+# --8<-- [start:model_multipk]
 class MultiPkModel(Base):
     __tablename__ = "multi_pk"
     id = Column(Integer, primary_key=True)
@@ -42,6 +43,8 @@ class MultiPkModel(Base):
     test = relationship("ModelTest", back_populates="multi_pk")
 
 
+# --8<-- [end:model_multipk]
+# --8<-- [start:model_category]
 class CategoryModel(Base):
     __tablename__ = "category"
     tests = relationship("ModelTest", back_populates="category")
@@ -49,6 +52,8 @@ class CategoryModel(Base):
     name = Column(String(32), unique=True)
 
 
+# --8<-- [end:model_category]
+# --8<-- [start:model_testuser]
 class ModelTest(Base):
     __tablename__ = "test"
     id = Column(Integer, primary_key=True)
@@ -64,6 +69,7 @@ class ModelTest(Base):
     deleted_at = Column(DateTime, nullable=True, default=None)
 
 
+# --8<-- [end:model_testuser]
 class ModelTestWithTimestamp(Base):
     __tablename__ = "model_test_with_timestamp"
     id = Column(Integer, primary_key=True)
@@ -79,6 +85,7 @@ class ModelTestWithTimestamp(Base):
     )
 
 
+# --8<-- [start:model_tier]
 class TierModel(Base):
     __tablename__ = "tier"
     id = Column(Integer, primary_key=True)
@@ -86,6 +93,8 @@ class TierModel(Base):
     tests = relationship("ModelTest", back_populates="tier")
 
 
+# --8<-- [end:model_tier]
+# --8<-- [start:model_booking]
 class BookingModel(Base):
     __tablename__ = "booking"
     id = Column(Integer, primary_key=True)
@@ -96,6 +105,7 @@ class BookingModel(Base):
     user = relationship("ModelTest", foreign_keys=[user_id], backref="user_bookings")
 
 
+# --8<-- [end:model_booking]
 # --8<-- [start:model_project]
 class Project(Base):
     __tablename__ = "projects"
