@@ -9,21 +9,24 @@ import pytest
 from typing import Annotated
 from fastapi import FastAPI, Depends
 from fastapi.testclient import TestClient
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, BigInteger, SmallInteger, String, DateTime
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.orm import declarative_base
 from uuid import uuid4
 
 from fastcrud import EndpointCreator
 from fastcrud.core import CursorPaginatedRequestQuery
+from fastcrud.endpoint.endpoint_creator import EndpointCreator as EC
 
 Base = declarative_base()
 
 
 class TestCursorModel(Base):
     __tablename__ = "test_cursor_validation"
-    
+
     id = Column(Integer, primary_key=True)
+    big_id = Column(BigInteger)
+    small_id = Column(SmallInteger)
     name = Column(String)
     created_at = Column(DateTime)
     uuid_field = Column(PostgresUUID(as_uuid=True))
@@ -210,3 +213,35 @@ def test_cursor_zero_value(client):
     assert data["cursor"] == "0" or data["cursor"] == 0
 
 
+def test_cursor_none_direct_validation():
+    """Test that _validate_cursor_value returns early for None cursor."""
+    EC._validate_cursor_value(None, Integer(), int, "id")
+
+
+def test_cursor_bigint_valid(client):
+    """Test that valid BigInteger cursor values are accepted."""
+    response = client.get("/items?cursor=3000000000&sort_column=big_id")
+    assert response.status_code == 200
+
+
+def test_cursor_bigint_overflow(client):
+    """Test that cursor values exceeding BigInteger range are rejected."""
+    huge = "99999999999999999999"
+    response = client.get(f"/items?cursor={huge}&sort_column=big_id")
+    assert response.status_code == 400
+    data = response.json()
+    assert "BIGINT" in data["detail"]
+
+
+def test_cursor_smallint_valid(client):
+    """Test that valid SmallInteger cursor values are accepted."""
+    response = client.get("/items?cursor=100&sort_column=small_id")
+    assert response.status_code == 200
+
+
+def test_cursor_smallint_overflow(client):
+    """Test that cursor values exceeding SmallInteger range are rejected."""
+    response = client.get("/items?cursor=40000&sort_column=small_id")
+    assert response.status_code == 400
+    data = response.json()
+    assert "SMALLINT" in data["detail"]
