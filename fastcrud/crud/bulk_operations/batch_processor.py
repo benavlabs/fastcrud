@@ -25,7 +25,7 @@ U = TypeVar("U")
 class BatchConfig:
     """
     Configuration for batch processing operations.
-    
+
     Attributes:
         batch_size: Number of items to process per batch
         max_workers: Maximum number of concurrent workers (for async operations)
@@ -38,15 +38,15 @@ class BatchConfig:
     """
 
     def __init__(
-            self,
-            batch_size: int = 1000,
-            max_workers: int = 4,
-            enable_transactions: bool = True,
-            commit_strategy: str = "batch",
-            allow_partial_success: bool = True,
-            timeout_seconds: float | None = None,
-            retry_attempts: int = 0,
-            retry_delay: float = 0.1,
+        self,
+        batch_size: int = 1000,
+        max_workers: int = 4,
+        enable_transactions: bool = True,
+        commit_strategy: str = "batch",
+        allow_partial_success: bool = True,
+        timeout_seconds: float | None = None,
+        retry_attempts: int = 0,
+        retry_delay: float = 0.1,
     ):
         if batch_size <= 0:
             raise ValueError("batch_size must be positive")
@@ -82,11 +82,13 @@ class BatchProcessor:
         self._operation_start_time: datetime | None = None
 
     async def process_batches(
-            self,
-            items: list[T],
-            processor_func: Callable[[list[T], int], Coroutine[Any, Any, BulkOperationResult]],
-            db: AsyncSession | None = None,
-            operation_name: str = "batch_operation",
+        self,
+        items: list[T],
+        processor_func: Callable[
+            [list[T], int], Coroutine[Any, Any, BulkOperationResult]
+        ],
+        db: AsyncSession | None = None,
+        operation_name: str = "batch_operation",
     ) -> BulkOperationSummary:
         """
         Process items in batches using the provided processor function.
@@ -125,17 +127,15 @@ class BatchProcessor:
             if started_transaction and db is not None and db.in_transaction():
                 await db.rollback()
 
-        return self._create_operation_summary(
-            operation_name,
-            len(items),
-            batch_results
-        )
+        return self._create_operation_summary(operation_name, len(items), batch_results)
 
     async def _process_all_batches(
-            self,
-            batches: list[list[T]],
-            processor_func: Callable[[list[T], int], Coroutine[Any, Any, BulkOperationResult]],
-            db: AsyncSession | None,
+        self,
+        batches: list[list[T]],
+        processor_func: Callable[
+            [list[T], int], Coroutine[Any, Any, BulkOperationResult]
+        ],
+        db: AsyncSession | None,
     ) -> list[BulkOperationResult]:
         """Process all batches sequentially and return results."""
         results = []
@@ -150,13 +150,15 @@ class BatchProcessor:
             await db.commit()
 
     def _create_operation_summary(
-            self,
-            operation_name: str,
-            total_items: int,
-            batch_results: list[BulkOperationResult]
+        self,
+        operation_name: str,
+        total_items: int,
+        batch_results: list[BulkOperationResult],
     ) -> BulkOperationSummary:
         """Create the final operation summary from batch results."""
-        successful_count, failed_count, failed_items = self._aggregate_batch_results(batch_results)
+        successful_count, failed_count, failed_items = self._aggregate_batch_results(
+            batch_results
+        )
         end_time = datetime.now()
         assert self._operation_start_time is not None, "Operation start time not set"
         duration_ms = (end_time - self._operation_start_time).total_seconds() * 1000
@@ -165,10 +167,13 @@ class BatchProcessor:
         # Calculate metrics
         success_rate = (
             (successful_count / max(total_items, successful_count + failed_count))
-            if (successful_count + failed_count) > 0 else 1.0
+            if (successful_count + failed_count) > 0
+            else 1.0
         )
         avg_batch_duration = duration_ms / batch_count if batch_count > 0 else 0
-        items_per_sec = (successful_count / (duration_ms / 1000)) if duration_ms > 0 else 0
+        items_per_sec = (
+            (successful_count / (duration_ms / 1000)) if duration_ms > 0 else 0
+        )
 
         return BulkOperationSummary(
             operation_type=operation_name,
@@ -191,8 +196,9 @@ class BatchProcessor:
         )
 
     @staticmethod
-    def _aggregate_batch_results(batch_results: list[BulkOperationResult]) -> tuple[
-        int, int, list[dict[str, Any]]]:
+    def _aggregate_batch_results(
+        batch_results: list[BulkOperationResult],
+    ) -> tuple[int, int, list[dict[str, Any]]]:
         """Aggregate results from all batches."""
         successful_count = 0
         failed_count = 0
@@ -207,18 +213,22 @@ class BatchProcessor:
         return successful_count, failed_count, failed_items
 
     async def _process_single_batch(
-            self,
-            batch_items: list[T],
-            batch_index: int,
-            processor_func: Callable[[list[T], int], Coroutine[Any, Any, BulkOperationResult]],
-            db: AsyncSession | None,
+        self,
+        batch_items: list[T],
+        batch_index: int,
+        processor_func: Callable[
+            [list[T], int], Coroutine[Any, Any, BulkOperationResult]
+        ],
+        db: AsyncSession | None,
     ) -> BulkOperationResult:
         """
         Process a single batch with error handling and retry logic.
         """
         for attempt in range(self.config.retry_attempts + 1):
             try:
-                return await self._execute_batch_step(batch_items, batch_index, processor_func, db)
+                return await self._execute_batch_step(
+                    batch_items, batch_index, processor_func, db
+                )
             except Exception as e:
                 if attempt == self.config.retry_attempts:
                     if not self.config.allow_partial_success:
@@ -231,25 +241,27 @@ class BatchProcessor:
                         error_details={"failed_items": batch_items},
                         duration_ms=0,
                     )
-                await asyncio.sleep(self.config.retry_delay * (2 ** attempt))
+                await asyncio.sleep(self.config.retry_delay * (2**attempt))
 
         # This part should be unreachable
         raise RuntimeError("Batch processing failed after all retries.")
 
     async def _execute_batch_step(
-            self,
-            batch_items: list[T],
-            batch_index: int,
-            processor_func: Callable[[list[T], int], Coroutine[Any, Any, BulkOperationResult]],
-            db: AsyncSession | None,
+        self,
+        batch_items: list[T],
+        batch_index: int,
+        processor_func: Callable[
+            [list[T], int], Coroutine[Any, Any, BulkOperationResult]
+        ],
+        db: AsyncSession | None,
     ) -> BulkOperationResult:
         """
         Execute the batch processing step, managing transactions if configured.
         """
         should_use_transaction = (
-                self.config.enable_transactions
-                and db is not None
-                and self.config.commit_strategy in ("batch", "all")
+            self.config.enable_transactions
+            and db is not None
+            and self.config.commit_strategy in ("batch", "all")
         )
 
         if should_use_transaction and db is not None:
@@ -293,4 +305,4 @@ class BatchProcessor:
         """
         if chunk_size <= 0:
             raise ValueError("chunk_size must be positive")
-        return [items[i:i + chunk_size] for i in range(0, len(items), chunk_size)]
+        return [items[i : i + chunk_size] for i in range(0, len(items), chunk_size)]

@@ -4,6 +4,7 @@ Bulk update operations for FastCRUD.
 This module provides efficient bulk update capabilities with batching,
 error handling, and comprehensive reporting.
 """
+
 import time
 from datetime import datetime
 from typing import Any
@@ -30,17 +31,17 @@ class BulkUpdateManager:
         self.batch_processor = BatchProcessor(self.config)
 
     async def update_multi(
-            self,
-            db: AsyncSession,
-            model_class: Any,
-            objects: list[dict | Any],
-            *,
-            batch_size: int = 1000,
-            commit: bool = True,
-            allow_partial_success: bool = True,
-            return_summary: bool = False,
-            schema_to_select: type | None = None,
-            return_as_model: bool = False,
+        self,
+        db: AsyncSession,
+        model_class: Any,
+        objects: list[dict | Any],
+        *,
+        batch_size: int = 1000,
+        commit: bool = True,
+        allow_partial_success: bool = True,
+        return_summary: bool = False,
+        schema_to_select: type | None = None,
+        return_as_model: bool = False,
     ) -> BulkUpdateSummary | list[dict | Any]:
         """
         Update multiple objects efficiently with batch processing.
@@ -65,7 +66,9 @@ class BulkUpdateManager:
         self._validate_update_request(objects, model_class)
 
         # Create a processor with the specific config
-        config = self._create_execution_config(batch_size, commit, allow_partial_success)
+        config = self._create_execution_config(
+            batch_size, commit, allow_partial_success
+        )
         processor = BatchProcessor(config)
         primary_key_columns = self._get_model_primary_keys(model_class)
 
@@ -77,27 +80,27 @@ class BulkUpdateManager:
                 model_class=model_class,
                 primary_key_columns=primary_key_columns,
                 schema_to_select=schema_to_select,
-                return_as_model=return_as_model
+                return_as_model=return_as_model,
             )
 
         summary = await processor.process_batches(
             items=objects,
             processor_func=_batch_handler,
             db=db,
-            operation_name="bulk_update"
+            operation_name="bulk_update",
         )
 
         return self._handle_update_results(summary, return_summary)
 
     @staticmethod
     async def _process_update_batch(
-            db: AsyncSession,
-            batch_items: list[Any],
-            batch_index: int,
-            model_class: Any,
-            primary_key_columns: list[str],
-            schema_to_select: type[BaseModel] | None = None,
-            return_as_model: bool = False,
+        db: AsyncSession,
+        batch_items: list[Any],
+        batch_index: int,
+        model_class: Any,
+        primary_key_columns: list[str],
+        schema_to_select: type[BaseModel] | None = None,
+        return_as_model: bool = False,
     ) -> BulkOperationResult:
         """
         Process a single batch of update operations.
@@ -249,7 +252,9 @@ class BulkUpdateManager:
 
         primary_key_columns = self._get_model_primary_keys(model_class)
         if not primary_key_columns:
-            raise ValueError("Model class must have a primary key for update operations")
+            raise ValueError(
+                "Model class must have a primary key for update operations"
+            )
 
     @staticmethod
     def _get_model_primary_keys(model_class: Any) -> list[str]:
@@ -258,20 +263,20 @@ class BulkUpdateManager:
 
     @staticmethod
     def _create_execution_config(
-            batch_size: int,
-            commit: bool,
-            allow_partial_success: bool
+        batch_size: int, commit: bool, allow_partial_success: bool
     ) -> BatchConfig:
         """Creates a BatchConfig instance based on update parameters."""
         return BatchConfig(
             batch_size=batch_size,
             enable_transactions=commit,
             commit_strategy="batch" if commit else "never",
-            allow_partial_success=allow_partial_success
+            allow_partial_success=allow_partial_success,
         )
 
     @staticmethod
-    def _handle_update_results(summary: BulkOperationSummary, return_summary: bool) -> BulkUpdateSummary | list[dict | Any]:
+    def _handle_update_results(
+        summary: BulkOperationSummary, return_summary: bool
+    ) -> BulkUpdateSummary | list[dict | Any]:
         # Convert to update-specific summary
         update_summary = BulkUpdateSummary(**summary.model_dump())
 
@@ -281,7 +286,10 @@ class BulkUpdateManager:
 
         for batch_result in summary.batch_results:
             if not batch_result.success and batch_result.error_details:
-                if batch_result.error_message and "not_found" in batch_result.error_message.lower():
+                if (
+                    batch_result.error_message
+                    and "not_found" in batch_result.error_message.lower()
+                ):
                     not_found_count += batch_result.error_details.get("count", 0)
             elif batch_result.success and batch_result.error_details:
                 if "unchanged" in batch_result.error_details:
@@ -296,7 +304,11 @@ class BulkUpdateManager:
         # Return a list of updated records
         updated_records: list[Any] = []
         for batch_result in summary.batch_results:
-            if batch_result.success and batch_result.error_details and "updated_records" in batch_result.error_details:
+            if (
+                batch_result.success
+                and batch_result.error_details
+                and "updated_records" in batch_result.error_details
+            ):
                 updated_records.extend(batch_result.error_details["updated_records"])
 
         return updated_records

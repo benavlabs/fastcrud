@@ -4,6 +4,7 @@ Bulk delete operations for FastCRUD.
 This module provides efficient bulk delete capabilities with batching,
 error handling, soft delete support, and comprehensive reporting.
 """
+
 import time
 from datetime import datetime
 from typing import Any
@@ -20,7 +21,7 @@ from .summary_models import BulkDeleteSummary, BulkOperationResult
 class BulkDeleteManager:
     """
     Manager for bulk delete operations.
-    
+
     This class handles bulk deleting data with proper batching,
     error handling, transaction management, soft delete support,
     and detailed reporting.
@@ -31,22 +32,22 @@ class BulkDeleteManager:
         self.batch_processor = BatchProcessor(self.config)
 
     async def delete_multi(
-            self,
-            db: AsyncSession,
-            model_class: Any,
-            *,
-            allow_multiple: bool = True,
-            batch_size: int = 1000,
-            commit: bool = True,
-            allow_partial_success: bool = True,
-            return_summary: bool = False,
-            is_deleted_column: str | None = None,
-            soft_delete: bool | None = None,
-            **filters: Any,
+        self,
+        db: AsyncSession,
+        model_class: Any,
+        *,
+        allow_multiple: bool = True,
+        batch_size: int = 1000,
+        commit: bool = True,
+        allow_partial_success: bool = True,
+        return_summary: bool = False,
+        is_deleted_column: str | None = None,
+        soft_delete: bool | None = None,
+        **filters: Any,
     ) -> BulkDeleteSummary | int:
         """
         Delete multiple objects efficiently with batch processing.
-        
+
         Args:
             db: Database session
             model_class: SQLAlchemy model class
@@ -58,7 +59,7 @@ class BulkDeleteManager:
             is_deleted_column: Name of soft delete column (if any)
             soft_delete: Whether to use soft delete (auto-detected from a model)
             **filters: Filter conditions for deletion
-            
+
         Returns:
             Either BulkDeleteSummary (if return_summary=True) or count of deleted records
         """
@@ -75,10 +76,10 @@ class BulkDeleteManager:
 
         if soft_delete and not is_deleted_column:
             # Check for common soft delete column names
-            if hasattr(model_class, 'is_deleted'):
-                is_deleted_column = 'is_deleted'
-            elif hasattr(model_class, 'deleted_at'):
-                is_deleted_column = 'deleted_at'
+            if hasattr(model_class, "is_deleted"):
+                is_deleted_column = "is_deleted"
+            elif hasattr(model_class, "deleted_at"):
+                is_deleted_column = "deleted_at"
 
         # Create config with the provided batch_size
         config = BatchConfig(
@@ -100,17 +101,24 @@ class BulkDeleteManager:
         # Create a processor with the specific config
         processor = BatchProcessor(config)
 
-        async def process_delete_batch(batch_filters: list[dict[str, Any]], batch_index: int) -> BulkOperationResult:
+        async def process_delete_batch(
+            batch_filters: list[dict[str, Any]], batch_index: int
+        ) -> BulkOperationResult:
             return await self._process_delete_batch(
-                db, batch_filters, batch_index, model_class,
-                is_deleted_column, soft_delete, allow_multiple
+                db,
+                batch_filters,
+                batch_index,
+                model_class,
+                is_deleted_column,
+                soft_delete,
+                allow_multiple,
             )
-            
+
         result = await processor.process_batches(
             [filters],  # Single batch with all filters
             process_delete_batch,
             db=db,
-            operation_name="delete"
+            operation_name="delete",
         )
 
         # Convert to delete-specific summary
@@ -123,8 +131,12 @@ class BulkDeleteManager:
 
         for batch_result in result.batch_results:
             if batch_result.success and batch_result.error_details:
-                soft_deleted_count += batch_result.error_details.get("soft_deleted_count", 0)
-                hard_deleted_count += batch_result.error_details.get("hard_deleted_count", 0)
+                soft_deleted_count += batch_result.error_details.get(
+                    "soft_deleted_count", 0
+                )
+                hard_deleted_count += batch_result.error_details.get(
+                    "hard_deleted_count", 0
+                )
             elif not batch_result.success:
                 error_msg = batch_result.error_message or ""
                 error_details = batch_result.error_details or {}
@@ -144,17 +156,17 @@ class BulkDeleteManager:
 
     @staticmethod
     async def _process_delete_batch(
-            db: AsyncSession,
-            batch_filters: list[dict[str, Any]],
-            batch_index: int,
-            model_class: Any,
-            is_deleted_column: str | None = None,
-            soft_delete: bool = True,
-            allow_multiple: bool = True,
+        db: AsyncSession,
+        batch_filters: list[dict[str, Any]],
+        batch_index: int,
+        model_class: Any,
+        is_deleted_column: str | None = None,
+        soft_delete: bool = True,
+        allow_multiple: bool = True,
     ) -> BulkOperationResult:
         """
         Process a single batch of delete operations.
-        
+
         Args:
             db: Database session
             batch_filters: Filter conditions for this batch
@@ -163,7 +175,7 @@ class BulkDeleteManager:
             is_deleted_column: Name of soft delete column
             soft_delete: Whether to use soft delete
             allow_multiple: Whether to allow deletion of multiple records
-            
+
         Returns:
             BulkOperationResult for this batch
         """
@@ -185,10 +197,12 @@ class BulkDeleteManager:
             # Perform the deletion
             if soft_delete:
                 if not is_deleted_column:
-                    raise ValueError("is_deleted_column must be specified for soft delete")
-                
+                    raise ValueError(
+                        "is_deleted_column must be specified for soft delete"
+                    )
+
                 update_values: dict[str, Any] = {is_deleted_column: True}
-                if is_deleted_column.endswith('_at'):
+                if is_deleted_column.endswith("_at"):
                     update_values[is_deleted_column] = datetime.now()
 
                 stmt = update(model_class).where(where_clause).values(**update_values)
@@ -205,7 +219,7 @@ class BulkDeleteManager:
                         "soft_deleted_count": deleted_count,
                         "hard_deleted_count": 0,
                     },
-                    error_message=None
+                    error_message=None,
                 )
             else:
                 # Hard delete
@@ -223,7 +237,7 @@ class BulkDeleteManager:
                         "soft_deleted_count": 0,
                         "hard_deleted_count": deleted_count,
                     },
-                    error_message=None
+                    error_message=None,
                 )
 
         except IntegrityError as e:
@@ -237,7 +251,7 @@ class BulkDeleteManager:
                 error_message=str(e),
                 error_details={
                     "error_type": "integrity_error",
-                    "reason": "Referential integrity constraint violated"
+                    "reason": "Referential integrity constraint violated",
                 },
                 duration_ms=duration_ms,
             )
@@ -251,9 +265,7 @@ class BulkDeleteManager:
                 items_processed=len(batch_filters),
                 success=False,
                 error_message=str(e),
-                error_details={
-                    "error_type": "general_error"
-                },
+                error_details={"error_type": "general_error"},
                 duration_ms=duration_ms,
             )
 

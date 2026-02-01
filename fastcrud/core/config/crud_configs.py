@@ -25,19 +25,16 @@ class CRUDMethods(BaseModel):
         >>> # Only create, read, and update endpoints will be generated
     """
 
-    valid_methods: Annotated[
-        Sequence[str],
-        Field(
-            default=[
-                "create",
-                "read",
-                "read_multi",
-                "update",
-                "delete",
-                "db_delete",
-            ]
-        ),
-    ]
+    valid_methods: Sequence[str] = Field(
+        default=[
+            "create",
+            "read",
+            "read_multi",
+            "update",
+            "delete",
+            "db_delete",
+        ]
+    )
 
     @field_validator("valid_methods")
     def check_valid_method(cls, values: Sequence[str]) -> Sequence[str]:
@@ -110,8 +107,8 @@ class CreateConfig(BaseModel):
         ```
     """
 
-    auto_fields: Annotated[dict[str, Callable[..., Any]], Field(default_factory=dict)]
-    exclude_from_schema: Annotated[list[str], Field(default_factory=list)]
+    auto_fields: dict[str, Callable[..., Any]] = Field(default_factory=dict)
+    exclude_from_schema: list[str] = Field(default_factory=list)
 
     @field_validator("auto_fields")
     @classmethod
@@ -177,8 +174,8 @@ class UpdateConfig(BaseModel):
         ```
     """
 
-    auto_fields: Annotated[dict[str, Callable[..., Any]], Field(default_factory=dict)]
-    exclude_from_schema: Annotated[list[str], Field(default_factory=list)]
+    auto_fields: dict[str, Callable[..., Any]] = Field(default_factory=dict)
+    exclude_from_schema: list[str] = Field(default_factory=list)
 
     @field_validator("auto_fields")
     @classmethod
@@ -260,7 +257,7 @@ class DeleteConfig(BaseModel):
         ```
     """
 
-    auto_fields: Annotated[dict[str, Callable[..., Any]], Field(default_factory=dict)]
+    auto_fields: dict[str, Callable[..., Any]] = Field(default_factory=dict)
 
     @field_validator("auto_fields")
     @classmethod

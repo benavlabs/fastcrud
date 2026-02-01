@@ -40,7 +40,11 @@ from tests.sqlalchemy.conftest import (
     Article,
     Author,
     ArticleSchema,
+    AuthorSchema,
 )
+
+from unittest.mock import AsyncMock, MagicMock
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class BulkTestData:
@@ -133,7 +137,7 @@ async def test_bulk_insert_batch_processing(async_session):
     for i in range(25):  # Create 25 items
         test_data.append(BulkTestData(f"Batch Item {i}"))
 
-    # Execute bulk insert with small batch size
+    # Execute bulk insert with a small batch size
     manager = BulkInsertManager()
     result = await manager.insert_multi(
         db=async_session,
@@ -181,7 +185,7 @@ async def test_bulk_insert_with_pydantic_models(async_session):
 
 @pytest.mark.asyncio
 async def test_bulk_insert_return_as_model(async_session):
-    """Test bulk insert with return_as_model option."""
+    """Test bulk insert with a return_as_model option."""
 
     test_data = [
         BulkTestData("Return Model 1"),
@@ -212,7 +216,7 @@ async def test_bulk_insert_return_as_model(async_session):
 @pytest.mark.asyncio
 async def test_bulk_insert_error_handling(async_session):
     """Test bulk insert error handling with invalid data."""
-    # First insert some base data to create potential duplicates
+    # First, insert some base data to create potential duplicates
     base_data = [
         BulkTestData("Base Item 1"),
         BulkTestData("Base Item 2"),
@@ -266,7 +270,7 @@ async def test_bulk_insert_error_handling(async_session):
 async def test_bulk_update_basic_functionality(async_session):
     """Test basic bulk update functionality."""
 
-    # First insert some data to update
+    # First, insert some data to update
     insert_manager = BulkInsertManager()
     await insert_manager.insert_multi(
         db=async_session,
@@ -359,7 +363,7 @@ async def test_bulk_update_partial_updates(async_session):
 
     assert result.successful_count == 1
 
-    # Verify only name was updated, tier_id remains unchanged
+    # Verify only the name was updated, tier_id remains unchanged
     stmt = select(ModelTest).where(ModelTest.id == record_id)
     db_result = await async_session.execute(stmt)
     record = db_result.scalar_one()
@@ -441,7 +445,7 @@ async def test_bulk_delete_soft_delete(async_session):
         batch_size=10,
     )
 
-    # Soft delete using is_deleted column
+    # Softly delete using is_deleted column
     delete_manager = BulkDeleteManager()
     result = await delete_manager.delete_multi(
         db=async_session,
@@ -480,7 +484,7 @@ async def test_bulk_delete_multiple_filters(async_session):
         batch_size=10,
     )
 
-    # Delete with multiple filter conditions
+    # Delete it with multiple filter conditions
     delete_manager = BulkDeleteManager()
     result = await delete_manager.delete_multi(
         db=async_session,
@@ -493,7 +497,7 @@ async def test_bulk_delete_multiple_filters(async_session):
     # Should delete only the record matching both conditions
     assert result.successful_count == 1
 
-    # Verify correct record was deleted
+    # Verify the correct record was deleted
     stmt = select(ModelTest).where(ModelTest.name == "Multi Filter Test")
     db_result = await async_session.execute(stmt)
     records = db_result.scalars().all()
@@ -649,7 +653,7 @@ async def test_bulk_transaction_rollback(async_session):
     await async_session.begin()
 
     try:
-        # Insert some data within transaction
+        # Insert some data within the transaction
         insert_manager = BulkInsertManager()
         await insert_manager.insert_multi(
             db=async_session,
@@ -659,7 +663,7 @@ async def test_bulk_transaction_rollback(async_session):
             commit=False,  # Don't commit yet
         )
 
-        # Rollback the transaction
+        # Roll back the transaction
         await async_session.rollback()
 
         # Verify data was not persisted
@@ -734,7 +738,7 @@ async def test_bulk_operations_concurrent_execution(async_session):
                 batch_size=5,
                 return_summary=True,
             )
-            # Type narrowing: result is BulkInsertSummary when return_summary=True
+            # Type narrowing: the result is BulkInsertSummary when return_summary=True
             if isinstance(result, BulkInsertSummary):
                 return result.successful_count
             else:
@@ -764,7 +768,7 @@ async def test_bulk_operations_concurrent_execution(async_session):
 
 @pytest.mark.asyncio
 async def test_delete_multi_soft_delete_with_deleted_at_column(async_session):
-    """Test soft delete using deleted_at timestamp column (covers lines 80-81)."""
+    """Test soft delete using the deleted_at timestamp column (covers lines 80-81)."""
 
     # Insert test data
     manager = BulkInsertManager()
@@ -1161,7 +1165,7 @@ async def test_update_multi_integrity_error(async_session):
     stmt = select(TierModel).where(TierModel.name.in_(["Tier1", "Tier2"]))
     result = await async_session.execute(stmt)
     tiers = result.scalars().all()
-    tier1_id = next(t.id for t in tiers if t.name == "Tier1")
+    _ = next(t.id for t in tiers if t.name == "Tier1")
     tier2_id = next(t.id for t in tiers if t.name == "Tier2")
 
     # Try to update tier2 to have the same name as tier1 (violates unique constraint)
@@ -1309,7 +1313,7 @@ async def test_batch_processor_retry_logic(async_session, monkeypatch):
 
     # Process batch
     items = [{"name": f"Item{i}"} for i in range(5)]
-    result = await processor.process_batches(
+    _ = await processor.process_batches(
         items=items,
         processor_func=mock_processor_func,
         db=async_session,
@@ -1392,7 +1396,7 @@ async def test_batch_processor_commit_all_strategy(async_session):
 
     async_session.commit = mock_commit
 
-    # Create processor function that inserts data
+    # Create a processor function that inserts data
     async def insert_processor_func(batch, batch_index):
         for item in batch:
             async_session.add(ModelTest(**item))
@@ -1427,7 +1431,7 @@ async def test_batch_processor_commit_all_strategy(async_session):
 
 @pytest.mark.asyncio
 async def test_batch_processor_empty_items(async_session):
-    """Test empty items list (covers lines 101-102)."""
+    """Test the empty items list (covers lines 101-102)."""
 
     # Create processor
     config = BatchConfig(batch_size=10)
@@ -1445,7 +1449,7 @@ async def test_batch_processor_empty_items(async_session):
         operation_name="test_empty",
     )
 
-    # Verify empty summary is created via _create_empty_summary
+    # Verify an empty summary is created via _create_empty_summary
     assert result is not None
     assert result.successful_count == 0
     assert result.failed_count == 0
@@ -1461,7 +1465,7 @@ async def test_batch_processor_empty_items(async_session):
 async def test_create_with_invalid_nested_payload(async_session):
     """Test invalid nested payload error handling (covers lines 667-670)."""
 
-    # Create CRUD instance for Article model (has author relationship)
+    # Create a CRUD instance for an Article model (has author relationship)
     article_crud = FastCRUD(Article)
 
     # Try to create article with invalid nested author payload (not dict or BaseModel)
@@ -1481,18 +1485,18 @@ async def test_create_with_invalid_nested_payload(async_session):
 async def test_create_nested_payload_detection_edge_cases(async_session):
     """Test edge cases in _is_nested_payload detection."""
 
-    # Create CRUD instance for Article model
+    # Create a CRUD instance for an Article model
     article_crud = FastCRUD(Article)
 
-    # First create an author to use as FK
+    # First, create an author to use as FK
     author_crud = FastCRUD(Author)
-    author = await author_crud.create(
+    _ = await author_crud.create(
         db=async_session, object=AuthorCreatePayload(name="Test Author")
     )
     await async_session.commit()
 
-    # Test 1: Empty dict should be treated as nested payload
-    # This should work - empty dict is valid nested payload
+    # Test 1: Empty dict should be treated as a nested payload
+    # This should work - empty dict is a valid-nested payload
     article1 = await article_crud.create(
         db=async_session,
         object=ArticleCreatePayload(
@@ -1529,7 +1533,7 @@ async def test_create_nested_payload_detection_edge_cases(async_session):
 async def test_create_nested_list_with_invalid_items(async_session):
     """Test invalid list items in nested relationships (covers lines 688-693)."""
 
-    # Create CRUD instance for Author model (has articles relationship - uselist=True)
+    # Create a CRUD instance for an Author model (has articles relationship - uselist=True)
     author_crud = FastCRUD(Author)
 
     # Test 1: Non-list/tuple value for uselist=True relationship should raise TypeError
@@ -1558,3 +1562,314 @@ async def test_create_nested_list_with_invalid_items(async_session):
                 ],
             ),
         )
+
+
+@pytest.mark.asyncio
+async def test_update_multi_coverage_gaps(async_session):
+    """Test various coverage gaps in update_multi.py."""
+    # 1. return_as_model=True
+    # First insert some data
+    insert_manager = BulkInsertManager()
+    await insert_manager.insert_multi(
+        db=async_session,
+        model_class=ModelTest,
+        objects=[{"name": "Gap 1", "tier_id": 1}],
+        return_summary=False,
+    )
+    await async_session.commit()
+
+    stmt = select(ModelTest).where(ModelTest.name == "Gap 1")
+    result = await async_session.execute(stmt)
+    record = result.scalar_one()
+
+    update_manager = BulkUpdateManager()
+    # Test returning as the model
+    updated_records = await update_manager.update_multi(
+        db=async_session,
+        model_class=ModelTest,
+        objects=[{"id": record.id, "name": "Gap 1 Updated"}],
+        return_as_model=True,
+        schema_to_select=ReadSchemaTest,
+        return_summary=False,
+    )
+    assert len(updated_records) == 1
+    assert isinstance(updated_records[0], ReadSchemaTest)
+    assert updated_records[0].name == "Gap 1 Updated"
+
+    # 2. return_summary=False with updated_records (lines 297-302)
+    updated_records_dict = await update_manager.update_multi(
+        db=async_session,
+        model_class=ModelTest,
+        objects=[{"id": record.id, "name": "Gap 1 Updated Again"}],
+        return_summary=False,
+        return_as_model=True,
+        schema_to_select=ReadSchemaTest,
+    )
+    assert len(updated_records_dict) == 1
+    assert updated_records_dict[0].name == "Gap 1 Updated Again"
+
+    # 3. Model with no primary key (line 252)
+    class NoPKModel:
+        __table__ = type("Table", (), {"primary_key": type("PK", (), {"columns": []})})
+
+    with pytest.raises(
+        ValueError, match="Model class must have a primary key for update operations"
+    ):
+        await update_manager.update_multi(
+            db=async_session, model_class=NoPKModel, objects=[{"something": "else"}]
+        )
+
+
+@pytest.mark.asyncio
+async def test_insert_multi_coverage_gaps(async_session):
+    """Test various coverage gaps in insert_multi.py."""
+    insert_manager = BulkInsertManager()
+
+    # 1. Empty input with return_summary=False (line 98)
+    result = await insert_manager.insert_multi(
+        db=async_session, model_class=ModelTest, objects=[], return_summary=False
+    )
+    assert result == []
+
+    # 2. Date coercion failure (lines 206-208)
+    from tests.sqlalchemy.conftest import ModelTestWithTimestamp
+
+    await insert_manager.insert_multi(
+        db=async_session,
+        model_class=ModelTestWithTimestamp,
+        objects=[{"name": "Date Fail", "timestamp": "invalid-date"}],
+        return_summary=False,
+    )
+    # This should not raise, just pass through and maybe fail at DB level if we execute it.
+    # But we want to cover the catch block.
+
+
+@pytest.mark.asyncio
+async def test_delete_multi_coverage_gaps(async_session):
+    """Test various coverage gaps in delete_multi.py."""
+    delete_manager = BulkDeleteManager()
+
+    # 1. Empty filters with return_summary=False (line 68)
+    result = await delete_manager.delete_multi(
+        db=async_session, model_class=ModelTest, return_summary=False
+    )
+    assert result == 0
+
+    # 2. Auto-detect soft delete columns (lines 78-81)
+    class SoftDeleteModel:
+        is_deleted = True
+
+    # We just need to trigger the detection logic
+    # We can't easily use a fake model with delete_multi because it expects a real SQLAlchemy model,
+    # but we can check if it works with TierModel, which has is_deleted
+
+    # TierModel has is_deleted
+    result = await delete_manager.delete_multi(
+        db=async_session,
+        model_class=TierModel,
+        soft_delete=True,
+        return_summary=True,
+        name="NonExistent",
+    )
+    assert isinstance(result, BulkDeleteSummary)
+
+
+@pytest.mark.asyncio
+async def test_fast_crud_exposed_bulk_methods(async_session):
+    """Test that FastCRUD correctly exposes bulk methods."""
+    user_crud = FastCRUD(ModelTest)
+
+    # Insert
+    result = await user_crud.insert_multi(
+        async_session,
+        [{"name": "Bulk 1", "tier_id": 1}],
+        return_as_model=True,
+        schema_to_select=ReadSchemaTest,
+    )
+    assert len(result) == 1
+
+    stmt = select(ModelTest).where(ModelTest.name == "Bulk 1")
+    res = await async_session.execute(stmt)
+    record = res.scalar_one()
+
+    # Update
+    result = await user_crud.update_multi(
+        async_session,
+        [{"id": record.id, "name": "Bulk 1 Updated"}],
+        return_as_model=True,
+        schema_to_select=ReadSchemaTest,
+    )
+    assert len(result) == 1
+
+    # Delete
+    result = await user_crud.delete_multi(async_session, name="Bulk 1 Updated")
+    assert result == 1
+
+
+@pytest.mark.asyncio
+async def test_fast_crud_nested_creation_gaps(async_session):
+    """Test nested creation coverage gaps in fast_crud.py."""
+    author_crud = FastCRUD(Author)
+
+    # 1. uselist and empty list (lines 664-666)
+    author = await author_crud.create(
+        async_session,
+        AuthorSchema(id=101, name="Author 1", articles=[]),
+        schema_to_select=AuthorSchema,
+        return_as_model=True,
+    )
+    assert author.name == "Author 1"
+
+    # 2. _is_nested_payload with BaseModel (line 693)
+    await author_crud.create(
+        async_session,
+        AuthorSchema(
+            id=102,
+            name="Author 2",
+            articles=[ArticleSchema(id=201, title="T1", content="C1")],
+        ),
+    )
+
+    stmt = select(Author).where(Author.id == 102)
+    from sqlalchemy.orm import selectinload
+
+    res = await async_session.execute(stmt.options(selectinload(Author.articles)))
+    author2 = res.scalar_one()
+    assert author2.name == "Author 2"
+    assert len(author2.articles) == 1
+    assert author2.articles[0].title == "T1"
+
+
+@pytest.mark.asyncio
+async def test_batch_processor_commit_strategy_all(async_session):
+    # Test commit_strategy="all"
+    config = BatchConfig(commit_strategy="all", batch_size=1)
+    processor = BatchProcessor(config)
+
+    async def mock_processor(items, index):
+        return BulkOperationResult(
+            batch_index=index, items_processed=len(items), success=True, duration_ms=1.0
+        )
+
+    # 1. db not in transaction (starts one)
+    # We use a real session but it should work
+    summary = await processor.process_batches(
+        items=[{"id": 1}, {"id": 2}],
+        processor_func=mock_processor,
+        db=async_session,
+        operation_name="test_all",
+    )
+    assert summary.successful_count == 2
+    assert summary.commit_strategy == "all"
+
+
+@pytest.mark.asyncio
+async def test_batch_processor_exception_rollback():
+    config = BatchConfig(
+        commit_strategy="all", batch_size=1, allow_partial_success=False
+    )
+    processor = BatchProcessor(config)
+
+    db = MagicMock(spec=AsyncSession)
+    db.in_transaction.return_value = True
+    db.begin = AsyncMock()
+    db.commit = AsyncMock()
+    db.rollback = AsyncMock()
+
+    async def failing_processor(items, index):
+        raise ValueError("Failed")
+
+    with pytest.raises(ValueError):
+        await processor.process_batches(
+            items=[{"id": 1}],
+            processor_func=failing_processor,
+            db=db,
+            operation_name="test_fail",
+        )
+
+    db.rollback.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_batch_processor_retry_logic_simple():
+    # Test retry logic
+    config = BatchConfig(retry_attempts=2, retry_delay=0.01, allow_partial_success=True)
+    processor = BatchProcessor(config)
+
+    call_count = 0
+
+    async def sometimes_fails(items, index):
+        nonlocal call_count
+        call_count += 1
+        if call_count < 2:
+            raise ValueError("Try again")
+        return BulkOperationResult(
+            batch_index=index, items_processed=len(items), success=True, duration_ms=1.0
+        )
+
+    summary = await processor.process_batches(
+        items=[{"id": 1}], processor_func=sometimes_fails, operation_name="test_retry"
+    )
+    assert summary.successful_count == 1
+    assert call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_batch_processor_retry_exhausted():
+    config = BatchConfig(retry_attempts=1, retry_delay=0.01, allow_partial_success=True)
+    processor = BatchProcessor(config)
+
+    async def always_fails(items, index):
+        raise ValueError("Permanent failure")
+
+    summary = await processor.process_batches(
+        items=[{"id": 1}], processor_func=always_fails, operation_name="test_exhausted"
+    )
+    assert summary.failed_count == 1
+    assert summary.success_rate == 0.0
+
+
+@pytest.mark.asyncio
+async def test_batch_processor_execute_step_in_transaction():
+    config = BatchConfig(commit_strategy="batch", enable_transactions=True)
+    processor = BatchProcessor(config)
+
+    db = MagicMock(spec=AsyncSession)
+    db.in_transaction.return_value = True
+
+    mock_res = BulkOperationResult(
+        batch_index=0, items_processed=1, success=True, duration_ms=1.0
+    )
+    processor_func = AsyncMock(return_value=mock_res)
+
+    result = await processor._execute_batch_step([{"id": 1}], 0, processor_func, db)
+    assert result.success
+    processor_func.assert_called_once()
+    # db.begin should NOT be called because already in transaction
+    db.begin.assert_not_called()
+
+
+def test_batch_config_invalid():
+    with pytest.raises(ValueError, match="batch_size must be positive"):
+        BatchConfig(batch_size=0)
+    with pytest.raises(ValueError, match="max_workers must be positive"):
+        BatchConfig(max_workers=0)
+    with pytest.raises(ValueError, match="commit_strategy must be"):
+        BatchConfig(commit_strategy="invalid")
+    with pytest.raises(ValueError, match="retry_attempts must be non-negative"):
+        BatchConfig(retry_attempts=-1)
+    with pytest.raises(ValueError, match="retry_delay must be non-negative"):
+        BatchConfig(retry_delay=-1)
+
+
+def test_batch_processor_create_chunks_invalid():
+    with pytest.raises(ValueError, match="chunk_size must be positive"):
+        BatchProcessor.create_chunks([1], 0)
+
+
+@pytest.mark.asyncio
+async def test_batch_processor_empty_items_simple():
+    processor = BatchProcessor()
+    summary = await processor.process_batches([], AsyncMock())
+    assert summary.total_requested == 0
+    assert summary.items_per_second == 0.0

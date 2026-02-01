@@ -42,17 +42,17 @@ class UpdateSchema(SQLModel):
 def app_with_cursor_validation(async_session):
     """Create a FastAPI app with cursor validation."""
     app = FastAPI()
-    
+
     endpoint_creator = EndpointCreator(
         session=lambda: async_session,
         model=TestCursorModelSQLModel,
         create_schema=CreateSchema,
         update_schema=UpdateSchema,
     )
-    
+
     # Create a custom endpoint with cursor validation
     validator = endpoint_creator._create_cursor_validator()
-    
+
     @app.get("/items")
     async def get_items_with_validation(
         query: Annotated[CursorPaginatedRequestQuery, Depends(validator)],
@@ -64,7 +64,7 @@ def app_with_cursor_validation(async_session):
             "sort_column": query.sort_column,
             "sort_order": query.sort_order,
         }
-    
+
     return app
 
 
@@ -91,6 +91,8 @@ def test_cursor_int64_overflow(client):
     assert response.status_code == 400
     data = response.json()
     assert "exceeds valid" in data["detail"] and "range" in data["detail"]
+
+
 def test_cursor_valid_int(client):
     """Test that valid integer cursor values are accepted."""
     response = client.get("/items?cursor=1000&sort_column=id")

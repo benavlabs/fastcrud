@@ -36,7 +36,7 @@ from .bulk_operations import (
     BulkInsertManager,
     BulkInsertSummary,
     BulkUpdateManager,
-    BulkUpdateSummary
+    BulkUpdateSummary,
 )
 
 from ..core import (
@@ -634,7 +634,9 @@ class FastCRUD(
             return data_dict
         return schema_to_select(**data_dict)
 
-    def _build_with_nested(self, model_cls: type[ModelType], data: dict[str, Any]) -> ModelType:
+    def _build_with_nested(
+        self, model_cls: type[ModelType], data: dict[str, Any]
+    ) -> ModelType:
         """Build a SQLAlchemy model instance from flat and nested payload data.
 
         This helper uses SQLAlchemy's mapper inspection to detect relationship attributes
@@ -660,7 +662,11 @@ class FastCRUD(
                 if raw_value is None or isinstance(raw_value, rel.mapper.class_):
                     continue
                 # Treat empty collections for uselist relationships as valid empties.
-                if rel.uselist and isinstance(raw_value, (list, tuple)) and len(raw_value) == 0:
+                if (
+                    rel.uselist
+                    and isinstance(raw_value, (list, tuple))
+                    and len(raw_value) == 0
+                ):
                     relationship_values[key] = []
                     payload.pop(key, None)
                     continue
@@ -687,7 +693,9 @@ class FastCRUD(
         * Mapping / dict objects
         * Lists / tuples whose items are themselves nested payloads
         """
-        from pydantic import BaseModel  # Local import to avoid hard dependency at module import time
+        from pydantic import (
+            BaseModel,
+        )  # Local import to avoid hard dependency at module import time
 
         if isinstance(value, BaseModel):
             return True
@@ -712,7 +720,8 @@ class FastCRUD(
             # Shallow copy to avoid mutating user-provided mappings.
             return dict(value)
         raise TypeError(
-            "Unsupported nested relationship payload type: " f"{type(value)!r}. "
+            "Unsupported nested relationship payload type: "
+            f"{type(value)!r}. "
             "Expected a Pydantic model or mapping."
         )
 

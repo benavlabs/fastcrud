@@ -136,10 +136,7 @@ async def test_nested_create_parent_and_child(async_session):
 
     # Use schema_to_select to get the created instance back
     created = await crud.create(
-        async_session,
-        payload,
-        schema_to_select=NestedParentRead,
-        return_as_model=True
+        async_session, payload, schema_to_select=NestedParentRead, return_as_model=True
     )
 
     # The parent should be persisted with an id and name
@@ -163,10 +160,7 @@ async def test_nested_create_parent_only(async_session):
 
     payload = NestedParentCreate(name="parent-no-child")
     created = await crud.create(
-        async_session,
-        payload,
-        schema_to_select=NestedParentRead,
-        return_as_model=True
+        async_session, payload, schema_to_select=NestedParentRead, return_as_model=True
     )
 
     assert created.id is not None
@@ -193,7 +187,7 @@ async def test_nested_create_no_commit(async_session):
         payload,
         commit=False,
         schema_to_select=NestedParentRead,
-        return_as_model=True
+        return_as_model=True,
     )
 
     assert created.id is not None
@@ -314,7 +308,9 @@ async def test_nested_create_one_to_many_children(async_session):
     assert result is None  # This is the expected v0.20.0 behavior
 
     # Query to verify the parent was created
-    stmt_parent = select(OneToManyParent).where(OneToManyParent.name == "parent-with-children")
+    stmt_parent = select(OneToManyParent).where(
+        OneToManyParent.name == "parent-with-children"
+    )
     parent_result = await async_session.execute(stmt_parent)
     created = parent_result.scalar_one_or_none()
 
@@ -357,4 +353,3 @@ async def test_nested_create_child_db_constraint_violation_rollback(async_sessio
     stmt_child = select(ConstrainedChild)
     children = (await async_session.execute(stmt_child)).scalars().all()
     assert children == []
-

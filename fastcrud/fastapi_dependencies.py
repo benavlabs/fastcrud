@@ -79,6 +79,7 @@ def create_auto_field_injector(
 
     return auto_fields_resolver
 
+
 def _str_to_bool(value: bool | str) -> bool:
     """
     Helper function to properly convert string to bool
@@ -94,6 +95,7 @@ def _str_to_bool(value: bool | str) -> bool:
         return False
 
     raise ValueError(f"Cannot convert '{value}' / (type {type(value)}) to bool")
+
 
 def create_dynamic_filters(
     filter_config: "FilterConfig | None", column_types: dict[str, type]
@@ -137,7 +139,11 @@ def create_dynamic_filters(
                 if parse_func:
                     try:
                         # Special handling for bool bool('false') = True
-                        filtered_params[original_key] = _str_to_bool(value) if (parse_func is bool) else parse_func(value)
+                        filtered_params[original_key] = (
+                            _str_to_bool(value)
+                            if (parse_func is bool)
+                            else parse_func(value)
+                        )
                     except (ValueError, TypeError):
                         filtered_params[original_key] = value
                 else:
