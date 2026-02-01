@@ -365,6 +365,43 @@ class FastCRUD(
                     description: Optional[str] = None
                 ```
 
+            ---
+
+            ??? example "`BookingModel` and Associated Models"
+
+                ```python
+                # These models taken from tests/sqlalchemy/conftest.py
+                --8<--
+                tests/sqlalchemy/conftest.py:model_category
+                --8<--
+                # Note that this "TierModel" model is different from the "Tier" model
+                # used with the User and associated models above.
+                --8<--
+                tests/sqlalchemy/conftest.py:model_tier
+                tests/sqlalchemy/conftest.py:model_testuser
+                tests/sqlalchemy/conftest.py:model_multipk
+                tests/sqlalchemy/conftest.py:model_booking
+                --8<--
+                ```
+
+            ??? example "`ReadBookingSchema` and Associated Schemas"
+
+                ```python
+                class ReadBookingSchema(BaseModel):
+                    id: int
+                    owner_id: int
+                    user_id: int
+                    booking_date: datetime.datetime
+
+                class ReadModelTestSchema(BaseModel):
+                    id: int
+                    name: Optional[str] = None
+                    tier_id: Optional[int] = None
+                    category_id: Optional[int] = None
+                    is_deleted: bool
+                    deleted_at: Optional[datetime.datetime] = None
+                ```
+
         Example 1: Basic Usage
         ----------------------
 
@@ -1784,23 +1821,24 @@ class FastCRUD(
             owner_alias = aliased(ModelTest, name="owner")
             user_alias = aliased(ModelTest, name="user")
 
-            result = await crud.get_joined(
+            booking_crud = FastCRUD(BookingModel)
+            result = await booking_crud.get_joined(
                 db=session,
-                schema_to_select=BookingSchema,
+                schema_to_select=ReadBookingSchema,
                 joins_config=[
                     JoinConfig(
                         model=ModelTest,
                         join_on=BookingModel.owner_id == owner_alias.id,
                         join_prefix="owner_",
+                        schema_to_select=ReadModelTestSchema,
                         alias=owner_alias,
-                        schema_to_select=UserSchema,
                     ),
                     JoinConfig(
                         model=ModelTest,
                         join_on=BookingModel.user_id == user_alias.id,
                         join_prefix="user_",
+                        schema_to_select=ReadModelTestSchema,
                         alias=user_alias,
-                        schema_to_select=UserSchema,
                     ),
                 ],
                 id=1,
@@ -2365,31 +2403,31 @@ class FastCRUD(
             user_alias = aliased(ModelTest, name="user")
 
             # Initialize your FastCRUD instance for BookingModel
-            crud = FastCRUD(BookingModel)
+            booking_crud = FastCRUD(BookingModel)
 
-            result = await crud.get_multi_joined(
+            result = await booking_crud.get_multi_joined(
                 db=session,
-                schema_to_select=BookingSchema,  # Primary model schema
+                schema_to_select=ReadBookingSchema,  # Primary model schema
+                offset=10,  # Skip the first 10 records
+                limit=5,  # Fetch up to 5 records
+                sort_columns=['booking_date'],  # Sort by booking_date
+                sort_orders=['desc'],  # In descending order
                 joins_config=[
                     JoinConfig(
                         model=ModelTest,
                         join_on=BookingModel.owner_id == owner_alias.id,
                         join_prefix="owner_",
-                        schema_to_select=UserSchema,  # Schema for the joined model
+                        schema_to_select=ReadModelTestSchema,  # Schema for the joined model
                         alias=owner_alias,
                     ),
                     JoinConfig(
                         model=ModelTest,
                         join_on=BookingModel.user_id == user_alias.id,
                         join_prefix="user_",
-                        schema_to_select=UserSchema,
+                        schema_to_select=ReadModelTestSchema,
                         alias=user_alias,
                     )
                 ],
-                offset=10,  # Skip the first 10 records
-                limit=5,  # Fetch up to 5 records
-                sort_columns=['booking_date'],  # Sort by booking_date
-                sort_orders=['desc'],  # In descending order
             )
             ```
 
