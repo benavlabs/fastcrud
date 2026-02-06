@@ -126,13 +126,22 @@ def validate_joined_query_params(
 
     join_definitions = joins_config if joins_config else []
     if join_model:
+        if alias is None and join_on is None:
+            from sqlalchemy.orm import aliased as sa_aliased
+            from ..core.field_management import _has_table_overlap
+
+            if _has_table_overlap(primary_model, join_model):
+                alias = sa_aliased(join_model, flat=True)
+
         try:
             join_definitions.append(
                 JoinConfig(
                     model=join_model,
                     join_on=join_on
                     if join_on is not None
-                    else auto_detect_join_condition(primary_model, join_model),
+                    else auto_detect_join_condition(
+                        primary_model, join_model, join_alias=alias
+                    ),
                     join_prefix=join_prefix,
                     schema_to_select=join_schema_to_select,
                     join_type=join_type,
