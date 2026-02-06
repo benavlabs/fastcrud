@@ -6,8 +6,11 @@ but generic enough to be reused across different CRUD classes.
 """
 
 from typing import Any, Callable, Awaitable, TYPE_CHECKING
+from sqlalchemy.orm import aliased as sa_aliased
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound
+
+from ..core.field_management import has_table_overlap
 
 if TYPE_CHECKING:  # pragma: no cover
     from sqlalchemy.orm.util import AliasedClass
@@ -127,10 +130,7 @@ def validate_joined_query_params(
     join_definitions = joins_config if joins_config else []
     if join_model:
         if alias is None and join_on is None:
-            from sqlalchemy.orm import aliased as sa_aliased
-            from ..core.field_management import _has_table_overlap
-
-            if _has_table_overlap(primary_model, join_model):
+            if has_table_overlap(primary_model, join_model):
                 alias = sa_aliased(join_model, flat=True)
 
         try:
