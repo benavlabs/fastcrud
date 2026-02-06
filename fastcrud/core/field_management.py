@@ -290,7 +290,7 @@ def auto_detect_join_condition(
     return join_on
 
 
-def _has_table_overlap(primary_model: ModelType, join_model: ModelType) -> bool:
+def has_table_overlap(primary_model: ModelType, join_model: ModelType) -> bool:
     """Check whether primary_model and join_model share any underlying tables.
 
     This occurs with SQLAlchemy joined table inheritance when both models
@@ -435,7 +435,7 @@ def build_relationship_joins_config(
             alias = aliased(related_model, name=rel_name)
         model_counts[related_model] = model_counts.get(related_model, 0) + 1
 
-        if alias is None and _has_table_overlap(model, related_model):
+        if alias is None and has_table_overlap(model, related_model):
             alias = aliased(related_model, flat=True)
 
         try:
