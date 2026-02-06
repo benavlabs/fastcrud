@@ -211,6 +211,7 @@ def _find_join_condition(
     fk_model: ModelType,
     target_model: ModelType,
     fk_alias: AliasedClass | None = None,
+    target_alias: AliasedClass | None = None,
 ) -> ColumnElement | None:
     """
     Helper function to find a join condition from fk_model to target_model.
@@ -219,6 +220,8 @@ def _find_join_condition(
         fk_model: The model that may have a foreign key
         target_model: The model that the FK may reference
         fk_alias: Optional alias for the fk_model (the model being joined)
+        target_alias: Optional alias for the target_model (used with joined
+            table inheritance to reference aliased columns)
 
     Returns:
         Join condition if found, None otherwise
@@ -230,20 +233,18 @@ def _find_join_condition(
     fk_columns = [col for col in inspector.c if col.foreign_keys]
     fk_ref = fk_alias if fk_alias is not None else fk_model.__table__
 
-    join_on = next(
-        (
-            cast(
-                ColumnElement,
-                fk_ref.c[col.name]
-                == target_model.__table__.c[list(col.foreign_keys)[0].column.name],
-            )
-            for col in fk_columns
-            if list(col.foreign_keys)[0].column.table == target_model.__table__
-        ),
-        None,
-    )
+    for col in fk_columns:
+        fk_info = list(col.foreign_keys)[0]
+        if fk_info.column.table == target_model.__table__:
+            target_col_name = fk_info.column.name
+            left = fk_ref.c[col.name]
+            if target_alias is not None:
+                right = getattr(target_alias, target_col_name)
+            else:
+                right = target_model.__table__.c[target_col_name]
+            return cast(ColumnElement, left == right)
 
-    return join_on
+    return None
 
 
 def auto_detect_join_condition(
@@ -273,7 +274,9 @@ def auto_detect_join_condition(
     validate_model_has_table(base_model)
     validate_model_has_table(join_model)
 
-    join_on = _find_join_condition(base_model, join_model, fk_alias=None)
+    join_on = _find_join_condition(
+        base_model, join_model, fk_alias=None, target_alias=join_alias
+    )
     if join_on is None:
         join_on = _find_join_condition(join_model, base_model, fk_alias=join_alias)
 
@@ -285,6 +288,19 @@ def auto_detect_join_condition(
         )
 
     return join_on
+
+
+def _has_table_overlap(primary_model: ModelType, join_model: ModelType) -> bool:
+    """Check whether primary_model and join_model share any underlying tables.
+
+    This occurs with SQLAlchemy joined table inheritance when both models
+    inherit from a common base. When tables overlap, SQLAlchemy will
+    auto-alias the joined model, so an explicit alias with ``flat=True``
+    must be used to keep the join condition consistent.
+    """
+    primary_tables = set(sa_inspect(primary_model).mapper.tables)
+    join_tables = set(sa_inspect(join_model).mapper.tables)
+    return bool(primary_tables & join_tables)
 
 
 def discover_model_relationships(
@@ -418,6 +434,9 @@ def build_relationship_joins_config(
         if related_model in model_counts:
             alias = aliased(related_model, name=rel_name)
         model_counts[related_model] = model_counts.get(related_model, 0) + 1
+
+        if alias is None and _has_table_overlap(model, related_model):
+            alias = aliased(related_model, flat=True)
 
         try:
             join_on = auto_detect_join_condition(model, related_model, join_alias=alias)
