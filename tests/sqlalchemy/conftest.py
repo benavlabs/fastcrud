@@ -249,6 +249,47 @@ class ModelWithCustomColumns(Base):
     name = Column("display_name", String(32), nullable=False)
 
 
+# Models for joined inheritance + joined filter regression tests
+class EntityPoly(Base):
+    __tablename__ = "entities_poly"
+    id = Column(Integer, primary_key=True)
+    entity_type = Column(String(50))
+
+    __mapper_args__ = {
+        "polymorphic_on": entity_type,
+        "polymorphic_identity": "entity",
+    }
+
+
+class ContractPoly(EntityPoly):
+    __tablename__ = "contracts_poly"
+    id = Column(Integer, ForeignKey("entities_poly.id"), primary_key=True)
+    operator_id = Column(Integer, nullable=True)
+
+    projects = relationship(
+        "ProjectPoly", back_populates="contract", foreign_keys="ProjectPoly.contract_id"
+    )
+
+    __mapper_args__ = {
+        "polymorphic_identity": "contract",
+    }
+
+
+class ProjectPoly(EntityPoly):
+    __tablename__ = "projects_poly"
+    id = Column(Integer, ForeignKey("entities_poly.id"), primary_key=True)
+    name = Column(String(50), nullable=False)
+    contract_id = Column(Integer, ForeignKey("contracts_poly.id"), nullable=True)
+
+    contract = relationship(
+        "ContractPoly", back_populates="projects", foreign_keys=[contract_id]
+    )
+
+    __mapper_args__ = {
+        "polymorphic_identity": "project",
+    }
+
+
 class CreateSchemaTest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str
