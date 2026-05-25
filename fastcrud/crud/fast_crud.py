@@ -27,6 +27,7 @@ from fastcrud.types import (
     GetMultiResponseDict,
     UpsertMultiResponseModel,
     UpsertMultiResponseDict,
+    _OverrideSchemaType,
 )
 
 from ..core import (
@@ -537,9 +538,9 @@ class FastCRUD(
         object: CreateSchemaType,
         *,
         commit: bool = True,
-        schema_to_select: type[SelectSchemaType],
+        schema_to_select: type[_OverrideSchemaType],
         return_as_model: Literal[True],
-    ) -> SelectSchemaType: ...
+    ) -> _OverrideSchemaType: ...
 
     @overload
     async def create(
@@ -574,7 +575,7 @@ class FastCRUD(
         return_as_model: bool = False,
     ) -> None | SelectSchemaType | dict[str, Any]: ...
 
-    async def create(
+    async def create(  # type: ignore[misc]
         self,
         db: AsyncSession,
         object: CreateSchemaType,
@@ -694,11 +695,11 @@ class FastCRUD(
         self,
         db: AsyncSession,
         *,
-        schema_to_select: type[SelectSchemaType],
+        schema_to_select: type[_OverrideSchemaType],
         return_as_model: Literal[True],
         one_or_none: bool = False,
         **kwargs: Any,
-    ) -> SelectSchemaType | None: ...
+    ) -> _OverrideSchemaType | None: ...
 
     @overload
     async def get(
@@ -733,7 +734,7 @@ class FastCRUD(
         **kwargs: Any,
     ) -> dict[str, Any] | SelectSchemaType | None: ...
 
-    async def get(
+    async def get(  # type: ignore[misc]
         self,
         db: AsyncSession,
         schema_to_select: type[SelectSchemaType] | None = None,
@@ -813,9 +814,9 @@ class FastCRUD(
         db: AsyncSession,
         instance: UpdateSchemaType | CreateSchemaType,
         *,
-        schema_to_select: type[SelectSchemaType],
+        schema_to_select: type[_OverrideSchemaType],
         return_as_model: Literal[True],
-    ) -> SelectSchemaType | None: ...
+    ) -> _OverrideSchemaType | None: ...
 
     @overload
     async def upsert(
@@ -847,7 +848,7 @@ class FastCRUD(
         return_as_model: bool = False,
     ) -> SelectSchemaType | dict[str, Any] | None: ...
 
-    async def upsert(
+    async def upsert(  # type: ignore[misc]
         self,
         db: AsyncSession,
         instance: UpdateSchemaType | CreateSchemaType,
@@ -904,11 +905,11 @@ class FastCRUD(
         *,
         commit: bool = False,
         return_columns: list[str] | None = None,
-        schema_to_select: type[SelectSchemaType],
+        schema_to_select: type[_OverrideSchemaType],
         return_as_model: Literal[True],
         update_override: dict[str, Any] | None = None,
         **kwargs: Any,
-    ) -> UpsertMultiResponseModel[SelectSchemaType] | None: ...
+    ) -> UpsertMultiResponseModel[_OverrideSchemaType] | None: ...
 
     @overload
     async def upsert_multi(
@@ -954,7 +955,7 @@ class FastCRUD(
         UpsertMultiResponseDict | UpsertMultiResponseModel[SelectSchemaType] | None
     ): ...
 
-    async def upsert_multi(
+    async def upsert_multi(  # type: ignore[misc]
         self,
         db: AsyncSession,
         instances: list[UpdateSchemaType | CreateSchemaType],
@@ -1219,13 +1220,13 @@ class FastCRUD(
         *,
         offset: int = 0,
         limit: int | None = 100,
-        schema_to_select: type[SelectSchemaType],
+        schema_to_select: type[_OverrideSchemaType],
         sort_columns: str | list[str] | None = None,
         sort_orders: str | list[str] | None = None,
         return_as_model: Literal[True],
         return_total_count: bool = True,
         **kwargs: Any,
-    ) -> GetMultiResponseModel[SelectSchemaType]: ...
+    ) -> GetMultiResponseModel[_OverrideSchemaType]: ...
 
     @overload
     async def get_multi(
@@ -1272,7 +1273,7 @@ class FastCRUD(
         **kwargs: Any,
     ) -> GetMultiResponseModel[SelectSchemaType] | GetMultiResponseDict: ...
 
-    async def get_multi(
+    async def get_multi(  # type: ignore[misc]
         self,
         db: AsyncSession,
         offset: int = 0,
@@ -1429,11 +1430,11 @@ class FastCRUD(
         db: AsyncSession,
         *,
         auto_detect_relationships: Literal[True],
-        schema_to_select: type[SelectSchemaType],
+        schema_to_select: type[_OverrideSchemaType],
         return_as_model: Literal[True],
         nest_joins: bool = False,
         **kwargs: Any,
-    ) -> SelectSchemaType | None: ...
+    ) -> _OverrideSchemaType | None: ...
 
     @overload
     async def get_joined(
@@ -1464,7 +1465,7 @@ class FastCRUD(
         self,
         db: AsyncSession,
         *,
-        schema_to_select: type[SelectSchemaType],
+        schema_to_select: type[_OverrideSchemaType],
         return_as_model: Literal[True],
         join_model: ModelType | None = None,
         join_on: Join | BinaryExpression | None = None,
@@ -1477,7 +1478,7 @@ class FastCRUD(
         nest_joins: bool = False,
         relationship_type: str | None = None,
         **kwargs: Any,
-    ) -> SelectSchemaType | None: ...
+    ) -> _OverrideSchemaType | None: ...
 
     @overload
     async def get_joined(
@@ -1539,7 +1540,7 @@ class FastCRUD(
         **kwargs: Any,
     ) -> dict[str, Any] | SelectSchemaType | None: ...
 
-    async def get_joined(
+    async def get_joined(  # type: ignore[misc]
         self,
         db: AsyncSession,
         schema_to_select: type[SelectSchemaType] | None = None,
@@ -1941,7 +1942,7 @@ class FastCRUD(
         db: AsyncSession,
         *,
         auto_detect_relationships: Literal[True],
-        schema_to_select: type[SelectSchemaType],
+        schema_to_select: type[_OverrideSchemaType],
         return_as_model: Literal[True],
         nest_joins: bool = False,
         offset: int = 0,
@@ -1950,7 +1951,7 @@ class FastCRUD(
         sort_orders: str | list[str] | None = None,
         return_total_count: bool = True,
         **kwargs: Any,
-    ) -> GetMultiResponseModel[SelectSchemaType]: ...
+    ) -> GetMultiResponseModel[_OverrideSchemaType]: ...
 
     @overload
     async def get_multi_joined(
@@ -1990,7 +1991,7 @@ class FastCRUD(
     async def get_multi_joined(
         self,
         db: AsyncSession,
-        schema_to_select: type[SelectSchemaType],
+        schema_to_select: type[_OverrideSchemaType],
         return_as_model: Literal[True],
         join_model: type[ModelType] | None = None,
         join_on: Any | None = None,
@@ -2010,7 +2011,7 @@ class FastCRUD(
         relationship_type: str | None = None,
         nested_schema_to_select: dict[str, type[SelectSchemaType]] | None = None,
         **kwargs: Any,
-    ) -> GetMultiResponseModel[SelectSchemaType]: ...
+    ) -> GetMultiResponseModel[_OverrideSchemaType]: ...
 
     @overload
     async def get_multi_joined(
@@ -2091,7 +2092,7 @@ class FastCRUD(
         **kwargs: Any,
     ) -> GetMultiResponseModel[SelectSchemaType] | GetMultiResponseDict: ...
 
-    async def get_multi_joined(
+    async def get_multi_joined(  # type: ignore[misc]
         self,
         db: AsyncSession,
         schema_to_select: type[SelectSchemaType] | None = None,
@@ -2557,12 +2558,12 @@ class FastCRUD(
         *,
         cursor: Any = None,
         limit: int = 100,
-        schema_to_select: type[SelectSchemaType],
+        schema_to_select: type[_OverrideSchemaType],
         sort_column: str = "id",
         sort_order: str = "asc",
         return_as_model: Literal[True],
         **kwargs: Any,
-    ) -> dict[str, list[SelectSchemaType] | Any]: ...
+    ) -> dict[str, list[_OverrideSchemaType] | Any]: ...
 
     @overload
     async def get_multi_by_cursor(
@@ -2606,7 +2607,7 @@ class FastCRUD(
         **kwargs: Any,
     ) -> dict[str, list[dict[str, Any] | SelectSchemaType] | Any]: ...
 
-    async def get_multi_by_cursor(
+    async def get_multi_by_cursor(  # type: ignore[misc]
         self,
         db: AsyncSession,
         cursor: Any = None,
