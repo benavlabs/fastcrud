@@ -67,3 +67,24 @@ async def test_read_multi_joined_filter_with_joined_inheritance(async_session):
     assert "data" in payload
     assert len(payload["data"]) == 1
     assert payload["data"][0]["name"] == "Project A"
+
+
+@pytest.mark.asyncio
+async def test_get_multi_joined_auto_relationships_with_joined_inheritance(
+    async_session,
+):
+    """Auto-detected relationships must alias the join target when the primary
+    and related models share a base table (joined inheritance)."""
+    contract_a = ContractPoly(operator_id=10)
+    project_a = ProjectPoly(name="Project A", contract=contract_a)
+    async_session.add_all([contract_a, project_a])
+    await async_session.commit()
+
+    crud = FastCRUD(ProjectPoly)
+    result = await crud.get_multi_joined(
+        db=async_session,
+        auto_detect_relationships=["contract"],
+    )
+
+    assert result["total_count"] == 1
+    assert result["data"][0]["name"] == "Project A"

@@ -5,15 +5,15 @@ This module contains validation logic that is specific to CRUD operations
 but generic enough to be reused across different CRUD classes.
 """
 
-from typing import Any, Callable, Awaitable, TYPE_CHECKING
+from typing import Any, Callable, Awaitable, TYPE_CHECKING, cast
 from sqlalchemy.orm import aliased as sa_aliased
+from sqlalchemy.orm.util import AliasedClass
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import NoResultFound, MultipleResultsFound
 
 from ..core.field_management import has_table_overlap
 
 if TYPE_CHECKING:  # pragma: no cover
-    from sqlalchemy.orm.util import AliasedClass
     from ..types import ModelType, SelectSchemaType
     from ..core import JoinConfig, CountConfig
 
@@ -74,7 +74,7 @@ def validate_joined_query_params(
     join_prefix: str | None = None,
     join_on: Any | None = None,
     join_schema_to_select: type["SelectSchemaType"] | None = None,
-    alias: "AliasedClass[Any] | None" = None,
+    alias: AliasedClass[Any] | None = None,
     relationship_type: str | None = None,
     join_type: str = "left",
     join_filters: dict | None = None,
@@ -131,7 +131,7 @@ def validate_joined_query_params(
     if join_model:
         if alias is None and join_on is None:
             if has_table_overlap(primary_model, join_model):
-                alias = sa_aliased(join_model, flat=True)
+                alias = cast(AliasedClass[Any], sa_aliased(join_model, flat=True))
 
         try:
             join_definitions.append(

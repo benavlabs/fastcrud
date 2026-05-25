@@ -223,10 +223,7 @@ def get_sqlalchemy_column_types(model: ModelType) -> dict[str, TypeEngine]:
         {'id': Integer(), 'name': String(length=255), 'big_id': BigInteger()}
     """
     inspector = get_model_inspector(model)
-    return {
-        column.name: column.type
-        for column in inspector.inspector.mapper.columns
-    }
+    return {column.name: column.type for column in inspector.inspector.mapper.columns}
 
 
 def get_first_primary_key(model: ModelType) -> str:
