@@ -183,9 +183,9 @@ async def test_update_with_schema_object(async_session, test_data):
         select(ModelTest).where(ModelTest.id == target_id)
     )
     updated = updated_record.scalar_one()
-    assert (
-        updated.name == "Updated Via Schema Object"
-    ), "Record should be updated with the name from the schema object."
+    assert updated.name == "Updated Via Schema Object", (
+        "Record should be updated with the name from the schema object."
+    )
 
 
 @pytest.mark.asyncio
@@ -207,9 +207,9 @@ async def test_update_auto_updates_updated_at(async_session, test_data):
     )
     updated = updated_record.scalar_one()
     assert updated.name == "UpdatedName", "Record should be updated with the new name."
-    assert (
-        updated.updated_at > initial_time
-    ), "updated_at should be later than the initial timestamp."
+    assert updated.updated_at > initial_time, (
+        "updated_at should be later than the initial timestamp."
+    )
 
 
 @pytest.mark.parametrize(
@@ -275,3 +275,19 @@ async def test_update_with_returning(
     # Rollback the current transaction to see if the record was actually committed
     await async_session.rollback()
     assert await crud.count(async_session, name="Updated Name") == 1
+
+
+@pytest.mark.asyncio
+async def test_update_return_columns_bool_raises_value_error(async_session, test_data):
+    for item in test_data:
+        async_session.add(ModelTest(**item))
+    await async_session.commit()
+
+    crud = FastCRUD(ModelTest)
+    with pytest.raises(ValueError, match="return_columns must be a list"):
+        await crud.update(
+            db=async_session,
+            object={"name": "Updated"},
+            return_columns=True,
+            id=test_data[0]["id"],
+        )
