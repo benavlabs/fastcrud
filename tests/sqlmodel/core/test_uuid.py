@@ -222,12 +222,14 @@ async def test_uuid_list_endpoint(uuid_client):
 
 
 def test_create_dynamic_filters_type_conversion():
-    filter_config = FilterConfig(uuid_field=None, int_field=None, str_field=None, bool_field=None)
+    filter_config = FilterConfig(
+        uuid_field=None, int_field=None, str_field=None, bool_field=None
+    )
     column_types = {
         "uuid_field": UUID,
         "int_field": int,
         "str_field": str,
-        "bool_field": bool
+        "bool_field": bool,
     }
 
     filters_func = create_dynamic_filters(filter_config, column_types)
@@ -241,7 +243,7 @@ def test_create_dynamic_filters_type_conversion():
     assert result["int_field"] == 123
     assert isinstance(result["str_field"], str)
     assert result["str_field"] == "456"
-    
+
     result = filters_func(
         uuid_field="not-a-uuid", int_field="not-an-int", str_field=456
     )
