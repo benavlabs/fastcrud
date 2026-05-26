@@ -9,6 +9,7 @@ import pytest
 from typing import Annotated
 from fastapi import FastAPI, Depends
 from fastapi.testclient import TestClient
+from pydantic import BaseModel
 from sqlalchemy import Column, Integer, BigInteger, SmallInteger, String, DateTime
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.orm import declarative_base
@@ -32,18 +33,18 @@ class TestCursorModel(Base):
     uuid_field = Column(PostgresUUID(as_uuid=True))
 
 
+class CreateSchema(BaseModel):
+    name: str
+
+
+class UpdateSchema(BaseModel):
+    name: str
+
+
 @pytest.fixture
 def app_with_cursor_validation(async_session):
     """Create a FastAPI app with cursor validation."""
     app = FastAPI()
-
-    from pydantic import BaseModel
-
-    class CreateSchema(BaseModel):
-        name: str
-
-    class UpdateSchema(BaseModel):
-        name: str
 
     endpoint_creator = EndpointCreator(
         session=lambda: async_session,
