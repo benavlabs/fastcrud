@@ -6,15 +6,19 @@ into SQLAlchemy WHERE clauses. It supports complex filtering scenarios including
 OR conditions, NOT conditions, and joined model filters.
 """
 
-from typing import Any
+from typing import Any, TYPE_CHECKING
 from sqlalchemy import Column, or_, not_, and_
 from sqlalchemy.orm.util import AliasedClass
 from sqlalchemy.sql.elements import ColumnElement
 
-from ..introspection import get_model_column
+from ..introspection import get_column_types, get_model_column
 from ...types import ModelType, FilterValueType
-from .operators import get_sqlalchemy_filter, FilterCallable
+from .filter_model import Filter
+from .operators import get_operator_wrap_type, get_sqlalchemy_filter, FilterCallable
 from .validators import validate_joined_filter_format
+
+if TYPE_CHECKING:  # pragma: no cover
+    from ..config.crud_configs import FilterConfig
 
 
 class FilterProcessor:
@@ -371,6 +375,75 @@ class FilterProcessor:
             return [target_column == value]
         else:
             return self._handle_standard_filter(target_column, operator, value)
+
+    def interpret_filters(self, filter_config: "FilterConfig") -> list[Filter]:
+        """
+        Resolve every entry in ``filter_config`` into a :class:`Filter` object.
+
+        For each ``"definition": default`` pair in ``filter_config.filters``,
+        this method splits the operator suffix, walks any relationship path
+        (e.g. ``"tier.name"``), looks up the target SQLAlchemy column on the
+        appropriate model, and derives the Python value type.
+
+        Used by :func:`~fastcrud.fastapi_dependencies.create_dynamic_filters`
+        to build a typed FastAPI dependency, but the resulting metadata is
+        general-purpose.
+
+        Args:
+            filter_config: The ``FilterConfig`` to interpret.
+
+        Returns:
+            One ``Filter`` per entry in ``filter_config.filters``, in
+            definition order.
+
+        Raises:
+            ValueError: If a joined filter references a missing relationship
+                or column, or the format is invalid.
+        """
+        filters: list[Filter] = []
+
+        for definition, default_value in filter_config.filters.items():
+            field_and_operator = definition.rsplit("__", 1)
+            field_definition = field_and_operator[0]
+            operator = field_and_operator[1] if len(field_and_operator) > 1 else None
+
+            param_name = definition.replace(".", "_")
+            wrap_type = get_operator_wrap_type(operator)
+
+            if filter_config.is_joined_filter(definition):
+                validate_joined_filter_format(definition)
+
+                relationship_name, column_name = field_definition.split(".", 1)
+                relationship_column = get_model_column(self.model, relationship_name)
+
+                if not hasattr(relationship_column.property, "mapper"):
+                    raise ValueError(
+                        f"Invalid relationship '{relationship_name}' in model "
+                        f"'{self.model.__name__}'"
+                    )
+
+                joined_model = relationship_column.property.mapper.class_
+                column = get_model_column(joined_model, column_name)
+                value_type = dict(get_column_types(joined_model))[column_name]
+            else:
+                joined_model = None
+                column = get_model_column(self.model, field_definition)
+                value_type = dict(get_column_types(self.model))[field_definition]
+
+            filters.append(
+                Filter(
+                    definition=definition,
+                    param_name=param_name,
+                    default_value=default_value,
+                    operator=operator,
+                    wrap_type=wrap_type,
+                    joined_model=joined_model,
+                    column=column,
+                    value_type=value_type,
+                )
+            )
+
+        return filters
 
     def separate_joined_filters(
         self, **kwargs: Any

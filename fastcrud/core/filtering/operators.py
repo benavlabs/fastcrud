@@ -13,6 +13,8 @@ from ...types import FilterValueType
 
 FilterCallable = Callable[[Column[Any]], Callable[..., ColumnElement[bool]]]
 
+COLLECTION_OPERATORS: frozenset[str] = frozenset({"in", "not_in", "between"})
+
 SUPPORTED_FILTERS: dict[str, FilterCallable] = {
     "eq": lambda column: column.__eq__,
     "gt": lambda column: column.__gt__,
@@ -72,7 +74,7 @@ def get_sqlalchemy_filter(
         >>> custom = {"year": lambda col: lambda val: func.extract('year', col) == val}
         >>> filter_func = get_sqlalchemy_filter('year', 2024, custom_filters=custom)
     """
-    if operator in {"in", "not_in", "between"}:
+    if operator in COLLECTION_OPERATORS:
         if not isinstance(value, (tuple, list, set)):
             raise ValueError(f"<{operator}> filter must be tuple, list or set")
 
@@ -87,3 +89,23 @@ def get_sqlalchemy_filter(
         return custom_filters[operator]
 
     return SUPPORTED_FILTERS.get(operator)
+
+
+def get_operator_wrap_type(operator: str | None) -> type | None:
+    """
+    Return the wrapper type for a filter operator's value, if any.
+
+    Collection operators (``in``, ``not_in``, ``between``) take a sequence of
+    values rather than a single value. Use this to derive the right type
+    annotation: e.g. for ``age__in`` the annotation is ``list[int]``, not
+    ``int``.
+
+    Args:
+        operator: Filter operator string, or None for a bare equality filter.
+
+    Returns:
+        ``list`` for collection operators; ``None`` otherwise.
+    """
+    if operator in COLLECTION_OPERATORS:
+        return list
+    return None
