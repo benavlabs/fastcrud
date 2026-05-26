@@ -1,6 +1,6 @@
 [project]
 name = "fastcrud"
-version = "0.21.0"
+version = "0.22.0"
 description = "FastCRUD is a Python package for FastAPI, offering robust async CRUD operations and flexible endpoint creation utilities."
 authors = [{ name = "Igor Benav", email = "igor@benav.io" }]
 requires-python = ">=3.10,<4"
@@ -33,11 +33,11 @@ Repository = "https://github.com/benavlabs/fastcrud"
 
 [dependency-groups]
 dev = [
-    "pytest>=7.4.4,<8",
+    "pytest>=9.0.3,<10",
     "aiosqlite>=0.19.0,<0.20",
     "greenlet>=3.0.3,<4",
     "httpx>=0.26.0,<0.27",
-    "pytest-asyncio>=0.23.3,<0.24",
+    "pytest-asyncio>=1.0.0,<2",
     "tox>=4.12.1,<5",
     "uvicorn>=0.25.0,<0.26",
     "sqlmodel>=0.0.14,<0.0.15",
@@ -49,7 +49,7 @@ dev = [
     "psycopg-binary>=3.2.9",
     "psycopg>=3.2.1,<4",
     "aiomysql>=0.3.0,<0.4",
-    "cryptography>=44.0.1,<45",
+    "cryptography>=46.0.6,<47",
     "filelock>=3.20.3",
 ]
 
