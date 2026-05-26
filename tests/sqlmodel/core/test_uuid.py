@@ -1,7 +1,7 @@
 import pytest
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column, String
+from sqlalchemy import Boolean, Column, Integer, String
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.types import TypeDecorator
 from pydantic import ConfigDict
@@ -221,18 +221,21 @@ async def test_uuid_list_endpoint(uuid_client):
             pytest.fail("Invalid UUID format in list response")
 
 
+class FilterTypesModel(SQLModel, table=True):
+    __tablename__ = "filter_types_test"
+    id: int = Field(sa_column=Column(Integer, primary_key=True))
+    uuid_field: UUID | None = Field(default=None, sa_column=Column(CustomUUID()))  # type: ignore[misc]
+    int_field: int | None = Field(default=None, sa_column=Column(Integer))
+    str_field: str | None = Field(default=None, sa_column=Column(String(255)))
+    bool_field: bool | None = Field(default=None, sa_column=Column(Boolean))
+
+
 def test_create_dynamic_filters_type_conversion():
     filter_config = FilterConfig(
         uuid_field=None, int_field=None, str_field=None, bool_field=None
     )
-    column_types = {
-        "uuid_field": UUID,
-        "int_field": int,
-        "str_field": str,
-        "bool_field": bool,
-    }
 
-    filters_func = create_dynamic_filters(filter_config, column_types)
+    filters_func = create_dynamic_filters(filter_config, FilterTypesModel)
 
     test_uuid = "123e4567-e89b-12d3-a456-426614174000"
     result = filters_func(uuid_field=test_uuid, int_field="123", str_field=456)
@@ -292,5 +295,5 @@ def test_create_dynamic_filters_type_conversion():
     result = filters_func(bool_field="invalid")
     assert result["bool_field"] == "invalid"
 
-    empty_filters_func = create_dynamic_filters(None, {})
+    empty_filters_func = create_dynamic_filters(None, FilterTypesModel)
     assert empty_filters_func() == {}

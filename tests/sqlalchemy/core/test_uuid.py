@@ -1,7 +1,7 @@
 import pytest
 from uuid import UUID, uuid4
 
-from sqlalchemy import Column, String
+from sqlalchemy import Column, Integer, String
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
 from sqlalchemy.types import TypeDecorator
 from fastapi import FastAPI
@@ -219,15 +219,18 @@ async def test_uuid_list_endpoint(uuid_client):
             pytest.fail("Invalid UUID format in list response")
 
 
+class FilterTypesModel(Base):
+    __tablename__ = "filter_types_test"
+    id = Column(Integer, primary_key=True)
+    uuid_field = Column(CustomUUID())  # type: ignore[misc, var-annotated]
+    int_field = Column(Integer)
+    str_field = Column(String(255))
+
+
 def test_create_dynamic_filters_type_conversion():
     filter_config = FilterConfig(uuid_field=None, int_field=None, str_field=None)
-    column_types = {
-        "uuid_field": UUID,
-        "int_field": int,
-        "str_field": str,
-    }
 
-    filters_func = create_dynamic_filters(filter_config, column_types)
+    filters_func = create_dynamic_filters(filter_config, FilterTypesModel)
 
     test_uuid = "123e4567-e89b-12d3-a456-426614174000"
     result = filters_func(uuid_field=test_uuid, int_field="123", str_field=456)
@@ -255,5 +258,5 @@ def test_create_dynamic_filters_type_conversion():
     result = filters_func(unknown_field="test")
     assert result["unknown_field"] == "test"
 
-    empty_filters_func = create_dynamic_filters(None, {})
+    empty_filters_func = create_dynamic_filters(None, FilterTypesModel)
     assert empty_filters_func() == {}
