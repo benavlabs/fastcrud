@@ -5,6 +5,62 @@
 The Changelog documents all notable changes made to FastCRUD. This includes new features, bug fixes, and improvements. It's organized by version and date, providing a clear history of the library's development.
 ___
 
+## [0.22.0] - May 26, 2026
+
+#### Added
+- **OpenAPI Types for Filter Query Parameters** by [@rsmeral](https://github.com/rsmeral)
+  - `crud_router` now exposes proper column types for filter query parameters in the generated OpenAPI schema (`integer`, `number`, `string`, `boolean`) instead of falling back to `any`
+  - Collection operators render as typed arrays: `field__in` → `array<int>`, `field__between` → `array<string>`, etc.
+  - Joined filters (`relationship.field__op`) pick up the related model's column type
+  - New internal `Filter` metadata model + `FilterProcessor.interpret_filters()` method as a reusable foundation
+  - New `get_operator_wrap_type()` helper and `COLLECTION_OPERATORS` constant in `fastcrud.core.filtering`
+
+- **Cursor Value Validation** by [@shreyansh-singh74](https://github.com/shreyansh-singh74)
+  - Cursor values are now validated against the target column type before querying
+  - Out-of-range integers (int32 / int64 overflow), malformed UUIDs, and unparseable datetimes return a clear HTTP 400 instead of a database error or silent failure
+  - Recognises SQLModel's `GUID` type for UUID cursor validation
+
+#### Fixed
+- **Polymorphic Joined Filtering** by [@luckchain777](https://github.com/luckchain777) (closes [#305](https://github.com/benavlabs/fastcrud/issues/305))
+  - Joined filters on models that share a base table via SQLAlchemy joined-table inheritance no longer raise `UndefinedTableError`
+  - The join target is now auto-aliased (`flat=True`) when the primary and joined models share underlying tables, and the alias is threaded through to the ON clause
+  - Covers both the manual `join_model=` path and `auto_detect_relationships`
+
+- **`update(return_columns=...)` Type Validation** by [@SAY-5](https://github.com/SAY-5) (closes [#316](https://github.com/benavlabs/fastcrud/issues/316))
+  - Passing a non-list value to `return_columns` (e.g. `return_columns=True`) now raises a clear `ValueError` instead of propagating a cryptic `TypeError: 'bool' object is not iterable` from the SQLAlchemy layer
+  - Validation happens at the top of `update()` so the function fails fast before doing any work
+
+- **`schema_to_select` Return-Type Propagation** by [@LucasQR](https://github.com/LucasQR) (closes [#320](https://github.com/benavlabs/fastcrud/issues/320))
+  - Type checkers now correctly infer the return type when `schema_to_select` is passed a subclass of the class-level `SelectSchemaType`
+  - Introduced a method-level TypeVar so the override schema flows through `get`, `get_multi`, `get_joined`, `get_multi_joined`, `get_multi_by_cursor`, `create`, `upsert`, and `upsert_multi`
+
+- **Bool-String Filter Coercion** by [@andrej-suty](https://github.com/andrej-suty)
+  - `?filter=false` (and `False`, `0`) on a `Boolean` column is now correctly coerced to `False` — previously any non-empty string was treated as truthy
+  - Case-insensitive: `False`, `FALSE`, `true`, `TRUE`, `1`, `0` all work
+
+#### Changed
+- **`create_dynamic_filters` Signature**
+  - Signature changed from `create_dynamic_filters(filter_config, column_types: dict)` to `create_dynamic_filters(filter_config, model)`
+  - The model is required to walk joined relationships and derive proper column types
+  - This is a public API on `fastcrud.core`; if you were calling it directly, pass the model instead of a `column_types` dict (the dict can be derived via `get_column_types(model)`)
+
+#### Improved
+- **Test Infrastructure**: Added a top-level `tests/conftest.py` that disables the testcontainers Ryuk reaper to avoid Docker container name collisions on macOS local runs. CI runs on Linux unaffected.
+- **Booking Test Fixtures** by [@slaarti](https://github.com/slaarti) — added booking model fixtures and docstring snippet markers for mkdocs `--8<--` references.
+
+#### What's Changed
+* Fix bool string conversion in filters by [@andrej-suty](https://github.com/andrej-suty) in https://github.com/benavlabs/fastcrud/pull/311
+* Add cursor value validation for cursor-based pagination by [@shreyansh-singh74](https://github.com/shreyansh-singh74) in https://github.com/benavlabs/fastcrud/pull/309
+* Booking model test fixtures by [@slaarti](https://github.com/slaarti) in https://github.com/benavlabs/fastcrud/pull/308
+* Schema to select type recognition fix by [@LucasQR](https://github.com/LucasQR) in https://github.com/benavlabs/fastcrud/pull/321
+* Fix joined filter when primary and join target share polymorphic base by [@luckchain777](https://github.com/luckchain777) in https://github.com/benavlabs/fastcrud/pull/315
+* Raise ValueError when update() receives non-list return_columns by [@SAY-5](https://github.com/SAY-5) in https://github.com/benavlabs/fastcrud/pull/323
+* Expose types of filter parameters by [@rsmeral](https://github.com/rsmeral) in https://github.com/benavlabs/fastcrud/pull/291
+
+**Full Changelog**: https://github.com/benavlabs/fastcrud/compare/v0.21.0...v0.22.0
+
+___
+
 ## [0.21.0] - Jan 23, 2026
 
 #### Added
