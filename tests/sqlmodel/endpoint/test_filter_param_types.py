@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from sqlmodel import Field, SQLModel
 
 from fastcrud import FastCRUD, FilterConfig, crud_router
+from fastcrud.core import FilterProcessor, create_dynamic_filters
 
 from ..conftest import ModelTest
 
@@ -137,3 +138,26 @@ async def test_custom_filters_still_work_with_typed_params():
 
     schema = _openapi_param_schema(app, "/items", "int_param__year")
     assert schema["type"] == "integer"
+
+
+def test_filter_func_passes_collection_values_through_unchanged():
+    """Collection operators (``__in`` / ``__between`` / ``__not_in``) skip the
+    per-value coercion path — the typed annotation lets FastAPI parse the list."""
+    filter_config = FilterConfig(int_param__in=None, str_param__between=None)
+    filters_func = create_dynamic_filters(filter_config, FilterParamTypesModel)
+
+    result = filters_func(int_param__in=[1, 2, 3], str_param__between=["a", "z"])
+
+    assert result == {
+        "int_param__in": [1, 2, 3],
+        "str_param__between": ["a", "z"],
+    }
+
+
+def test_interpret_filters_rejects_non_relationship_dotted_path():
+    """A dotted filter whose first segment is a column, not a relationship,
+    must raise — otherwise we'd try to join on a non-existent mapper."""
+    processor = FilterProcessor(FilterParamTypesModel)
+
+    with pytest.raises(ValueError, match="Invalid relationship 'int_param'"):
+        processor.interpret_filters(FilterConfig(**{"int_param.something__eq": None}))
