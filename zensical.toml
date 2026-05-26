@@ -1,0 +1,149 @@
+[project]
+site_name = "FastCRUD"
+site_description = "Powerful CRUD methods and automatic endpoint creation for FastAPI."
+site_url = "https://benavlabs.github.io/fastcrud"
+docs_dir = "docs"
+site_dir = "site"
+
+copyright = "&copy; 2026 Benav Labs"
+
+# ==============================================================================
+# Theme
+# ==============================================================================
+
+[project.theme]
+variant = "modern"
+
+logo = "assets/logo.png"
+favicon = "assets/logo.png"
+
+font.text = "Ubuntu"
+
+features = [
+    "navigation.instant",
+    "navigation.instant.prefetch",
+    "navigation.tabs",
+    "navigation.indexes",
+    "search.suggest",
+    "content.code.copy",
+]
+
+[[project.theme.palette]]
+scheme = "default"
+primary = "deep purple"
+accent = "deep purple"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+scheme = "slate"
+primary = "deep purple"
+accent = "deep purple"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+# ==============================================================================
+# Repo
+# ==============================================================================
+
+repo_name = "benavlabs/fastcrud"
+repo_url = "https://github.com/benavlabs/fastcrud"
+edit_uri = "edit/main/docs/"
+
+# ==============================================================================
+# Navigation
+# ==============================================================================
+
+[[project.nav]]
+"FastCRUD" = "index.md"
+
+[[project.nav]]
+"Why FastCRUD?" = "why-fastcrud.md"
+
+[[project.nav]]
+"Usage" = [
+    { "Overview" = "usage/overview.md" },
+    { "Automatic Endpoints" = "usage/endpoint.md" },
+    { "CRUD Utilities" = "usage/crud.md" },
+]
+
+[[project.nav]]
+"Advanced" = [
+    { "Overview" = "advanced/overview.md" },
+    { "Custom Endpoints" = "advanced/endpoint.md" },
+    { "Advanced CRUD Usage" = "advanced/crud.md" },
+    { "Advanced Filtering" = "advanced/filters.md" },
+    { "Dependency-Based Filtering" = "advanced/dependency_filtering.md" },
+    { "Joining Models" = "advanced/joins.md" },
+    { "Response Key Configuration" = "advanced/response_keys.md" },
+]
+
+[[project.nav]]
+"API Reference" = [
+    { "Overview" = "api/overview.md" },
+    { "FastCRUD" = "api/fastcrud.md" },
+    { "EndpointCreator" = "api/endpoint_creator.md" },
+    { "crud_router" = "api/crud_router.md" },
+    { "paginated" = "api/paginated.md" },
+]
+
+[[project.nav]]
+"Showcase" = "showcase.md"
+
+[[project.nav]]
+"Community" = [
+    { "Overview" = "community/overview.md" },
+    { "Architecture" = "community/architecture.md" },
+    { "Contributing" = "community/CONTRIBUTING.md" },
+    { "Discord Community" = "community.md" },
+    { "Showcase Submission" = "community/showcase_submission.md" },
+    { "Code of Conduct" = "community/CODE_OF_CONDUCT.md" },
+    { "License" = "community/LICENSE.md" },
+]
+
+[[project.nav]]
+"Changelog" = "changelog.md"
+
+# ==============================================================================
+# Markdown extensions
+# ==============================================================================
+
+[[project.markdown_extensions]]
+admonition = {}
+
+[[project.markdown_extensions]]
+"codehilite" = {}
+
+[[project.markdown_extensions]]
+"toc" = { permalink = true }
+
+[[project.markdown_extensions]]
+"pymdownx.details" = {}
+
+[[project.markdown_extensions]]
+"pymdownx.highlight" = { anchor_linenums = true, line_spans = "__span", pygments_lang_class = true }
+
+[[project.markdown_extensions]]
+"pymdownx.inlinehilite" = {}
+
+[[project.markdown_extensions]]
+"pymdownx.snippets" = {}
+
+[[project.markdown_extensions]]
+"pymdownx.superfences" = {}
+
+[[project.markdown_extensions]]
+"pymdownx.tabbed" = { alternate_style = true }
+
+[[project.markdown_extensions]]
+"attr_list" = {}
+
+[[project.markdown_extensions]]
+"md_in_html" = {}
+
+# ==============================================================================
+# Plugins
+# ==============================================================================
+
+[[project.plugins]]
+"mkdocstrings" = { config = { handlers = { python = { options = { show_source = true } } } } }
