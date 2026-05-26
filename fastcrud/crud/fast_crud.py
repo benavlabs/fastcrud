@@ -983,9 +983,9 @@ class FastCRUD(
             The upserted records as a dictionary containing the operation results:
 
             - When `return_as_model=True` and `schema_to_select` is provided: `UpsertMultiResponseModel[SelectSchemaType]`
-              (`Dict[str, List[SelectSchemaType]]`)
+                (`Dict[str, List[SelectSchemaType]]`)
             - When `return_as_model=False`: `UpsertMultiResponseDict`
-              (`Dict[str, List[Dict[str, Any]]]`)
+                (`Dict[str, List[Dict[str, Any]]]`)
 
             The dictionary contains keys like "updated" and "created" with lists of corresponding records.
 
@@ -2152,9 +2152,9 @@ class FastCRUD(
             A dictionary containing the fetched rows under `"data"` key and total count under `"total_count"`:
 
             - When `return_as_model=True` and `schema_to_select` is provided: `GetMultiResponseModel[SelectSchemaType]`
-              (`Dict[str, Union[List[SelectSchemaType], int]]`)
+                (`Dict[str, Union[List[SelectSchemaType], int]]`)
             - When `return_as_model=False`: `GetMultiResponseDict`
-              (`Dict[str, Union[List[Dict[str, Any]], int]]`)
+                (`Dict[str, Union[List[Dict[str, Any]], int]]`)
 
         Raises:
             ValueError: If either `limit` or `offset` are negative, or if `schema_to_select` is required but not provided or invalid.

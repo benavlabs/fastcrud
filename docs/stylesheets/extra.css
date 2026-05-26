@@ -1,0 +1,27 @@
+/*
+ * Tint the header logo deep purple in light mode.
+ *
+ * The shipped logo.png is white-on-transparent (renders fine in dark mode).
+ * In light mode it would be invisible, so we recolor it via a CSS filter.
+ * Filter chain generated to match `#673AB7` (Material's "deep purple 500").
+ */
+[data-md-color-scheme="default"] .md-header__button.md-logo img,
+[data-md-color-scheme="default"] .md-header__button.md-logo svg {
+  filter: brightness(0) saturate(100%) invert(22%) sepia(78%) saturate(2358%)
+    hue-rotate(255deg) brightness(86%) contrast(89%);
+}
+
+/*
+ * Soften the dark-mode background from near-black to dark gray.
+ *
+ * Material's `slate` scheme defaults to ~#1e1e1f which reads as black on most
+ * displays. Bumping it a few steps to a true dark gray makes long-form text
+ * easier on the eyes.
+ */
+[data-md-color-scheme="slate"] {
+  --md-default-bg-color: hsla(232, 6%, 18%, 1); /* ~#2a2b2e */
+  --md-default-bg-color--light: hsla(232, 6%, 22%, 1);
+  --md-default-bg-color--lighter: hsla(232, 6%, 28%, 1);
+  --md-default-bg-color--lightest: hsla(232, 6%, 32%, 1);
+  --md-code-bg-color: hsla(232, 6%, 14%, 1); /* slightly darker for code blocks */
+}
