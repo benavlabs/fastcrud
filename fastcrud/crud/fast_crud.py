@@ -2881,6 +2881,11 @@ class FastCRUD(
             )
             ```
         """
+        if return_columns is not None and not isinstance(return_columns, list):
+            raise ValueError(
+                "return_columns must be a list of column name strings or None."
+            )
+
         await validate_update_delete_operation(
             self.count, db, allow_multiple, "update", **kwargs
         )
