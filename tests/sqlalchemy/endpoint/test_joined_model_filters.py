@@ -1,4 +1,5 @@
 import pytest
+import pytest_asyncio
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -11,8 +12,7 @@ from tests.sqlalchemy.conftest import (
 )
 
 
-@pytest.fixture
-@pytest.mark.asyncio
+@pytest_asyncio.fixture
 async def setup_test_data(async_session):
     """Set up test data for joined model filtering tests."""
     # Create companies
@@ -97,8 +97,6 @@ async def test_filter_users_by_company_name(
     user_app_with_joined_filters, setup_test_data
 ):
     """Test filtering users by their company name."""
-    # Await the setup_test_data fixture
-    await setup_test_data
     client = TestClient(user_app_with_joined_filters)
 
     # First, let's test a simple request without filters to make sure the endpoint works
@@ -131,8 +129,6 @@ async def test_filter_users_by_company_industry(
     user_app_with_joined_filters, setup_test_data
 ):
     """Test filtering users by their company industry."""
-    # Await the setup_test_data fixture
-    await setup_test_data
     client = TestClient(user_app_with_joined_filters)
 
     # Filter users by company industry "Healthcare"
@@ -154,8 +150,6 @@ async def test_filter_users_by_multiple_joined_filters(
     user_app_with_joined_filters, setup_test_data
 ):
     """Test filtering users by multiple joined model filters."""
-    # Await the setup_test_data fixture
-    await setup_test_data
     client = TestClient(user_app_with_joined_filters)
 
     # Filter users by company name and industry
@@ -177,8 +171,6 @@ async def test_filter_users_combined_regular_and_joined(
     user_app_with_joined_filters, setup_test_data
 ):
     """Test filtering users by combining regular and joined model filters."""
-    # Await the setup_test_data fixture
-    await setup_test_data
     client = TestClient(user_app_with_joined_filters)
 
     # Filter by user name and company name
@@ -198,8 +190,6 @@ async def test_filter_users_combined_regular_and_joined(
 @pytest.mark.asyncio
 async def test_filter_users_no_matches(user_app_with_joined_filters, setup_test_data):
     """Test filtering users with no matching results."""
-    # Await the setup_test_data fixture
-    await setup_test_data
     client = TestClient(user_app_with_joined_filters)
 
     # Filter by non-existent company name

@@ -44,9 +44,20 @@ ___
   - The model is required to walk joined relationships and derive proper column types
   - This is a public API on `fastcrud.core`; if you were calling it directly, pass the model instead of a `column_types` dict (the dict can be derived via `get_column_types(model)`)
 
+#### Security
+- **Bumped vulnerable dev dependencies**:
+  - `pytest` 7.4.4 → 9.0.3 (GHSA: tmpdir handling)
+  - `cryptography` 44.0.3 → 46.0.6+ (SECT curve subgroup attack, incomplete DNS name constraint enforcement)
+  - `urllib3` 2.6.3 → 2.7.0 (decompression-bomb safeguard bypass, sensitive headers forwarded across origins on proxied redirects)
+  - `idna` 3.11 → 3.16 (CVE-2024-3651 bypass via crafted inputs to `idna.encode()`)
+  - `python-dotenv` 1.2.1 → 1.2.2 (symlink-following in `set_key` via cross-device rename fallback)
+  - `requests` 2.32.5 → 2.34.2 (insecure temp file reuse in `extract_zipped_paths`)
+- **Hardened GitHub Actions workflows**: added `permissions: contents: read` to `tests.yml`, `linting.yml`, `type-check.yml`, and `python-versions.yml` (CodeQL recommendation for least-privilege `GITHUB_TOKEN`).
+
 #### Improved
 - **Test Infrastructure**: Added a top-level `tests/conftest.py` that disables the testcontainers Ryuk reaper to avoid Docker container name collisions on macOS local runs. CI runs on Linux unaffected.
 - **Booking Test Fixtures** by [@slaarti](https://github.com/slaarti) — added booking model fixtures and docstring snippet markers for mkdocs `--8<--` references.
+- **mypy config**: removed stale `[mypy-src.app.*]` section that no longer matched any path.
 
 #### What's Changed
 * Fix bool string conversion in filters by [@andrej-suty](https://github.com/andrej-suty) in https://github.com/benavlabs/fastcrud/pull/311
