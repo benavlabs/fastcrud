@@ -20,6 +20,9 @@ from uuid import UUID
 
 from fastapi import Depends, Query, Path, params
 
+from .core.filtering import FilterProcessor
+from .types import ModelType
+
 if TYPE_CHECKING:
     from .core.config import CreateConfig, UpdateConfig, DeleteConfig, FilterConfig
 
@@ -98,82 +101,91 @@ def _str_to_bool(value: bool | str) -> bool:
 
 
 def create_dynamic_filters(
-    filter_config: "FilterConfig | None", column_types: dict[str, type]
+    filter_config: "FilterConfig | None",
+    model: type[ModelType],
 ) -> Callable[..., dict[str, Any]]:
     """
     Create dynamic filter function for handling query parameters.
 
-    This function creates a dependency function that can parse and validate
-    query parameters based on the filter configuration and column types.
+    This function creates a FastAPI dependency that parses, validates, and
+    type-coerces query parameters based on a ``FilterConfig`` and the
+    SQLAlchemy model being filtered. Each filter entry is resolved into a
+    :class:`~fastcrud.core.filtering.Filter` whose ``type`` property is used
+    as the parameter annotation — so the generated OpenAPI schema reports
+    the correct type (``integer``, ``string``, ``boolean``, ``array``, …)
+    instead of falling back to ``any``.
 
     Args:
         filter_config: Configuration object defining available filters.
-        column_types: Dictionary mapping column names to their Python types.
+        model: The SQLAlchemy model the filters apply to. Used to introspect
+            column types and walk joined relationships.
 
     Returns:
         A dependency function that processes filter parameters.
 
     Example:
         >>> filter_config = FilterConfig(filters={"name": None, "age__gte": 18})
-        >>> column_types = {"name": str, "age": int}
-        >>> filter_func = create_dynamic_filters(filter_config, column_types)
+        >>> filter_func = create_dynamic_filters(filter_config, User)
         >>> # filter_func can be used with FastAPI's Depends()
     """
     if filter_config is None:
         return lambda: {}
 
-    param_to_filter_key = {}
-    for original_key in filter_config.filters.keys():
-        param_name = original_key.replace(".", "_")
-        param_to_filter_key[param_name] = original_key
+    interpreted = FilterProcessor(model).interpret_filters(filter_config)
+    filters_by_param: dict[str, Any] = {f.param_name: f for f in interpreted}
 
     def filters(
         **kwargs: Any,
     ) -> dict[str, Any]:
-        filtered_params = {}
+        filtered_params: dict[str, Any] = {}
         for param_name, value in kwargs.items():
-            if value is not None:
-                original_key = param_to_filter_key.get(param_name, param_name)
-                key_without_op = original_key.rsplit("__", 1)[0]
-                parse_func = column_types.get(key_without_op)
-                if parse_func:
-                    try:
-                        # Special handling for bool bool('false') = True
-                        filtered_params[original_key] = (
-                            _str_to_bool(value)
-                            if (parse_func is bool)
-                            else parse_func(value)
-                        )
-                    except (ValueError, TypeError):
-                        filtered_params[original_key] = value
+            if value is None:
+                continue
+
+            filter_ = filters_by_param.get(param_name)
+            if filter_ is None:
+                filtered_params[param_name] = value
+                continue
+
+            # Collection operators (in / not_in / between) pass through as-is —
+            # FastAPI handles list coercion via the parameter annotation.
+            if filter_.wrap_type is not None:
+                filtered_params[filter_.definition] = value
+                continue
+
+            try:
+                if filter_.value_type is bool:
+                    # Special-case: bool("false") is True. Use the helper to
+                    # honour query-string truthiness conventions.
+                    filtered_params[filter_.definition] = _str_to_bool(value)
                 else:
-                    filtered_params[original_key] = value
+                    filtered_params[filter_.definition] = filter_.value_type(value)
+            except (ValueError, TypeError):
+                filtered_params[filter_.definition] = value
+
         return filtered_params
 
-    params = []
-    for key, value in filter_config.filters.items():
-        param_name = key.replace(".", "_")
-
-        if callable(value):
-            params.append(
+    sig_params: list[inspect.Parameter] = []
+    for filter_ in interpreted:
+        if callable(filter_.default_value):
+            sig_params.append(
                 inspect.Parameter(
-                    param_name,
+                    filter_.param_name,
                     inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                    default=Depends(value),
+                    default=Depends(filter_.default_value),
                 )
             )
         else:
-            params.append(
+            sig_params.append(
                 inspect.Parameter(
-                    param_name,
+                    filter_.param_name,
                     inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                    default=Query(value, alias=key),
+                    annotation=filter_.type,
+                    default=Query(filter_.default_value, alias=filter_.definition),
                 )
             )
 
-    sig = inspect.Signature(params)
-    setattr(filters, "__signature__", sig)
-
+    setattr(filters, "__signature__", inspect.Signature(sig_params))
     return filters
 
 
