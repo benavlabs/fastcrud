@@ -1,0 +1,49 @@
+name: Deploy docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv and set the python version
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - name: Install docs dependencies
+        run: uv sync --group docs
+
+      - name: Build docs
+        run: uv run zensical build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

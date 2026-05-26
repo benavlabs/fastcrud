@@ -5,7 +5,7 @@
 The Changelog documents all notable changes made to FastCRUD. This includes new features, bug fixes, and improvements. It's organized by version and date, providing a clear history of the library's development.
 ___
 
-## [0.22.0] - May 26, 2026
+## 0.22.0 - May 26, 2026
 
 #### Added
 - **OpenAPI Types for Filter Query Parameters** by [@rsmeral](https://github.com/rsmeral)
@@ -72,7 +72,7 @@ ___
 
 ___
 
-## [0.21.0] - Jan 23, 2026
+## 0.21.0 - Jan 23, 2026
 
 #### Added
 - **Automatic Relationship Detection** by [@F1nnM](https://github.com/F1nnM)
@@ -115,7 +115,7 @@ ___
 
 ___
 
-## [0.20.1] - Dec 16, 2025
+## 0.20.1 - Dec 16, 2025
 
 #### Fixed
 - **`paginated_response` Type Hint**: Updated `crud_data` parameter to accept `GetMultiResponseDict`, fixing type errors when passing `get_multi()` results.
@@ -125,7 +125,7 @@ ___
 
 ___
 
-## [0.20.0] - Dec 13, 2025
+## 0.20.0 - Dec 13, 2025
 
 #### Added
 - **Custom Filter Operators** by [@igorbenav](https://github.com/igorbenav)
@@ -200,7 +200,7 @@ Python 3.9 and 3.10 are no longer supported.
 
 ___
 
-## [0.19.2] - Nov 15, 2025
+## 0.19.2 - Nov 15, 2025
 
 #### Added
 - **get_joined Method Overloads** by [@igorbenav](https://github.com/igorbenav)
@@ -232,7 +232,7 @@ ___
 
 ___
 
-## [0.19.1] - Nov 10, 2025
+## 0.19.1 - Nov 10, 2025
 
 #### Improved
 - **Enhanced Type Safety for Schema-based Column Selection** by [@igorbenav](https://github.com/igorbenav)
@@ -256,7 +256,7 @@ ___
 
 ___
 
-## [0.19.0] - Nov 7, 2025
+## 0.19.0 - Nov 7, 2025
 
 #### Added
 - **Complete Architectural Overhaul** by [@igorbenav](https://github.com/igorbenav)
@@ -307,7 +307,7 @@ ___
 
 ___
 
-## [0.18.1] - Nov 4, 2025
+## 0.18.1 - Nov 4, 2025
 
 #### Fixed
 - **Composite Primary Key Deduplication Bug in Joins** by [@igorbenav](https://github.com/igorbenav)
@@ -334,7 +334,7 @@ ___
 
 ___
 
-## [0.18.0] - Nov 4, 2025
+## 0.18.0 - Nov 4, 2025
 
 #### Added
 - **CountConfig for Related Object Counting** by [@doubledare704](https://github.com/doubledare704)
@@ -374,7 +374,7 @@ ___
 
 ___
 
-## [0.17.1] - Oct 8, 2025
+## 0.17.1 - Oct 8, 2025
 
 #### Added
 - **Multiple Values Support for OR/NOT Filters** by [@igorbenav](https://github.com/igorbenav)
@@ -409,7 +409,7 @@ ___
 
 ___
 
-## [0.17.0] - Sep 25, 2025
+## 0.17.0 - Sep 25, 2025
 
 #### Fixed
 - **Pydantic Relationship Fields Issue** by [@doubledare704](https://github.com/doubledare704)
@@ -462,7 +462,7 @@ ___
 
 ___
 
-## [0.16.0] - Aug 25, 2025
+## 0.16.0 - Aug 25, 2025
 
 #### Added
 - **Enhanced Create Method** by [@igorbenav](https://github.com/igorbenav)
@@ -497,7 +497,7 @@ ___
 
 ___
 
-## [0.15.12] - Jun 9, 2025
+## 0.15.12 - Jun 9, 2025
 
 #### Added
 - **Configurable Response Key** by [@igorbenav](https://github.com/igorbenav)
@@ -526,7 +526,7 @@ ___
 
 ___
 
-## [0.15.11] - May 10, 2025
+## 0.15.11 - May 10, 2025
 
 #### Added
 - **Multi-Field OR Filter Functionality** by [@doubledare704](https://github.com/doubledare704)
@@ -542,7 +542,7 @@ ___
 
 ___
 
-## [0.15.10] - May 9, 2025
+## 0.15.10 - May 9, 2025
 
 #### Fixed
 - **Metadata Publishing Bug** by [@igorbenav](https://github.com/igorbenav)
@@ -556,7 +556,7 @@ Versions `0.15.8` and `0.15.9` were published only with metadata because of a bu
 
 ___
 
-## [0.15.9] - May 9, 2025
+## 0.15.9 - May 9, 2025
 
 #### Notes
 This version was published only with metadata due to a bug in `pyproject.toml`. See version 0.15.10 for the fix.
@@ -565,7 +565,7 @@ This version was published only with metadata due to a bug in `pyproject.toml`. 
 
 ___
 
-## [0.15.8] - May 9, 2025
+## 0.15.8 - May 9, 2025
 
 #### Added
 - **New Documentation Page** by [@igorbenav](https://github.com/igorbenav)
@@ -611,7 +611,7 @@ ___
 
 ___
 
-## [0.15.7] - Mar 25, 2025
+## 0.15.7 - Mar 25, 2025
 
 #### Added
 - **Advanced filter configs** by [@doubledare704](https://github.com/doubledare704)
@@ -633,7 +633,7 @@ ___
 
 **Full Changelog**: https://github.com/igorbenav/fastcrud/compare/v0.15.6...v0.15.7
 ___
-## [0.15.6] - Feb 19, 2025
+## 0.15.6 - Feb 19, 2025
 
 #### Added
 - **Models and Schemas, Batch 5: Projects and Participants** by [@slaarti](https://github.com/slaarti) in [#195](https://github.com/igorbenav/fastcrud/pull/195)
@@ -653,7 +653,7 @@ ___
 
 **Full Changelog**: https://github.com/igorbenav/fastcrud/compare/v0.15.5...v0.15.6
 ___
-## [0.15.5] - Dec 25, 2024
+## 0.15.5 - Dec 25, 2024
 
 #### Fixed
 - **Get multi with return_as_model** is now properly typed
@@ -668,7 +668,7 @@ ___
 
 **Full Changelog**: https://github.com/igorbenav/fastcrud/compare/v0.15.4...v0.15.5
 ___
-## [0.15.4] - Dec 23, 2024
+## 0.15.4 - Dec 23, 2024
 
 #### Added
 - **Implement select_schema on EndpointCreator and crud_router** by [@ljmc-github](https://github.com/ljmc-github) in [#169](https://github.com/igorbenav/fastcrud/pull/169)
@@ -688,7 +688,7 @@ ___
 
 **Full Changelog**: https://github.com/igorbenav/fastcrud/compare/v0.15.3...v0.15.4
 ___
-## [0.15.3] - Dec 23, 2024
+## 0.15.3 - Dec 23, 2024
 
 #### Fixed
 - **Get multi joined issue** with repetition and wrong count
@@ -698,7 +698,7 @@ ___
 
 **Full Changelog**: https://github.com/igorbenav/fastcrud/compare/v0.15.2...v0.15.3
 ___
-## [0.15.2] - Dec 15, 2024
+## 0.15.2 - Dec 15, 2024
 
 #### Added
 - **Add commit option to upsert_multi** by [@feluelle](https://github.com/feluelle) in [#174](https://github.com/igorbenav/fastcrud/pull/174)
@@ -730,7 +730,7 @@ ___
 
 **Full Changelog**: https://github.com/igorbenav/fastcrud/compare/v0.15.1...v0.15.2
 ___
-## [0.15.1] - Sep 18, 2024
+## 0.15.1 - Sep 18, 2024
 
 #### Added
 - **Support for fastapi >=0.100**
@@ -740,7 +740,7 @@ ___
 
 **Full Changelog**: https://github.com/igorbenav/fastcrud/compare/v0.15.0...v0.15.1
 ___
-## [0.15.0] - Sep 18, 2024
+## 0.15.0 - Sep 18, 2024
 
 #### Added
 - **Models and Schemas for Task Management (Batch 3)** by [@slaarti](https://github.com/slaarti)
@@ -863,7 +863,7 @@ ___
 
 **Full Changelog**: [View the full changelog](https://github.com/igorbenav/fastcrud/compare/v0.14.0...v0.15.0)
 ___
-## [0.14.0] - Jul 29, 2024
+## 0.14.0 - Jul 29, 2024
 
 #### Added
 - Type-checking support for SQLModel types by @kdcokenny 🚀
@@ -1065,7 +1065,7 @@ items = await crud_items.upsert_multi(
 **Full Changelog**: [View the full changelog](https://github.com/igorbenav/fastcrud/compare/v0.13.1...v0.14.0)
 
 
-## [0.13.1] - Jun 22, 2024
+## 0.13.1 - Jun 22, 2024
 
 #### Added
 - More Advanced Filters by @JakNowy 🎉
@@ -1142,7 +1142,7 @@ items = await item_crud.get_multi(
 
 **Full Changelog**: https://github.com/igorbenav/fastcrud/compare/v0.13.0...v0.13.1
 
-## [0.13.0] - May 28, 2024
+## 0.13.0 - May 28, 2024
 
 #### Added
 - Filters in Automatic Endpoints 🎉
@@ -1401,7 +1401,7 @@ The result will be:
 
 **Full Changelog**: https://github.com/igorbenav/fastcrud/compare/v0.12.1...v0.13.0
 
-## [0.12.1] - May 10, 2024
+## 0.12.1 - May 10, 2024
 
 #### Added
 - Deprecation Warning for dependency handling.
@@ -1414,7 +1414,7 @@ If you pass a sequence of `params.Depends` type variables to any `*_deps` parame
 **Full Changelog**: https://github.com/igorbenav/fastcrud/compare/v0.12.0...v0.12.1
 
 
-## [0.12.0] - May 8, 2024
+## 0.12.0 - May 8, 2024
 
 #### Added
 - Unpaginated versions of multi-row get methods by @slaarti in #62  🎉
@@ -1488,8 +1488,8 @@ You may now pass `__in` and `__not_in` to methods that accept advanced queries:
 - `__gte`: greater than or equal to,
 - `__lte`: less than or equal to,
 - `__ne`: not equal,
-- `__in`: included in [tuple, list or set],
-- `__not_in`: not included in [tuple, list or set].
+- `__in`: included in \[tuple, list or set\],
+- `__not_in`: not included in \[tuple, list or set\].
 
 #### What's Changed
 - Add unpaginated versions of multi-row get methods (w/tests) by [@slaarti](https://github.com/slaarti) 🎉
@@ -1507,7 +1507,7 @@ You may now pass `__in` and `__not_in` to methods that accept advanced queries:
 **Full Changelog**: https://github.com/igorbenav/fastcrud/compare/v0.11.1...v0.12.0
 
 
-## [0.11.1] - Apr 22, 2024
+## 0.11.1 - Apr 22, 2024
 
 #### Added
 - `one_or_none` parameter to FastCRUD `get` method (default `False`)
@@ -1613,7 +1613,7 @@ This works for both `get_joined` and `get_multi_joined`.
 
 **Full Changelog**: [View the full changelog](https://github.com/igorbenav/fastcrud/compare/v0.11.0...v0.11.1)
 
-## [0.11.0] - Apr 7, 2024
+## 0.11.0 - Apr 7, 2024
 
 #### Added
 - Multiple primary keys support, a significant enhancement by @dubusster in #31 🎉.
@@ -1654,7 +1654,7 @@ The `get_multi` and `get_multi_joined` methods now feature an `return_total_coun
 
 **Full Changelog**: [View the full changelog](https://github.com/igorbenav/fastcrud/compare/v0.10.0...v0.11.0)
 
-## [0.10.0] - Mar 30, 2024
+## 0.10.0 - Mar 30, 2024
 
 #### Added
 - `select` statement functionality, thanks to @dubusster's contribution in PR #28 🚀.
@@ -1695,7 +1695,7 @@ Detailed explanations and examples are provided for using joins in `count`, `get
 
 ___
 
-## [0.9.1] - Mar 19, 2024
+## 0.9.1 - Mar 19, 2024
 
 #### Added
 - Enhanced `get_joined` and `get_multi_joined` methods to support aliases, enabling multiple joins on the same model. This improvement addresses issue #27.
@@ -1716,7 +1716,7 @@ To demonstrate the use of aliases, consider a task management system where tasks
 
 ___
 
-## [0.9.0] - Mar 14, 2024
+## 0.9.0 - Mar 14, 2024
 
 #### Added
 - Enhanced `get_joined` and `get_multi_joined` methods now support handling joins with multiple models.
@@ -1744,7 +1744,7 @@ A practical example involves retrieving users alongside their corresponding tier
 
 ___
 
-## [0.8.0] - Mar 4, 2024
+## 0.8.0 - Mar 4, 2024
 
 #### Added
 - Feature to customize names of auto-generated endpoints using the `endpoint_names` parameter, applicable in both `crud_router` function and `EndpointCreator`.
@@ -1771,7 +1771,7 @@ Similarly, when using the `EndpointCreator`, the `endpoint_names` parameter allo
 
 ___
 
-## [0.7.0] - Feb 20, 2024
+## 0.7.0 - Feb 20, 2024
 
 #### Added
 - The `get_paginated` endpoint for retrieving items with pagination support.
@@ -1802,7 +1802,7 @@ The introduction of the `paginated` module brings two key utility functions, `pa
 
 ___
 
-## [0.6.0] - Feb 11, 2024
+## 0.6.0 - Feb 11, 2024
 
 #### Added
 - The ability to use a custom `updated_at` column name in models.
@@ -1824,7 +1824,7 @@ The example demonstrates how to specify a custom column name for `updated_at` wh
 
 ___
 
-## [0.5.0] - Feb 3, 2024
+## 0.5.0 - Feb 3, 2024
 
 #### Added
 - Advanced filters inspired by Django ORM for enhanced querying capabilities.
@@ -1864,7 +1864,7 @@ The introduction of optional bulk operations for updating and deleting records p
 
 ___
 
-## [0.4.0] - Jan 31, 2024
+## 0.4.0 - Jan 31, 2024
 
 #### Added
 - Documentation and tests for SQLModel support.
@@ -1881,7 +1881,7 @@ Check the [docs for SQLModel support](https://igorbenav.github.io/fastcrud/sqlmo
 
 ___
 
-## [0.3.0] - Jan 28, 2024
+## 0.3.0 - Jan 28, 2024
 
 #### Added
 - The `CustomEndpointCreator` for advanced route creation and customization.
@@ -1920,7 +1920,7 @@ Examples for using `included_methods` and `deleted_methods` illustrate how to sp
 
 ___
 
-## [0.2.1] - Jan 27, 2024
+## 0.2.1 - Jan 27, 2024
 
 ### What's Changed
 - Improved type hints across the codebase, enhancing the clarity and reliability of type checking within FastCRUD.
@@ -1931,19 +1931,19 @@ ___
 
 ___
 
-## [0.2.0] - Jan 25, 2024
+## 0.2.0 - Jan 25, 2024
 
 ### Added
 - [Docs Published!](https://igorbenav.github.io/fastcrud/)
 
 ___
 
-## [0.1.5] - Jan 24, 2024
+## 0.1.5 - Jan 24, 2024
 
 Readme updates, pyproject requirements
 
 ___
 
-## [0.1.2] - Jan 23, 2024
+## 0.1.2 - Jan 23, 2024
 
 First public release.
