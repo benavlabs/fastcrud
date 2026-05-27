@@ -10,6 +10,7 @@ It sits between :class:`~fastcrud.core.config.crud_configs.FilterConfig`
 clauses produced by :class:`~fastcrud.core.filtering.processor.FilterProcessor`.
 """
 
+import builtins
 from typing import Any, cast
 
 from pydantic import BaseModel, ConfigDict, SkipValidation, computed_field
@@ -46,13 +47,13 @@ class Filter(BaseModel):
     param_name: str
     default_value: Any
     operator: str | None
-    wrap_type: type | None
-    joined_model: type | None
+    wrap_type: builtins.type | None
+    joined_model: builtins.type | None
     column: SkipValidation[Column[Any]]
-    value_type: type
+    value_type: builtins.type
 
     @computed_field
-    def type(self) -> type:
+    def type(self) -> builtins.type:
         """
         Final Python type for OpenAPI / FastAPI signature generation.
 
@@ -60,5 +61,5 @@ class Filter(BaseModel):
         (e.g. ``list[int]``) for collection operators.
         """
         if self.wrap_type:
-            return cast(type, self.wrap_type[self.value_type])  # type: ignore[index]
+            return cast(builtins.type, self.wrap_type[self.value_type])  # type: ignore[index]
         return self.value_type
