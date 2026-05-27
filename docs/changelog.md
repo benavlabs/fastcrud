@@ -5,6 +5,23 @@
 The Changelog documents all notable changes made to FastCRUD. This includes new features, bug fixes, and improvements. It's organized by version and date, providing a clear history of the library's development.
 ___
 
+## 0.22.1 - May 27, 2026
+
+#### Fixed
+- **Python 3.14 PEP 649 Startup Crash** by [@mhills88](https://github.com/mhills88)
+  - Importing `fastcrud` on Python 3.14 crashed with `TypeError: unsupported operand type(s) for |: 'property' and 'NoneType'` while evaluating the `type | None` annotations on the internal `Filter` model
+  - Root cause: under [PEP 649](https://peps.python.org/pep-0649/), annotations are evaluated lazily against the class namespace, where the `@computed_field def type(self)` property shadows the builtin `type`
+  - Fixed by qualifying the four affected annotations as `builtins.type`; no public API change and no rename of the `type` computed field
+  - Behavior unchanged on Python 3.10/3.11/3.12/3.13
+
+#### What's Changed
+* Fix Python 3.14 PEP 649 startup crash: qualify Filter `type` annotations as `builtins.type` by [@mhills88](https://github.com/mhills88) in https://github.com/benavlabs/fastcrud/pull/327
+* Mirror PEP 649 regression test under `tests/sqlmodel/core/` by [@igorbenav](https://github.com/igorbenav) in https://github.com/benavlabs/fastcrud/pull/328
+
+**Full Changelog**: https://github.com/benavlabs/fastcrud/compare/v0.22.0...v0.22.1
+
+___
+
 ## 0.22.0 - May 26, 2026
 
 #### Added
