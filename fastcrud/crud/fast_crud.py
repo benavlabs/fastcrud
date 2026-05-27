@@ -2,6 +2,7 @@ from typing import Any, Generic, Sequence, overload, Literal, cast
 from datetime import datetime, timezone
 
 from sqlalchemy import (
+    inspect,
     select,
     update,
     delete,
@@ -618,8 +619,10 @@ class FastCRUD(
         if not schema_to_select:
             return None
 
+        mapper = inspect(db_object.__class__)
         data_dict = {
-            col.key: getattr(db_object, col.key) for col in db_object.__table__.columns
+            attr.key: getattr(db_object, attr.key)
+            for attr in mapper.column_attrs
         }
         if not return_as_model:
             return data_dict
