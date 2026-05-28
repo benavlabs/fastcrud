@@ -1,7 +1,21 @@
 import pytest
+from pydantic import BaseModel, ConfigDict, ValidationError
 from sqlalchemy import select
+
 from fastcrud.crud.fast_crud import FastCRUD
-from pydantic import ValidationError
+
+from ..conftest import ProjectPoly
+
+
+class ProjectPolyCreate(BaseModel):
+    name: str
+
+
+class ProjectPolyRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    entity_type: str
 
 
 @pytest.mark.asyncio
@@ -171,3 +185,30 @@ async def test_create_successful_multi_pk(
     assert fetched_record.name == "New Record"
     assert fetched_record.id == 1
     assert fetched_record.uuid == "a"
+
+
+@pytest.mark.asyncio
+async def test_create_returns_inherited_columns(async_session):
+    """create() must include columns from parent tables under joined-table inheritance.
+
+    ProjectPoly inherits from EntityPoly, so ``entity_type`` lives on the parent
+    table. Before the inspect()/column_attrs fix, ``__table__.columns`` only
+    walked the child table and the discriminator went missing from the dict
+    used to build the response schema.
+
+    Not mirrored under tests/sqlmodel/ because SQLModel joined-table inheritance
+    is fragile (subclass ``id`` redeclaration breaks the SQLModel metaclass
+    mapping). The fix lives in shared code, so this sqlalchemy regression test
+    is sufficient.
+    """
+    crud = FastCRUD(ProjectPoly)
+    result = await crud.create(
+        async_session,
+        ProjectPolyCreate(name="Apollo"),
+        schema_to_select=ProjectPolyRead,
+    )
+
+    assert result is not None
+    assert result["name"] == "Apollo"
+    # entity_type is on the parent table (entities_poly), not projects_poly
+    assert result["entity_type"] == "project"
