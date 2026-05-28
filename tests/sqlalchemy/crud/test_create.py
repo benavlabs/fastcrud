@@ -1,7 +1,21 @@
 import pytest
+from pydantic import BaseModel, ConfigDict, ValidationError
 from sqlalchemy import select
+
 from fastcrud.crud.fast_crud import FastCRUD
-from pydantic import ValidationError
+
+from ..conftest import ProjectPoly
+
+
+class ProjectPolyCreate(BaseModel):
+    name: str
+
+
+class ProjectPolyRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    name: str
+    entity_type: str
 
 
 @pytest.mark.asyncio
@@ -172,53 +186,29 @@ async def test_create_successful_multi_pk(
     assert fetched_record.id == 1
     assert fetched_record.uuid == "a"
 
+
 @pytest.mark.asyncio
 async def test_create_returns_inherited_columns(async_session):
-    """Test that create() returns columns from parent tables in joined table inheritance."""
-    from sqlalchemy import Integer, String, ForeignKey
-    from sqlalchemy.orm import DeclarativeBase, mapped_column, Mapped
+    """create() must include columns from parent tables under joined-table inheritance.
 
-    class InheritBase(DeclarativeBase):
-        pass
+    ProjectPoly inherits from EntityPoly, so ``entity_type`` lives on the parent
+    table. Before the inspect()/column_attrs fix, ``__table__.columns`` only
+    walked the child table and the discriminator went missing from the dict
+    used to build the response schema.
 
-    class Animal(InheritBase):
-        __tablename__ = "animal"
-        id: Mapped[int] = mapped_column(Integer, primary_key=True)
-        name: Mapped[str] = mapped_column(String(50))
-        __mapper_args__ = {"polymorphic_on": "type", "polymorphic_identity": "animal"}
-        type: Mapped[str] = mapped_column(String(20))
+    Not mirrored under tests/sqlmodel/ because SQLModel joined-table inheritance
+    is fragile (subclass ``id`` redeclaration breaks the SQLModel metaclass
+    mapping). The fix lives in shared code, so this sqlalchemy regression test
+    is sufficient.
+    """
+    crud = FastCRUD(ProjectPoly)
+    result = await crud.create(
+        async_session,
+        ProjectPolyCreate(name="Apollo"),
+        schema_to_select=ProjectPolyRead,
+    )
 
-    class Dog(Animal):
-        __tablename__ = "dog"
-        id: Mapped[int] = mapped_column(Integer, ForeignKey("animal.id"), primary_key=True)
-        breed: Mapped[str] = mapped_column(String(50))
-        __mapper_args__ = {"polymorphic_identity": "dog"}
-
-    from pydantic import BaseModel
-
-    class DogCreate(BaseModel):
-        name: str
-        breed: str
-        type: str = "dog"
-
-    class DogRead(BaseModel):
-        model_config = {"from_attributes": True}
-        id: int
-        name: str
-        breed: str
-
-    # Create tables
-    async with async_session.bind.begin() as conn:
-        await conn.run_sync(InheritBase.metadata.create_all)
-
-    crud = FastCRUD(Dog)
-    result = await crud.create(async_session, DogCreate(name="Rex", breed="Labrador"), schema_to_select=DogRead)
-
-    # This should include 'name' from parent Animal table
     assert result is not None
-    assert result["name"] == "Rex"
-    assert result["breed"] == "Labrador"
-
-    # Cleanup
-    async with async_session.bind.begin() as conn:
-        await conn.run_sync(InheritBase.metadata.drop_all)
+    assert result["name"] == "Apollo"
+    # entity_type is on the parent table (entities_poly), not projects_poly
+    assert result["entity_type"] == "project"

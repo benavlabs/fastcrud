@@ -621,8 +621,7 @@ class FastCRUD(
 
         mapper = inspect(db_object.__class__)
         data_dict = {
-            attr.key: getattr(db_object, attr.key)
-            for attr in mapper.column_attrs
+            attr.key: getattr(db_object, attr.key) for attr in mapper.column_attrs
         }
         if not return_as_model:
             return data_dict
