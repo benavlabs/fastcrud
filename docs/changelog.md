@@ -5,6 +5,21 @@
 The Changelog documents all notable changes made to FastCRUD. This includes new features, bug fixes, and improvements. It's organized by version and date, providing a clear history of the library's development.
 ___
 
+## 0.22.2 - May 27, 2026
+
+#### Fixed
+- **Inherited Columns Missing from `create()` Response** by [@Newton-hubs](https://github.com/Newton-hubs) (closes [#307](https://github.com/benavlabs/fastcrud/issues/307))
+  - For models using SQLAlchemy joined-table inheritance, `create(schema_to_select=...)` was building the response dict from `__table__.columns`, which only walks the child table — so any column defined on a parent table (including the polymorphic discriminator) was silently dropped from the result
+  - Switched to `inspect(cls).column_attrs` so the full mapped attribute chain is enumerated, including columns inherited from parent tables
+  - No behavior change for non-polymorphic models
+
+#### What's Changed
+* Use `mapper.column_attrs` to include inherited columns in `create()` response by [@Newton-hubs](https://github.com/Newton-hubs) in https://github.com/benavlabs/fastcrud/pull/330
+
+**Full Changelog**: https://github.com/benavlabs/fastcrud/compare/v0.22.1...v0.22.2
+
+___
+
 ## 0.22.1 - May 27, 2026
 
 #### Fixed
