@@ -264,6 +264,21 @@ Built something with FastCRUD? We'd love to feature it! Submit your project thro
 Benav Labs – [benav.io](https://benav.io)
 [github.com/benavlabs](https://github.com/benavlabs/)
 
+## Build a full SaaS on FastAPI
+
+FastCRUD handles the data layer in **[FastroAI](https://fastro.ai)** - the complete FastAPI SaaS template: auth, Stripe payments (subscriptions, credits, discounts), entitlements, transactional email, an Astro frontend, and PydanticAI agents, wired together and production-ready.
+
+<p align="center">
+  <a href="https://fastro.ai">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://github.com/benavlabs/fastcrud/blob/main/docs/assets/fastroai-card-dark.png?raw=true">
+      <img src="https://github.com/benavlabs/fastcrud/blob/main/docs/assets/fastroai-card-light.png?raw=true" alt="FastroAI - the complete FastAPI SaaS template: auth, Stripe payments, entitlements, email, frontend and AI" width="100%">
+    </picture>
+  </a>
+</p>
+
+<p align="center"><b><a href="https://fastro.ai">Ship your SaaS faster with FastroAI →</a></b></p>
+
 <hr>
 <a href="https://benav.io">
   <img src="docs/assets/benav_labs_banner.png" alt="Powered by Benav Labs - benav.io"/>
