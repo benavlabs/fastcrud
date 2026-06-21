@@ -18,7 +18,7 @@ ___
   - New `docs/library-skill.md` page with install instructions, layout, and contributing pointer; new nav entry in `zensical.toml`
 
 #### What's Changed
-* Add bundled Library Skill for AI coding agents by [@igorbenav](https://github.com/igorbenav) in https://github.com/benavlabs/fastcrud/pull/XXX
+* Add bundled Library Skill for AI coding agents by [@igorbenav](https://github.com/igorbenav) in https://github.com/benavlabs/fastcrud/pull/334
 
 **Full Changelog**: https://github.com/benavlabs/fastcrud/compare/v0.22.2...v0.22.3
 
