@@ -47,6 +47,7 @@
 - **Modular and Extensible**: Designed for easy extension and customization to fit your requirements.
 - **Auto-generated Endpoints**: Streamlines the process of adding CRUD endpoints with custom dependencies and configurations.
 - **Clean Architecture**: Built with a six-level dependency hierarchy that prevents circular dependencies and supports future extensibility.
+- **Bundled AI Agent Skill**: Ships with an [Agent Skill](https://agentskills.io/) so AI coding tools (Claude Code, Cursor, Copilot, …) know how to use FastCRUD correctly. See [AI Agent Skill](agent-skill.md).
 
 ## Quick Start
 

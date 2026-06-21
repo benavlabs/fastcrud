@@ -43,6 +43,7 @@
 - ➤ **Cursor-based Pagination**: Implements efficient pagination for large datasets, ideal for infinite scrolling interfaces.
 - 🤸‍♂️ **Modular and Extensible**: Designed for easy extension and customization to fit your requirements.
 - 🛣️ **Auto-generated Endpoints**: Streamlines the process of adding CRUD endpoints with custom dependencies and configurations.
+- 🤖 **Bundled Library Skill**: Ships with a [Library Skill](https://github.com/tiangolo/library-skills) so AI coding tools (Claude Code, Cursor, Copilot, …) know how to use FastCRUD correctly — including N+1 avoidance and when to drop to raw SQLAlchemy.
 
 <h2>Requirements</h2>
 <p>Before installing FastCRUD, ensure you have the following prerequisites:</p>
@@ -71,6 +72,30 @@ Or, if using UV:
 ```sh
 uv add fastcrud
 ```
+
+<h2>For AI Coding Agents</h2>
+
+FastCRUD ships with a bundled [Library Skill](https://github.com/tiangolo/library-skills) at `fastcrud/.agents/skills/fastcrud/SKILL.md`, following the [Agent Skills](https://agentskills.io/) standard.
+
+To make it available to your coding agent, run [`library-skills`](https://github.com/tiangolo/library-skills) from your project directory after `fastcrud` is installed:
+
+```sh
+# In any project that has fastcrud installed
+uvx library-skills              # for Codex, Cursor, Copilot, OpenCode, etc.
+uvx library-skills --claude     # for Claude Code (uses .claude/skills instead)
+```
+
+This symlinks the bundled skill into `.agents/skills/` (or `.claude/skills/` for Claude Code). Re-run after upgrading FastCRUD to pick up skill changes.
+
+The skill teaches agents:
+
+- The canonical setup pattern (model → schemas → `crud_router`)
+- How to pick the right method (and avoid N+1 when fetching related data)
+- The `limit=None` footgun and the three-tier pagination default
+- **When NOT to use FastCRUD** — aggregates, CTEs, `GROUP BY` projections, bulk writes belong to raw SQLAlchemy
+- Return-value semantics, the filter operator syntax (`__gte`, `__in`, `__ilike`, …), soft delete, joined-table inheritance gotchas
+
+Reference deep-dives live under `fastcrud/.agents/skills/fastcrud/references/` for `methods`, `filters`, `joins`, `pagination`, and `endpoints`.
 
 <h2>Usage</h2>
 
