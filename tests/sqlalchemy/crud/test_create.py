@@ -212,3 +212,32 @@ async def test_create_returns_inherited_columns(async_session):
     assert result["name"] == "Apollo"
     # entity_type is on the parent table (entities_poly), not projects_poly
     assert result["entity_type"] == "project"
+
+
+@pytest.mark.asyncio
+async def test_create_with_nested_related_object(async_session):
+    """Test that create() handles nested related objects (fixes #282)."""
+    from ..conftest import TierModel, ModelTest
+    from pydantic import BaseModel
+
+    class TierCreate(BaseModel):
+        name: str
+
+    class ModelTestWithTierCreate(BaseModel):
+        name: str
+        tier: TierCreate
+
+    crud = FastCRUD(TierModel)
+
+    # Create a tier with nested data directly
+    tier_create = TierCreate(name="test_tier_nested")
+    result = await crud.create(async_session, tier_create, schema_to_select=None)
+    assert result is None
+
+    # Verify it was created
+    from sqlalchemy import select
+    stmt = select(TierModel).where(TierModel.name == "test_tier_nested")
+    db_result = await async_session.execute(stmt)
+    fetched = db_result.scalar_one_or_none()
+    assert fetched is not None
+    assert fetched.name == "test_tier_nested"
