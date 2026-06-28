@@ -12,6 +12,7 @@ from sqlalchemy import (
 from sqlalchemy.exc import MultipleResultsFound
 from sqlalchemy.sql import Join
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from sqlalchemy.engine.row import Row
 from sqlalchemy.orm.util import AliasedClass
 from sqlalchemy.sql.elements import BinaryExpression
@@ -1054,7 +1055,7 @@ class FastCRUD(
             await db.commit()
         return None
 
-    async def exists(self, db: AsyncSession, **kwargs: Any) -> bool:
+    async def exists(self, db: AsyncSession | Session, **kwargs: Any) -> bool:
         """
         Checks if any records exist that match the given filter conditions.
 
@@ -1095,12 +1096,15 @@ class FastCRUD(
         filters = self._filter_processor.parse_filters(**kwargs)
         stmt = select(self.model).filter(*filters).limit(1)
 
-        result = await db.execute(stmt)
+        if isinstance(db, AsyncSession):
+            result = await db.execute(stmt)
+        else:
+            result = db.execute(stmt)
         return result.first() is not None
 
     async def count(
         self,
-        db: AsyncSession,
+        db: AsyncSession | Session,
         joins_config: list[JoinConfig] | None = None,
         distinct_on_primary: bool = False,
         **kwargs: Any,
@@ -1209,10 +1213,12 @@ class FastCRUD(
                 count_query, primary_filters
             )
 
-        total_count: int | None = await db.scalar(count_query)
+        if isinstance(db, AsyncSession):
+            total_count: int | None = await db.scalar(count_query)
+        else:
+            total_count = db.scalar(count_query)
         if total_count is None:
             raise ValueError("Could not find the count.")
-
         return total_count
 
     @overload
