@@ -5,6 +5,25 @@
 The Changelog documents all notable changes made to FastCRUD. This includes new features, bug fixes, and improvements. It's organized by version and date, providing a clear history of the library's development.
 ___
 
+## 0.22.3 - Jun 21, 2026
+
+#### Added
+- **Bundled Library Skill for AI Coding Agents** by [@igorbenav](https://github.com/igorbenav)
+  - FastCRUD now ships a [Library Skill](https://github.com/tiangolo/library-skills) inside the wheel at `fastcrud/.agents/skills/fastcrud/`, following the [Agent Skills](https://agentskills.io/) standard
+  - Compatible coding assistants (Claude Code, Cursor, GitHub Copilot, OpenCode, Goose, and [30+ others](https://agentskills.io/clients)) can pick up FastCRUD-specific guidance after the user runs `uvx library-skills` (or `npx library-skills`) from their project root
+  - For Claude Code, run `uvx library-skills --claude` to install into `.claude/skills/` instead of `.agents/skills/`
+  - The skill installs as a symbolic link, so upgrading FastCRUD automatically updates the guidance — no re-run needed
+  - Main `SKILL.md` covers canonical setup, choosing the right CRUD method, N+1 avoidance, the `limit=None` footgun, when NOT to use FastCRUD (aggregates, CTEs, `GROUP BY` projections, bulk writes), return-value semantics, the filter operator syntax, soft delete, and joined-table inheritance gotchas
+  - On-demand reference deep-dives under `references/` for `methods`, `filters`, `joins`, `pagination`, and `endpoints`
+  - New `docs/library-skill.md` page with install instructions, layout, and contributing pointer; new nav entry in `zensical.toml`
+
+#### What's Changed
+* Add bundled Library Skill for AI coding agents by [@igorbenav](https://github.com/igorbenav) in https://github.com/benavlabs/fastcrud/pull/334
+
+**Full Changelog**: https://github.com/benavlabs/fastcrud/compare/v0.22.2...v0.22.3
+
+___
+
 ## 0.22.2 - May 27, 2026
 
 #### Fixed

@@ -63,6 +63,9 @@ edit_uri = "edit/main/docs/"
 "Why FastCRUD?" = "why-fastcrud.md"
 
 [[project.nav]]
+"Library Skill" = "library-skill.md"
+
+[[project.nav]]
 "Usage" = [
     { "Overview" = "usage/overview.md" },
     { "Automatic Endpoints" = "usage/endpoint.md" },
