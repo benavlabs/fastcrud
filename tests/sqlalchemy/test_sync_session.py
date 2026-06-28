@@ -3,10 +3,13 @@ Tests for sync Session support in FastCRUD.count() and FastCRUD.exists()
 Relates to: https://github.com/benavlabs/fastcrud/issues/122
 """
 import pytest
+import pytest_asyncio
+from unittest.mock import MagicMock
 from sqlalchemy import create_engine, Column, Integer, String, select, func
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from pydantic import BaseModel
+from fastcrud import FastCRUD
 
 
 class Base(DeclarativeBase):
@@ -129,3 +132,61 @@ class TestCountWithSyncSession:
         sync_db.commit()
         total = await _count(sync_db, Book)
         assert total == 4
+
+
+@pytest_asyncio.fixture
+async def async_db():
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    async with AsyncSession(engine) as session:
+        session.add_all([
+            Book(title="Clean Code", author="Robert Martin"),
+            Book(title="The Pragmatic Programmer", author="Hunt & Thomas"),
+        ])
+        await session.commit()
+        yield session
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
+    await engine.dispose()
+
+
+class TestHelpersWithAsyncSession:
+
+    @pytest.mark.asyncio
+    async def test_count_helper_with_async_session(self, async_db):
+        total = await _count(async_db, Book)
+        assert total == 2
+
+    @pytest.mark.asyncio
+    async def test_exists_helper_with_async_session(self, async_db):
+        result = await _exists(async_db, Book, title="Clean Code")
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_count_none_raises_value_error(self):
+        mock_db = MagicMock()
+        mock_db.scalar.return_value = None
+        with pytest.raises(ValueError, match="Could not find the count"):
+            await _count(mock_db, Book)
+
+
+class TestFastCRUDWithSyncSession:
+
+    @pytest.mark.asyncio
+    async def test_fastcrud_count_sync_session(self, sync_db):
+        crud = FastCRUD(Book)
+        total = await crud.count(sync_db)
+        assert total == 3
+
+    @pytest.mark.asyncio
+    async def test_fastcrud_exists_sync_session_found(self, sync_db):
+        crud = FastCRUD(Book)
+        result = await crud.exists(sync_db, title="Clean Code")
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_fastcrud_exists_sync_session_not_found(self, sync_db):
+        crud = FastCRUD(Book)
+        result = await crud.exists(sync_db, title="Nonexistent Book")
+        assert result is False
