@@ -1,5 +1,6 @@
 import pytest
 from sqlalchemy import select
+from sqlmodel import SQLModel
 from fastcrud.crud.fast_crud import FastCRUD
 from pydantic import ValidationError
 
@@ -171,3 +172,65 @@ async def test_create_successful_multi_pk(
     assert fetched_record.name == "New Record"
     assert fetched_record.id == 1
     assert fetched_record.uuid == "a"
+
+
+@pytest.mark.asyncio
+async def test_create_persists_a_nested_to_one_object(async_session):
+    """A nested object is created alongside its owner and linked to it (SQLModel)."""
+    from ..conftest import Article, Card
+
+    class CardCreate(SQLModel):
+        title: str
+
+    class ArticleWithCard(SQLModel):
+        title: str
+        card: CardCreate
+
+    await FastCRUD(Article).create(
+        async_session,
+        ArticleWithCard(title="Nested", card=CardCreate(title="Nested Card")),
+    )
+
+    article = (
+        await async_session.execute(select(Article).where(Article.title == "Nested"))
+    ).scalar_one()
+    card = (
+        await async_session.execute(select(Card).where(Card.title == "Nested Card"))
+    ).scalar_one()
+    assert article.card_id == card.id
+
+
+@pytest.mark.asyncio
+async def test_create_persists_a_list_of_nested_objects(async_session):
+    """A to-many relationship arrives as a list and is created as rows (SQLModel)."""
+    from ..conftest import Article, Card
+
+    class ArticleTitle(SQLModel):
+        title: str
+
+    class CardWithArticles(SQLModel):
+        title: str
+        articles: list[ArticleTitle]
+
+    await FastCRUD(Card).create(
+        async_session,
+        CardWithArticles(
+            title="Full Card",
+            articles=[ArticleTitle(title="One"), ArticleTitle(title="Two")],
+        ),
+    )
+
+    card = (
+        await async_session.execute(select(Card).where(Card.title == "Full Card"))
+    ).scalar_one()
+    titles = sorted(
+        article.title
+        for article in (
+            await async_session.execute(
+                select(Article).where(Article.card_id == card.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert titles == ["One", "Two"]

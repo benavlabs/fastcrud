@@ -172,6 +172,31 @@ new_item_model = await item_crud.create(
     
     **Recommended**: Always use `schema_to_select` to get the created data back in one operation. This is more efficient than separate create + get calls.
 
+#### Creating related objects
+
+A create schema may carry the objects the new row relates to, and they're created with it:
+
+```python
+class AuthorCreate(BaseModel):
+    name: str
+
+class ArticleCreate(BaseModel):
+    title: str
+    author: AuthorCreate                  # a to-one relationship
+    # or: tags: list[TagCreate]           # a to-many relationship takes a list
+
+await article_crud.create(
+    db_session,
+    ArticleCreate(title="On Rivers", author=AuthorCreate(name="A. Writer")),
+)
+```
+
+The field name must match the relationship on the model, and nesting can go as deep as the
+relationships do. A to-many relationship takes a list and a to-one takes a single object; the
+wrong shape raises `ValueError` naming the field, and `None` means there's nothing to relate, so
+an optional nested field left unset just creates the row. Anything that isn't a relationship is
+passed through untouched, so flat schemas behave exactly as before.
+
 !!! WARNING
 
     Note that naive `datetime` such as `datetime.utcnow` is not supported by `FastCRUD` as it was [deprecated](https://github.com/python/cpython/pull/103858).
