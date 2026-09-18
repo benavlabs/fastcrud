@@ -56,7 +56,7 @@ from .validation import (
     validate_pagination_params,
     validate_joined_query_params,
 )
-from .data_preparation import prepare_update_data
+from .data_preparation import instantiate_related_objects, prepare_update_data
 from .execution import (
     execute_update_and_return_response,
     handle_joined_filters_delegation,
@@ -605,7 +605,7 @@ class FastCRUD(
                 "schema_to_select must be provided when return_as_model is True."
             )
 
-        object_dict = object.model_dump()
+        object_dict = instantiate_related_objects(object.model_dump(), self.model)
         db_object: ModelType = self.model(**object_dict)
         db.add(db_object)
 

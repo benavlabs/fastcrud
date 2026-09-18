@@ -4,7 +4,7 @@ from sqlalchemy import select
 
 from fastcrud.crud.fast_crud import FastCRUD
 
-from ..conftest import ProjectPoly
+from ..conftest import Article, Author, ProjectPoly
 
 
 class ProjectPolyCreate(BaseModel):
@@ -212,3 +212,192 @@ async def test_create_returns_inherited_columns(async_session):
     assert result["name"] == "Apollo"
     # entity_type is on the parent table (entities_poly), not projects_poly
     assert result["entity_type"] == "project"
+
+
+class AuthorCreate(BaseModel):
+    name: str
+
+
+class ArticleTitle(BaseModel):
+    title: str
+
+
+class ArticleWithAuthor(BaseModel):
+    title: str
+    author: AuthorCreate
+
+
+class AuthorWithArticles(BaseModel):
+    name: str
+    articles: list[ArticleTitle]
+
+
+@pytest.mark.asyncio
+async def test_create_persists_a_nested_to_one_object(async_session):
+    """A nested object is created alongside its owner and linked to it."""
+    crud = FastCRUD(Article)
+
+    await crud.create(
+        async_session,
+        ArticleWithAuthor(title="Nested", author=AuthorCreate(name="Nested Author")),
+    )
+
+    article = (
+        await async_session.execute(select(Article).where(Article.title == "Nested"))
+    ).scalar_one()
+    author = (
+        await async_session.execute(
+            select(Author).where(Author.name == "Nested Author")
+        )
+    ).scalar_one()
+    assert article.author_id == author.id
+
+
+@pytest.mark.asyncio
+async def test_create_persists_a_list_of_nested_objects(async_session):
+    """A to-many relationship arrives as a list of dicts and is created as rows."""
+    crud = FastCRUD(Author)
+
+    await crud.create(
+        async_session,
+        AuthorWithArticles(
+            name="Prolific Author",
+            articles=[ArticleTitle(title="First"), ArticleTitle(title="Second")],
+        ),
+    )
+
+    author = (
+        await async_session.execute(
+            select(Author).where(Author.name == "Prolific Author")
+        )
+    ).scalar_one()
+    articles = (
+        (
+            await async_session.execute(
+                select(Article).where(Article.author_id == author.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert sorted(article.title for article in articles) == ["First", "Second"]
+
+
+@pytest.mark.asyncio
+async def test_create_nests_more_than_one_level_deep(async_session):
+    """A nested object carrying its own nested objects is built all the way down."""
+
+    class AuthorWithNested(BaseModel):
+        name: str
+        articles: list[ArticleTitle]
+
+    class ArticleWithNestedAuthor(BaseModel):
+        title: str
+        author: AuthorWithNested
+
+    crud = FastCRUD(Article)
+
+    await crud.create(
+        async_session,
+        ArticleWithNestedAuthor(
+            title="Outer",
+            author=AuthorWithNested(
+                name="Deep Author", articles=[ArticleTitle(title="Inner")]
+            ),
+        ),
+    )
+
+    author = (
+        await async_session.execute(select(Author).where(Author.name == "Deep Author"))
+    ).scalar_one()
+    titles = sorted(
+        article.title
+        for article in (
+            (
+                await async_session.execute(
+                    select(Article).where(Article.author_id == author.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+    )
+    assert titles == ["Inner", "Outer"]
+
+
+@pytest.mark.asyncio
+async def test_create_rejects_a_single_object_for_a_to_many_relationship(async_session):
+    """The wrong shape is named here, not deep inside SQLAlchemy."""
+
+    class AuthorWithOneArticle(BaseModel):
+        name: str
+        articles: ArticleTitle
+
+    crud = FastCRUD(Author)
+
+    with pytest.raises(ValueError, match="'articles' is a to-many relationship"):
+        await crud.create(
+            async_session,
+            AuthorWithOneArticle(
+                name="Confused Author", articles=ArticleTitle(title="Only one")
+            ),
+        )
+
+
+@pytest.mark.asyncio
+async def test_create_rejects_a_list_for_a_to_one_relationship(async_session):
+    """And the same the other way around."""
+
+    class ArticleWithAuthors(BaseModel):
+        title: str
+        author: list[AuthorCreate]
+
+    crud = FastCRUD(Article)
+
+    with pytest.raises(ValueError, match="'author' is a to-one relationship"):
+        await crud.create(
+            async_session,
+            ArticleWithAuthors(title="Confused", author=[AuthorCreate(name="A")]),
+        )
+
+
+@pytest.mark.asyncio
+async def test_create_treats_a_none_relationship_as_nothing_to_relate(async_session):
+    """An optional nested field left unset creates the row and no relations."""
+
+    class AuthorOptionalArticles(BaseModel):
+        name: str
+        articles: list[ArticleTitle] | None = None
+
+    await FastCRUD(Author).create(
+        async_session, AuthorOptionalArticles(name="Unset Articles")
+    )
+
+    author = (
+        await async_session.execute(
+            select(Author).where(Author.name == "Unset Articles")
+        )
+    ).scalar_one()
+    articles = (
+        (
+            await async_session.execute(
+                select(Article).where(Article.author_id == author.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    assert articles == []
+
+
+@pytest.mark.asyncio
+async def test_create_without_relationships_is_unchanged(async_session):
+    """A flat schema still creates exactly one row."""
+    crud = FastCRUD(Author)
+
+    await crud.create(async_session, AuthorCreate(name="Flat Author"))
+
+    author = (
+        await async_session.execute(select(Author).where(Author.name == "Flat Author"))
+    ).scalar_one()
+    assert author.name == "Flat Author"
