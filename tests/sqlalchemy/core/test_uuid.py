@@ -242,6 +242,15 @@ def test_create_dynamic_filters_type_conversion():
     assert isinstance(result["str_field"], str)
     assert result["str_field"] == "456"
 
+    # FastAPI may coerce query params to native types before filters run.
+    # Re-calling UUID() on an existing UUID raises AttributeError.
+    parsed_uuid = UUID(test_uuid)
+    result = filters_func(uuid_field=parsed_uuid)
+    assert result["uuid_field"] is parsed_uuid
+
+    result = filters_func(int_field=123)
+    assert result["int_field"] == 123
+
     result = filters_func(
         uuid_field="not-a-uuid", int_field="not-an-int", str_field=456
     )
