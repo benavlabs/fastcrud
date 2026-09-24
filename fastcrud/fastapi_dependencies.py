@@ -158,9 +158,11 @@ def create_dynamic_filters(
                     # Special-case: bool("false") is True. Use the helper to
                     # honour query-string truthiness conventions.
                     filtered_params[filter_.definition] = _str_to_bool(value)
+                elif isinstance(value, filter_.value_type):
+                    filtered_params[filter_.definition] = value
                 else:
                     filtered_params[filter_.definition] = filter_.value_type(value)
-            except (ValueError, TypeError):
+            except (ValueError, TypeError, AttributeError):
                 filtered_params[filter_.definition] = value
 
         return filtered_params
