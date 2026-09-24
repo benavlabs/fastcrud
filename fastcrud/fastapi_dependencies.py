@@ -162,7 +162,7 @@ def create_dynamic_filters(
                     filtered_params[filter_.definition] = value
                 else:
                     filtered_params[filter_.definition] = filter_.value_type(value)
-            except (ValueError, TypeError):
+            except (ValueError, TypeError, AttributeError):
                 filtered_params[filter_.definition] = value
 
         return filtered_params

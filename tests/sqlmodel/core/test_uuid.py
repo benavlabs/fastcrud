@@ -247,14 +247,12 @@ def test_create_dynamic_filters_type_conversion():
     assert isinstance(result["str_field"], str)
     assert result["str_field"] == "456"
 
-    # FastAPI may coerce query params to native types before filters run.
-    # Re-calling UUID() on an existing UUID raises AttributeError.
     parsed_uuid = UUID(test_uuid)
     result = filters_func(uuid_field=parsed_uuid)
     assert result["uuid_field"] is parsed_uuid
 
-    result = filters_func(int_field=123)
-    assert result["int_field"] == 123
+    result = filters_func(uuid_field=123)
+    assert result["uuid_field"] == 123
 
     result = filters_func(
         uuid_field="not-a-uuid", int_field="not-an-int", str_field=456
@@ -306,3 +304,58 @@ def test_create_dynamic_filters_type_conversion():
 
     empty_filters_func = create_dynamic_filters(None, FilterTypesModel)
     assert empty_filters_func() == {}
+
+
+class FilterTypesSchema(SQLModel):
+    uuid_field: UUID | None = None
+    int_field: int | None = None
+    str_field: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)  # type: ignore[assignment]
+
+
+@pytest.fixture
+def filtered_uuid_client(async_session):
+    app = FastAPI()
+
+    app.include_router(
+        crud_router(
+            session=lambda: async_session,
+            model=FilterTypesModel,
+            crud=FastCRUD(FilterTypesModel),
+            create_schema=FilterTypesSchema,
+            update_schema=FilterTypesSchema,
+            path="/filter-types",
+            tags=["filter-types"],
+            filter_config=FilterConfig(uuid_field=None),
+            endpoint_names={
+                "create": "create",
+                "read": "get",
+                "update": "update",
+                "delete": "delete",
+                "read_multi": "get_multi",
+            },
+        )
+    )
+
+    return TestClient(app)
+
+
+@pytest.mark.asyncio
+@pytest.mark.dialect("sqlite")
+async def test_filtering_by_uuid_through_a_request(filtered_uuid_client, async_session):
+    """The parameter is annotated as a UUID, so FastAPI parses it before the filter runs."""
+    wanted, other = uuid4(), uuid4()
+    async_session.add_all(
+        [
+            FilterTypesModel(uuid_field=wanted, int_field=1, str_field="a"),
+            FilterTypesModel(uuid_field=other, int_field=2, str_field="b"),
+        ]
+    )
+    await async_session.commit()
+
+    response = filtered_uuid_client.get(f"/filter-types/get_multi?uuid_field={wanted}")
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert [item["int_field"] for item in data] == [1]

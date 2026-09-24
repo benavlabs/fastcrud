@@ -1,9 +1,11 @@
+from enum import Enum
+
 import pytest
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 
 from fastcrud import crud_router, FilterConfig
-from tests.sqlalchemy.conftest import ModelWithOrgTest
+from tests.sqlalchemy.conftest import ModelTest, ModelWithOrgTest
 
 
 class UserInfo:
@@ -89,3 +91,49 @@ async def test_dependency_filtered_endpoint(
     assert len(data) > 0
     for item in data:
         assert item["organization_id"] == 42
+
+
+class Status(str, Enum):
+    ACTIVE = "active"
+
+
+async def get_status() -> Status:
+    return Status.ACTIVE
+
+
+@pytest.fixture
+def enum_filtered_client(
+    test_model, create_schema, update_schema, delete_schema, async_session
+):
+    app = FastAPI()
+
+    app.include_router(
+        crud_router(
+            session=lambda: async_session,
+            model=test_model,
+            create_schema=create_schema,
+            update_schema=update_schema,
+            delete_schema=delete_schema,
+            filter_config=FilterConfig(name=get_status),
+            path="/test",
+            tags=["test"],
+        )
+    )
+
+    return TestClient(app)
+
+
+@pytest.mark.asyncio
+async def test_a_str_enum_from_a_dependency_filters_by_its_value(
+    enum_filtered_client, async_session
+):
+    """``str(Status.ACTIVE)`` is ``"Status.ACTIVE"``, which would match no row."""
+    async_session.add_all(
+        [ModelTest(name="active", tier_id=1), ModelTest(name="done", tier_id=1)]
+    )
+    await async_session.commit()
+
+    response = enum_filtered_client.get("/test")
+
+    assert response.status_code == 200
+    assert [item["name"] for item in response.json()["data"]] == ["active"]
