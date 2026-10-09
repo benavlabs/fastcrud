@@ -7,7 +7,7 @@ query construction with support for filtering, sorting, pagination, and joins.
 
 from typing import Any, TYPE_CHECKING
 from sqlalchemy import Select, select, func
-from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.elements import ColumnElement, TextClause
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .sorting import SortProcessor
@@ -55,7 +55,9 @@ class SQLQueryBuilder:
         else:
             return select(self.model)
 
-    def apply_filters(self, stmt: Select, filters: list[ColumnElement]) -> Select:
+    def apply_filters(
+        self, stmt: Select, filters: list[ColumnElement | TextClause]
+    ) -> Select:
         """
         Apply WHERE conditions to statement.
 

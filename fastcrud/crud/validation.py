@@ -5,6 +5,7 @@ This module contains validation logic that is specific to CRUD operations
 but generic enough to be reused across different CRUD classes.
 """
 
+from collections.abc import Sequence
 from typing import Any, Callable, Awaitable, TYPE_CHECKING, cast
 from sqlalchemy.orm import aliased as sa_aliased
 from sqlalchemy.orm.util import AliasedClass
@@ -16,6 +17,28 @@ from ..core.field_management import has_table_overlap
 if TYPE_CHECKING:  # pragma: no cover
     from ..types import ModelType, SelectSchemaType
     from ..core import JoinConfig, CountConfig
+
+
+def refuse_without_filters(filters: Sequence[Any], operation_name: str) -> None:
+    """
+    Refuse an update or delete with no conditions, which would reach every record.
+
+    The conditions are checked once parsed, so filters that produce none, such as
+    ``where=[]`` built by a loop that added nothing, are refused too.
+
+    Args:
+        filters: The parsed conditions of the operation
+        operation_name: Name of the operation for error messages (e.g., "update", "delete")
+
+    Raises:
+        ValueError: If there are no conditions. ``where=true()`` reaches every record on purpose.
+    """
+    if not filters:
+        raise ValueError(
+            f"No filters provided. To prevent an accidental {operation_name} of all "
+            "records, at least one filter must be specified; pass where=true() to "
+            f"{operation_name} them all."
+        )
 
 
 async def validate_update_delete_operation(

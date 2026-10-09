@@ -7,7 +7,7 @@ that vary between PostgreSQL, SQLite, and MySQL.
 
 from typing import Union, Any, TYPE_CHECKING
 from sqlalchemy import Insert, and_
-from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.elements import ColumnElement, TextClause
 from sqlalchemy.dialects import postgresql, sqlite, mysql
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -18,7 +18,7 @@ async def upsert_multi_postgresql(
     model_class: Any,
     primary_keys: list[str],
     instances: list[Union["UpdateSchemaType", "CreateSchemaType"]],
-    filters: list[ColumnElement],
+    filters: list[ColumnElement | TextClause],
     update_set_override: dict[str, Any],
 ) -> tuple[Insert, list[dict]]:
     """
@@ -53,7 +53,7 @@ async def upsert_multi_sqlite(
     model_class: Any,
     primary_keys: list[str],
     instances: list[Union["UpdateSchemaType", "CreateSchemaType"]],
-    filters: list[ColumnElement],
+    filters: list[ColumnElement | TextClause],
     update_set_override: dict[str, Any],
 ) -> tuple[Insert, list[dict]]:
     """
