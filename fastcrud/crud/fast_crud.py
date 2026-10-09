@@ -889,7 +889,7 @@ class FastCRUD(
                 return_as_model=return_as_model,
             )
         else:
-            await self.update(db, instance)  # type: ignore
+            await self.update(db, instance, **_pks)  # type: ignore
             db_instance = await self.get(
                 db,
                 schema_to_select=schema_to_select,  # type: ignore

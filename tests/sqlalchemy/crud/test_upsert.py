@@ -17,6 +17,26 @@ async def test_upsert_successful(async_session, test_model, read_schema):
     assert read_schema.model_validate(updated_fetched_record) == fetched_record
 
 
+@pytest.mark.asyncio
+async def test_upsert_updates_only_its_own_record(
+    async_session, test_model, read_schema
+):
+    crud = FastCRUD(test_model)
+    await crud.upsert(
+        async_session, read_schema(id=1, name="One", tier_id=1, category_id=None)
+    )
+    await crud.upsert(
+        async_session, read_schema(id=2, name="Two", tier_id=1, category_id=None)
+    )
+
+    await crud.upsert(
+        async_session, read_schema(id=1, name="Renamed", tier_id=1, category_id=None)
+    )
+
+    assert (await crud.get(async_session, id=1))["name"] == "Renamed"
+    assert (await crud.get(async_session, id=2))["name"] == "Two"
+
+
 @pytest.mark.parametrize(
     ["insert", "update"],
     [
