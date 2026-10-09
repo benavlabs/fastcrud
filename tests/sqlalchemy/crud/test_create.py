@@ -1,6 +1,9 @@
+from typing import Any
+
 import pytest
 from pydantic import BaseModel, ConfigDict, ValidationError
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from fastcrud.crud.fast_crud import FastCRUD
 
@@ -284,7 +287,9 @@ async def test_create_persists_a_list_of_nested_objects(async_session):
 
 
 @pytest.mark.asyncio
-async def test_create_nests_more_than_one_level_deep(async_session):
+async def test_create_nests_more_than_one_level_deep(
+    async_session: AsyncSession,
+) -> None:
     """A nested object carrying its own nested objects is built all the way down."""
 
     class AuthorWithNested(BaseModel):
@@ -295,7 +300,9 @@ async def test_create_nests_more_than_one_level_deep(async_session):
         title: str
         author: AuthorWithNested
 
-    crud = FastCRUD(Article)
+    crud: FastCRUD[Article, ArticleWithNestedAuthor, Any, Any, Any, Any] = FastCRUD(
+        Article
+    )
 
     await crud.create(
         async_session,
@@ -326,14 +333,16 @@ async def test_create_nests_more_than_one_level_deep(async_session):
 
 
 @pytest.mark.asyncio
-async def test_create_rejects_a_single_object_for_a_to_many_relationship(async_session):
+async def test_create_rejects_a_single_object_for_a_to_many_relationship(
+    async_session: AsyncSession,
+) -> None:
     """The wrong shape is named here, not deep inside SQLAlchemy."""
 
     class AuthorWithOneArticle(BaseModel):
         name: str
         articles: ArticleTitle
 
-    crud = FastCRUD(Author)
+    crud: FastCRUD[Author, AuthorWithOneArticle, Any, Any, Any, Any] = FastCRUD(Author)
 
     with pytest.raises(ValueError, match="'articles' is a to-many relationship"):
         await crud.create(
@@ -345,14 +354,16 @@ async def test_create_rejects_a_single_object_for_a_to_many_relationship(async_s
 
 
 @pytest.mark.asyncio
-async def test_create_rejects_a_list_for_a_to_one_relationship(async_session):
+async def test_create_rejects_a_list_for_a_to_one_relationship(
+    async_session: AsyncSession,
+) -> None:
     """And the same the other way around."""
 
     class ArticleWithAuthors(BaseModel):
         title: str
         author: list[AuthorCreate]
 
-    crud = FastCRUD(Article)
+    crud: FastCRUD[Article, ArticleWithAuthors, Any, Any, Any, Any] = FastCRUD(Article)
 
     with pytest.raises(ValueError, match="'author' is a to-one relationship"):
         await crud.create(
@@ -362,16 +373,19 @@ async def test_create_rejects_a_list_for_a_to_one_relationship(async_session):
 
 
 @pytest.mark.asyncio
-async def test_create_treats_a_none_relationship_as_nothing_to_relate(async_session):
+async def test_create_treats_a_none_relationship_as_nothing_to_relate(
+    async_session: AsyncSession,
+) -> None:
     """An optional nested field left unset creates the row and no relations."""
 
     class AuthorOptionalArticles(BaseModel):
         name: str
         articles: list[ArticleTitle] | None = None
 
-    await FastCRUD(Author).create(
-        async_session, AuthorOptionalArticles(name="Unset Articles")
+    crud: FastCRUD[Author, AuthorOptionalArticles, Any, Any, Any, Any] = FastCRUD(
+        Author
     )
+    await crud.create(async_session, AuthorOptionalArticles(name="Unset Articles"))
 
     author = (
         await async_session.execute(
