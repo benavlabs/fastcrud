@@ -584,3 +584,50 @@ async def test_nested_limit_no_matching_related_records(async_session):
 
     author_data = result["data"][0]
     assert author_data["articles"] == []
+
+
+@pytest.mark.asyncio
+async def test_nested_limit_filters_do_not_change_the_total_count(async_session):
+    async_session.add_all(
+        [
+            Author(id=1, name="Author 1"),
+            Author(id=2, name="Author 2"),
+            Author(id=3, name="Author 3"),
+            Article(
+                id=1,
+                title="Kept",
+                content="C1",
+                author_id=1,
+                published_date="2023-01-01",
+            ),
+            Article(
+                id=2,
+                title="Dropped",
+                content="C2",
+                author_id=2,
+                published_date="2023-01-02",
+            ),
+        ]
+    )
+    await async_session.commit()
+
+    result = await FastCRUD(Author).get_multi_joined(
+        db=async_session,
+        joins_config=[
+            JoinConfig(
+                model=Article,
+                join_on=Author.id == Article.author_id,
+                join_prefix="articles_",
+                relationship_type="one-to-many",
+                nested_limit=5,
+                filters={"published_date": "2023-01-01"},
+            )
+        ],
+        nest_joins=True,
+    )
+
+    articles_by_author = {
+        author["id"]: len(author["articles"]) for author in result["data"]
+    }
+    assert articles_by_author == {1: 1, 2: 0, 3: 0}
+    assert result["total_count"] == 3

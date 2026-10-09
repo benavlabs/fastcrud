@@ -10,6 +10,7 @@ from typing import Any, Callable, TYPE_CHECKING, cast
 
 from ...types import SelectSchemaType
 from ..introspection import get_primary_key_names
+from ..query.one_to_many import split_join_configs
 from .nesting import nest_join_data
 from .transforms import format_multi_response
 
@@ -169,9 +170,10 @@ async def format_joined_response(
     response: dict[str, Any] = {"data": formatted_data}
 
     if return_total_count and db and count_func:
+        main_query_joins, _ = split_join_configs(join_definitions)
         distinct_on_primary = bool(
             nest_joins
-            and any(j.relationship_type == "one-to-many" for j in join_definitions)
+            and any(j.relationship_type == "one-to-many" for j in main_query_joins)
         )
         non_filter_params = {
             "schema_to_select",
@@ -197,7 +199,7 @@ async def format_joined_response(
         filter_kwargs = {k: v for k, v in kwargs.items() if k not in non_filter_params}
         total_count: int = await count_func(
             db=db,
-            joins_config=join_definitions,
+            joins_config=main_query_joins,
             distinct_on_primary=distinct_on_primary,
             **filter_kwargs,
         )
