@@ -631,3 +631,92 @@ async def test_nested_limit_filters_do_not_change_the_total_count(async_session)
     }
     assert articles_by_author == {1: 1, 2: 0, 3: 0}
     assert result["total_count"] == 3
+
+
+async def _two_authors_with_articles(async_session):
+    async_session.add_all(
+        [
+            Author(id=1, name="Author 1"),
+            Author(id=2, name="Author 2"),
+            Article(
+                id=1,
+                title="Kept",
+                content="C1",
+                author_id=1,
+                published_date="2023-01-01",
+            ),
+            Article(
+                id=2,
+                title="Dropped",
+                content="C2",
+                author_id=1,
+                published_date="2023-01-02",
+            ),
+            Article(
+                id=3,
+                title="Dropped",
+                content="C3",
+                author_id=2,
+                published_date="2023-01-03",
+            ),
+        ]
+    )
+    await async_session.commit()
+
+
+def _articles_join(join_on):
+    return JoinConfig(
+        model=Article,
+        join_on=join_on,
+        join_prefix="articles_",
+        relationship_type="one-to-many",
+        nested_limit=5,
+    )
+
+
+@pytest.mark.asyncio
+async def test_nested_limit_applies_the_join_on_conditions_on_the_related_model(
+    async_session,
+):
+    await _two_authors_with_articles(async_session)
+
+    result = await FastCRUD(Author).get_multi_joined(
+        db=async_session,
+        joins_config=[
+            _articles_join((Author.id == Article.author_id) & (Article.title == "Kept"))
+        ],
+        nest_joins=True,
+    )
+
+    titles_by_author = {
+        author["id"]: [article["title"] for article in author["articles"]]
+        for author in result["data"]
+    }
+    assert titles_by_author == {1: ["Kept"], 2: []}
+    assert result["total_count"] == 2
+
+
+@pytest.mark.parametrize(
+    ("join_on", "message"),
+    [
+        (
+            (Author.id == Article.author_id) & (Author.name == "Author 1"),
+            "can only add conditions on Article, not on Author",
+        ),
+        (
+            Article.title == "Kept",
+            "Cannot find the equality between Author and Article",
+        ),
+    ],
+    ids=["condition-on-the-parent", "no-link-between-the-models"],
+)
+@pytest.mark.asyncio
+async def test_nested_limit_refuses_a_join_on_it_cannot_apply(
+    async_session, join_on, message
+):
+    await _two_authors_with_articles(async_session)
+
+    with pytest.raises(ValueError, match=message):
+        await FastCRUD(Author).get_multi_joined(
+            db=async_session, joins_config=[_articles_join(join_on)], nest_joins=True
+        )

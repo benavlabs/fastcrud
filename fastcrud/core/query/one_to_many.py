@@ -6,12 +6,16 @@ queries with window functions, enabling proper SQL-level limiting per parent rec
 """
 
 import logging
-from typing import Any, TYPE_CHECKING
+from collections.abc import Sequence
+from typing import Any, TYPE_CHECKING, TypeGuard
 
 from pydantic import BaseModel
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import operators
+from sqlalchemy.sql.elements import BooleanClauseList, ColumnElement
 from sqlalchemy.sql.expression import BinaryExpression
+from sqlalchemy.sql.util import find_tables
 from sqlalchemy.inspection import inspect as sa_inspect
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -81,6 +85,65 @@ def extract_foreign_key_info(
         )
 
 
+def split_join_condition(
+    join_on: ColumnElement[bool],
+    related_model: "ModelType",
+    primary_model: "ModelType",
+) -> tuple[Any, list[ColumnElement[bool]]]:
+    """
+    Split a one-to-many join condition into its foreign key and its other conditions.
+
+    A ``join_on`` such as ``(Author.id == Article.author_id) & (Article.published)``
+    links the models by the equality between their columns, and keeps only the
+    related rows that meet the rest. The rest is applied when the related rows
+    are fetched in their own query.
+
+    Args:
+        join_on: The join condition, one comparison or several joined by AND
+        related_model: The related model (e.g., Article)
+        primary_model: The primary/parent model (e.g., Author)
+
+    Returns:
+        Tuple of (foreign_key_column, conditions on the related model)
+
+    Raises:
+        ValueError: If no equality links the two models, or another condition
+            involves the primary model, which the related rows' own query can't see
+    """
+    is_and = (
+        isinstance(join_on, BooleanClauseList) and join_on.operator is operators.and_
+    )
+    terms = list(join_on.clauses) if is_and else [join_on]
+
+    link = next((term for term in terms if _links_two_columns(term)), None)
+    if link is None:
+        raise ValueError(
+            f"Cannot find the equality between {primary_model.__name__} and "
+            f"{related_model.__name__} columns in the join condition: {join_on}"
+        )
+    fk_column, _ = extract_foreign_key_info(link, related_model, primary_model)
+
+    primary_table = primary_model.__table__
+    conditions = [term for term in terms if term is not link]
+    if primary_table is not related_model.__table__:
+        for condition in conditions:
+            if primary_table in find_tables(condition, check_columns=True):
+                raise ValueError(
+                    f"A one-to-many join with nested_limit can only add conditions on "
+                    f"{related_model.__name__}, not on {primary_model.__name__}: {condition}"
+                )
+    return fk_column, conditions
+
+
+def _links_two_columns(term: ColumnElement[bool]) -> TypeGuard[BinaryExpression]:
+    return (
+        isinstance(term, BinaryExpression)
+        and term.operator is operators.eq
+        and hasattr(term.left, "table")
+        and hasattr(term.right, "table")
+    )
+
+
 async def fetch_one_to_many_with_limit(
     db: AsyncSession,
     related_model: "ModelType",
@@ -91,6 +154,7 @@ async def fetch_one_to_many_with_limit(
     sort_orders: str | list[str] | None = None,
     schema_to_select: type[BaseModel] | None = None,
     filters: dict[str, Any] | None = None,
+    conditions: Sequence[ColumnElement[bool]] = (),
 ) -> list[dict[str, Any]]:
     """
     Fetch one-to-many related records with SQL-level limiting using window functions.
@@ -109,6 +173,7 @@ async def fetch_one_to_many_with_limit(
         sort_orders: Optional sort orders ("asc" or "desc") for sort_columns
         schema_to_select: Optional Pydantic schema for column selection
         filters: Optional dict of column_name: value filters to apply
+        conditions: SQLAlchemy conditions on the related model the records must meet
 
     Returns:
         List of dictionaries, each containing related record data with the FK value
@@ -164,7 +229,9 @@ async def fetch_one_to_many_with_limit(
         .over(partition_by=fk_column, order_by=order_by_clauses)
         .label("_rn")
     )
-    base_query = select(*columns, row_number).where(fk_column.in_(parent_ids))
+    base_query = select(*columns, row_number).where(
+        fk_column.in_(parent_ids), *conditions
+    )
     if filters:
         for col_name, value in filters.items():
             if hasattr(related_model, col_name):
@@ -234,6 +301,9 @@ async def fetch_and_merge_one_to_many(
 
     Returns:
         Main results with one-to-many data merged in (preserves original order)
+
+    Raises:
+        ValueError: If a join condition can't be applied to the related rows' own query
     """
     if not main_results or not one_to_many_configs:
         return main_results
@@ -267,43 +337,32 @@ async def fetch_and_merge_one_to_many(
             else config.model.__tablename__
         )
 
-        try:
-            fk_column, _ = extract_foreign_key_info(
-                config.join_on, config.model, primary_model
-            )
-            for pk in parent_ids:
-                if pk in results_by_pk:
-                    results_by_pk[pk][nested_key] = []
-            assert (
-                config.nested_limit is not None
-            ), "nested_limit should not be None for one-to-many configs with limits"
+        fk_column, conditions = split_join_condition(
+            config.join_on, config.model, primary_model
+        )
+        for pk in parent_ids:
+            if pk in results_by_pk:
+                results_by_pk[pk][nested_key] = []
+        assert (
+            config.nested_limit is not None
+        ), "nested_limit should not be None for one-to-many configs with limits"
 
-            related_data = await fetch_one_to_many_with_limit(
-                db=db,
-                related_model=config.model,
-                fk_column=fk_column,
-                parent_ids=parent_ids,
-                limit_per_parent=config.nested_limit,
-                sort_columns=config.sort_columns,
-                sort_orders=config.sort_orders,
-                schema_to_select=config.schema_to_select,
-                filters=config.filters,
-            )
-            fk_name = fk_column.key
-            for item in related_data:
-                parent_id = item.get(fk_name)
-                if parent_id in results_by_pk:
-                    results_by_pk[parent_id][nested_key].append(item)
-
-        except Exception as e:
-            logger.warning(
-                "Failed to fetch one-to-many data for %s: %s. "
-                "Falling back to empty list.",
-                config.model.__name__,
-                str(e),
-            )
-            for result in main_results:
-                if nested_key not in result:
-                    result[nested_key] = []
+        related_data = await fetch_one_to_many_with_limit(
+            db=db,
+            related_model=config.model,
+            fk_column=fk_column,
+            parent_ids=parent_ids,
+            limit_per_parent=config.nested_limit,
+            sort_columns=config.sort_columns,
+            sort_orders=config.sort_orders,
+            schema_to_select=config.schema_to_select,
+            filters=config.filters,
+            conditions=conditions,
+        )
+        fk_name = fk_column.key
+        for item in related_data:
+            parent_id = item.get(fk_name)
+            if parent_id in results_by_pk:
+                results_by_pk[parent_id][nested_key].append(item)
 
     return main_results
