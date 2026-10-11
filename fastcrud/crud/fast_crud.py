@@ -1987,16 +1987,12 @@ class FastCRUD(
             data_list, regular_joins, nest_joins, self.model
         )
         if one_to_many_with_limits and processed_data:
-            pk_names = get_primary_key_names(self.model)
-            pk_name = pk_names[0] if pk_names else "id"
-
             results_list = [processed_data] if processed_data else []
             merged_results = await fetch_and_merge_one_to_many(
                 db=db,
                 primary_model=self.model,
                 main_results=results_list,
                 one_to_many_configs=one_to_many_with_limits,
-                pk_column_name=pk_name,
             )
             processed_data = merged_results[0] if merged_results else None
 
@@ -2611,15 +2607,11 @@ class FastCRUD(
         )
 
         if one_to_many_with_limits and raw_data:
-            pk_names = get_primary_key_names(self.model)
-            pk_name = pk_names[0] if pk_names else "id"
-
             raw_data = await fetch_and_merge_one_to_many(
                 db=db,
                 primary_model=self.model,
                 main_results=raw_data,
                 one_to_many_configs=one_to_many_with_limits,
-                pk_column_name=pk_name,
             )
 
         return cast(
