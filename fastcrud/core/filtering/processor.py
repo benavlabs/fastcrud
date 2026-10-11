@@ -6,19 +6,71 @@ into SQLAlchemy WHERE clauses. It supports complex filtering scenarios including
 OR conditions, NOT conditions, and joined model filters.
 """
 
+from collections.abc import Sequence
 from typing import Any, TYPE_CHECKING
 from sqlalchemy import Column, or_, not_, and_
 from sqlalchemy.orm.util import AliasedClass
-from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.elements import ColumnElement, TextClause
 
 from ..introspection import get_column_types, get_model_column
-from ...types import ModelType, FilterValueType
+from ...types import ModelType, FilterValueType, WhereClause
 from .filter_model import Filter
 from .operators import get_operator_wrap_type, get_sqlalchemy_filter, FilterCallable
 from .validators import validate_joined_filter_format
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..config.crud_configs import FilterConfig
+
+
+def where_conditions(where: WhereClause) -> list[ColumnElement | TextClause]:
+    """The conditions of a ``where=`` argument, as a list.
+
+    ``where`` takes SQLAlchemy conditions for what keyword filters can't express:
+    groups of conditions joined by OR, comparisons between columns, functions and
+    subqueries. It is one condition, or a list, tuple or other sequence of
+    conditions that must all hold, and is AND-ed with the keyword filters. A
+    condition is a SQLAlchemy expression, a boolean column such as ``User.active``,
+    or a ``text()`` clause.
+
+    Args:
+        where: None, one condition, or a sequence of conditions.
+
+    Returns:
+        The conditions, in order.
+
+    Raises:
+        TypeError: If a value isn't a SQLAlchemy condition. This catches a
+            comparison Python evaluated itself, such as ``"draft" == status``
+            written with a plain string on both sides, which SQLAlchemy's own
+            ``.where()`` would turn into ``WHERE true``.
+
+    Example:
+        >>> where_conditions(User.age > 18)
+        >>> where_conditions(User.active)
+        >>> where_conditions([User.age > 18, User.name.ilike("j%")])
+        >>> where_conditions(text("age > :age").bindparams(age=18))
+        >>> where_conditions((Post.author == "ann") & (Post.status == "draft") | (Post.region == "EU"))
+    """
+    if where is None:
+        return []
+    candidates: list[object] = (
+        list(where)
+        if isinstance(where, Sequence) and not isinstance(where, str | bytes)
+        else [where]
+    )
+    conditions: list[ColumnElement | TextClause] = []
+    for candidate in candidates:
+        if not isinstance(candidate, ColumnElement | TextClause) and hasattr(
+            candidate, "__clause_element__"
+        ):
+            candidate = candidate.__clause_element__()
+        if not isinstance(candidate, ColumnElement | TextClause):
+            raise TypeError(
+                "where= takes SQLAlchemy conditions such as User.age > 18, "
+                f"got {type(candidate).__name__}: {candidate!r}"
+            )
+        conditions.append(candidate)
+    return conditions
 
 
 class FilterProcessor:
@@ -67,8 +119,11 @@ class FilterProcessor:
         self.custom_filters = custom_filters
 
     def parse_filters(
-        self, model: type[ModelType] | AliasedClass | None = None, **kwargs
-    ) -> list[ColumnElement]:
+        self,
+        model: type[ModelType] | AliasedClass | None = None,
+        where: WhereClause = None,
+        **kwargs,
+    ) -> list[ColumnElement | TextClause]:
         """
         Parse and convert filter arguments into SQLAlchemy filter conditions.
 
@@ -86,6 +141,8 @@ class FilterProcessor:
 
         Args:
             model: The model to apply filters to. Defaults to self.model
+            where: SQLAlchemy conditions added to the keyword filters; see
+                [where_conditions][fastcrud.core.filtering.processor.where_conditions].
             **kwargs: Filter arguments in various supported formats
 
         Returns:
@@ -100,7 +157,7 @@ class FilterProcessor:
             ... )
         """
         model = model or self.model
-        filters = []
+        filters: list[ColumnElement | TextClause] = []
 
         if "_or" in kwargs:
             filters.extend(self._handle_multi_field_or_filter(model, kwargs.pop("_or")))
@@ -127,6 +184,7 @@ class FilterProcessor:
                             self._handle_standard_filter(model_column, operator, value)
                         )
 
+        filters.extend(where_conditions(where))
         return filters
 
     def _handle_simple_filter(

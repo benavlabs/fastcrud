@@ -6,13 +6,20 @@ queries with window functions, enabling proper SQL-level limiting per parent rec
 """
 
 import logging
-from typing import Any, TYPE_CHECKING
+from collections.abc import Sequence
+from typing import Any, NamedTuple, TYPE_CHECKING
 
 from pydantic import BaseModel
-from sqlalchemy import select, func
+from sqlalchemy import select, func, literal
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import operators
+from sqlalchemy.sql.elements import BooleanClauseList, ColumnElement
 from sqlalchemy.sql.expression import BinaryExpression
+from sqlalchemy.sql.selectable import FromClause, Join
 from sqlalchemy.inspection import inspect as sa_inspect
+
+from ..filtering import FilterProcessor
+from .builder import describe_from_clause, refuse_a_cartesian_product
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..config import JoinConfig
@@ -21,64 +28,156 @@ if TYPE_CHECKING:  # pragma: no cover
 logger = logging.getLogger(__name__)
 
 _LARGE_PARENT_SET_WARNING_THRESHOLD = 1000
+_PARENT_ID = "_parent_id"
 
 
-def extract_foreign_key_info(
-    join_on: BinaryExpression,
-    related_model: "ModelType",
+class JoinLink(NamedTuple):
+    """How a one-to-many join links each parent to its children."""
+
+    foreign_key: Any
+    """The related model's column that holds a parent's value."""
+    parent_column: Any
+    """The primary model's column the foreign key holds the value of."""
+    conditions: list[ColumnElement[bool]]
+    """The join's other conditions, all on the related model."""
+
+
+def split_join_condition(
+    join_on: ColumnElement[bool],
+    related_model: Any,
     primary_model: "ModelType",
-) -> tuple[Any, Any]:
+) -> JoinLink:
     """
-    Extract foreign key column and parent primary key column from join condition.
+    Split a one-to-many join condition into its link and its other conditions.
+
+    A ``join_on`` such as ``(Author.id == Article.author_id) & (Article.published)``
+    links the models by the equality between their columns, and keeps only the
+    related rows that meet the rest. The rest is applied when the related rows
+    are fetched in their own query.
+
+    When more than one equality compares the two models, such as
+    ``Article.lang == Author.lang`` beside the foreign key, the link is the one
+    whose related column has a foreign key to the primary model. Models that
+    share tables, such as two subclasses with joined-table inheritance, are told
+    apart by the tables they don't share.
 
     Args:
-        join_on: SQLAlchemy join condition (e.g., Article.author_id == Author.id)
-        related_model: The related model (e.g., Article)
+        join_on: The join condition, one comparison or several joined by AND
+        related_model: The related model or its alias (e.g., Article)
         primary_model: The primary/parent model (e.g., Author)
 
     Returns:
-        Tuple of (foreign_key_column, parent_pk_column)
+        The columns the link compares, and the conditions on the related model
 
     Raises:
-        ValueError: If cannot extract foreign key info from join condition
+        ValueError: If the link compares two columns of a table both models read,
+            as a self-referential join without an alias does, no equality links
+            the two models, or another condition reads a table other than the
+            related model's, which the related rows' own query can't see
     """
-    try:
-        left = join_on.left
-        right = join_on.right
+    is_and = (
+        isinstance(join_on, BooleanClauseList) and join_on.operator is operators.and_
+    )
+    terms = list(join_on.clauses) if is_and else [join_on]
 
-        related_table = related_model.__table__
-        primary_table = primary_model.__table__
+    related = sa_inspect(related_model)
+    related_name = related.mapper.class_.__name__
+    related_tables = _tables_of(related_model)
+    primary_tables = _tables_of(primary_model)
+    shared_tables = related_tables & primary_tables
+    related_own = related_tables - shared_tables
+    primary_own = primary_tables - shared_tables
 
-        if hasattr(left, "table") and left.table == related_table:
-            fk_column = left
-            pk_column = right
-        elif hasattr(right, "table") and right.table == related_table:
-            fk_column = right
-            pk_column = left
-        else:
-            left_key = getattr(left, "key", None)
-            right_key = getattr(right, "key", None)
-
-            related_cols = {c.key for c in related_table.columns}
-            primary_cols = {c.key for c in primary_table.columns}
-
-            if left_key in related_cols and right_key in primary_cols:
-                fk_column = left
-                pk_column = right
-            elif right_key in related_cols and left_key in primary_cols:
-                fk_column = right
-                pk_column = left
-            else:
-                raise ValueError(
-                    f"Cannot determine foreign key relationship from join condition: {join_on}"
-                )
-
-        return fk_column, pk_column
-
-    except Exception as e:
+    links = [
+        (term, columns)
+        for term in terms
+        if (columns := _linked_columns(term, related_own, primary_own))
+    ]
+    if not links and any(
+        _linked_columns(term, shared_tables, shared_tables) for term in terms
+    ):
+        target = "itself" if related.mapper.class_ is primary_model else related_name
         raise ValueError(
-            f"Cannot extract foreign key info from join condition: {join_on}. Error: {e}"
+            f"A one-to-many join from {primary_model.__name__} to {target} needs an "
+            f"alias, such as JoinConfig(model={related_name}, "
+            f"alias=aliased({related_name}), ...), so its join condition can tell "
+            "the parent's columns from the children's."
         )
+    if not links:
+        raise ValueError(
+            f"Cannot find the equality between {primary_model.__name__} and "
+            f"{related_name} columns in the join condition: {join_on}"
+        )
+    link, (foreign_key, parent_column) = next(
+        (
+            (term, columns)
+            for term, columns in links
+            if _references(columns[0], primary_own)
+        ),
+        links[0],
+    )
+
+    conditions = [term for term in terms if term is not link]
+    for condition in conditions:
+        others = [
+            from_clause
+            for from_clause in select(literal(1))
+            .select_from(related.selectable)
+            .where(condition)
+            .get_final_froms()
+            if from_clause is not related.selectable
+        ]
+        if others:
+            names = ", ".join(
+                primary_model.__name__
+                if from_clause in primary_tables
+                else describe_from_clause(from_clause)
+                for from_clause in others
+            )
+            raise ValueError(
+                f"A one-to-many join with nested_limit can only add conditions on "
+                f"{related_name}, not on {names}: {condition}"
+            )
+    return JoinLink(foreign_key, parent_column, conditions)
+
+
+def _tables_of(model: Any) -> set[FromClause]:
+    """The tables a model's columns belong to: its alias's, or its mapped tables."""
+    inspected = sa_inspect(model)
+    if inspected.is_aliased_class:
+        return set(_joined_tables(inspected.selectable))
+    return set(inspected.mapper.tables)
+
+
+def _joined_tables(from_clause: FromClause) -> list[FromClause]:
+    """The tables in a FROM element; a flat alias is a join of aliased tables."""
+    if isinstance(from_clause, Join):
+        return _joined_tables(from_clause.left) + _joined_tables(from_clause.right)
+    return [from_clause]
+
+
+def _linked_columns(
+    term: ColumnElement[bool],
+    related_tables: set[FromClause],
+    primary_tables: set[FromClause],
+) -> tuple[Any, Any] | None:
+    """The (related, primary) columns an equality between the two models compares."""
+    if not (isinstance(term, BinaryExpression) and term.operator is operators.eq):
+        return None
+    left_table = getattr(term.left, "table", None)
+    right_table = getattr(term.right, "table", None)
+    if left_table in related_tables and right_table in primary_tables:
+        return term.left, term.right
+    if right_table in related_tables and left_table in primary_tables:
+        return term.right, term.left
+    return None
+
+
+def _references(column: Any, tables: set[FromClause]) -> bool:
+    return any(
+        foreign_key.column.table in tables
+        for foreign_key in getattr(column, "foreign_keys", ())
+    )
 
 
 async def fetch_one_to_many_with_limit(
@@ -91,6 +190,7 @@ async def fetch_one_to_many_with_limit(
     sort_orders: str | list[str] | None = None,
     schema_to_select: type[BaseModel] | None = None,
     filters: dict[str, Any] | None = None,
+    conditions: Sequence[ColumnElement[bool]] = (),
 ) -> list[dict[str, Any]]:
     """
     Fetch one-to-many related records with SQL-level limiting using window functions.
@@ -101,17 +201,23 @@ async def fetch_one_to_many_with_limit(
 
     Args:
         db: AsyncSession for database operations
-        related_model: The related SQLAlchemy model
+        related_model: The related SQLAlchemy model, or the alias its join uses
         fk_column: Foreign key column on the related model
         parent_ids: List of parent primary key values to fetch related records for
         limit_per_parent: Maximum number of records to return per parent
         sort_columns: Optional column(s) to sort by within each parent group
         sort_orders: Optional sort orders ("asc" or "desc") for sort_columns
         schema_to_select: Optional Pydantic schema for column selection
-        filters: Optional dict of column_name: value filters to apply
+        filters: Optional filters on the related model, in the same format as
+            keyword filters, such as ``{"title__ne": "Draft"}``
+        conditions: SQLAlchemy conditions on the related model the records must meet
 
     Returns:
         List of dictionaries, each containing related record data with the FK value
+
+    Raises:
+        ValueError: If a filter names a column the related model doesn't have, or
+            the query would read a table it doesn't select from
 
     Example:
         >>> # Fetch top 10 published articles per author
@@ -125,6 +231,40 @@ async def fetch_one_to_many_with_limit(
         ...     sort_orders=["desc"],
         ...     filters={"is_published": True},
         ... )
+    """
+    children = await _fetch_children_by_parent(
+        db=db,
+        related_model=related_model,
+        fk_column=fk_column,
+        parent_ids=parent_ids,
+        limit_per_parent=limit_per_parent,
+        sort_columns=sort_columns,
+        sort_orders=sort_orders,
+        schema_to_select=schema_to_select,
+        filters=filters,
+        conditions=conditions,
+    )
+    return [child for _, child in children]
+
+
+async def _fetch_children_by_parent(
+    db: AsyncSession,
+    related_model: "ModelType",
+    fk_column: Any,
+    parent_ids: list[Any],
+    limit_per_parent: int,
+    sort_columns: str | list[str] | None,
+    sort_orders: str | list[str] | None,
+    schema_to_select: type[BaseModel] | None,
+    filters: dict[str, Any] | None,
+    conditions: Sequence[ColumnElement[bool]],
+) -> list[tuple[Any, dict[str, Any]]]:
+    """
+    The rows of fetch_one_to_many_with_limit, each with the parent id it belongs to.
+
+    The parent id is read from the foreign key under its own label, so it's there
+    whatever the foreign key's attribute is named and whether or not
+    ``schema_to_select`` includes it.
     """
     if not parent_ids:
         return []
@@ -164,25 +304,25 @@ async def fetch_one_to_many_with_limit(
         .over(partition_by=fk_column, order_by=order_by_clauses)
         .label("_rn")
     )
-    base_query = select(*columns, row_number).where(fk_column.in_(parent_ids))
-    if filters:
-        for col_name, value in filters.items():
-            if hasattr(related_model, col_name):
-                col_attr = getattr(related_model, col_name)
-                base_query = base_query.where(col_attr == value)
+    filter_conditions = (
+        FilterProcessor(related_model).parse_filters(**filters) if filters else []
+    )
+    base_query = select(*columns, fk_column.label(_PARENT_ID), row_number).where(
+        fk_column.in_(parent_ids), *conditions, *filter_conditions
+    )
+    refuse_a_cartesian_product(base_query)
 
     subquery = base_query.subquery()
     final_stmt = select(subquery).where(subquery.c._rn <= limit_per_parent)
 
     result = await db.execute(final_stmt)
-    rows = result.fetchall()
-    data = []
-    for row in rows:
+    children = []
+    for row in result.fetchall():
         row_dict = dict(row._mapping)
         row_dict.pop("_rn", None)
-        data.append(row_dict)
+        children.append((row_dict.pop(_PARENT_ID), row_dict))
 
-    return data
+    return children
 
 
 def split_join_configs(
@@ -220,45 +360,29 @@ async def fetch_and_merge_one_to_many(
     primary_model: "ModelType",
     main_results: list[dict[str, Any]],
     one_to_many_configs: list["JoinConfig"],
-    pk_column_name: str,
 ) -> list[dict[str, Any]]:
     """
     Fetch one-to-many data and merge into main results.
+
+    Each parent gets the children whose foreign key holds its value of the column
+    the join links it by, which is its primary key or any other column the
+    ``join_on`` names. Parents that share that value share their children.
 
     Args:
         db: AsyncSession for database operations
         primary_model: The primary SQLAlchemy model
         main_results: Results from the main query
         one_to_many_configs: List of JoinConfig for one-to-many relationships
-        pk_column_name: Name of the primary key column on the primary model
 
     Returns:
         Main results with one-to-many data merged in (preserves original order)
+
+    Raises:
+        ValueError: If a join condition can't be applied to the related rows' own
+            query, or the main results leave out the column a join links parents by
     """
-    if not main_results or not one_to_many_configs:
+    if not main_results:
         return main_results
-
-    parent_ids = [
-        r[pk_column_name]
-        for r in main_results
-        if pk_column_name in r and r[pk_column_name] is not None
-    ]
-    if not parent_ids:
-        return main_results
-
-    if len(parent_ids) > _LARGE_PARENT_SET_WARNING_THRESHOLD:
-        logger.warning(
-            "Fetching one-to-many relationships for %d parent records. "
-            "Consider using pagination (limit/offset) in the main query for better "
-            "performance. The IN clause for this many IDs may be slow on some databases.",
-            len(parent_ids),
-        )
-
-    results_by_pk = {
-        r[pk_column_name]: r
-        for r in main_results
-        if pk_column_name in r and r[pk_column_name] is not None
-    }
 
     for config in one_to_many_configs:
         nested_key = (
@@ -266,44 +390,73 @@ async def fetch_and_merge_one_to_many(
             if config.join_prefix
             else config.model.__tablename__
         )
+        related_model = config.alias or config.model
+        link = split_join_condition(config.join_on, related_model, primary_model)
+        parents_by_value = _parents_by_value(
+            main_results,
+            _attribute_name(primary_model, link.parent_column),
+            nested_key,
+        )
+        if not parents_by_value:
+            continue
+        _warn_if_many_parents(len(parents_by_value))
+        assert (
+            config.nested_limit is not None
+        ), "nested_limit should not be None for one-to-many configs with limits"
 
-        try:
-            fk_column, _ = extract_foreign_key_info(
-                config.join_on, config.model, primary_model
-            )
-            for pk in parent_ids:
-                if pk in results_by_pk:
-                    results_by_pk[pk][nested_key] = []
-            assert (
-                config.nested_limit is not None
-            ), "nested_limit should not be None for one-to-many configs with limits"
-
-            related_data = await fetch_one_to_many_with_limit(
-                db=db,
-                related_model=config.model,
-                fk_column=fk_column,
-                parent_ids=parent_ids,
-                limit_per_parent=config.nested_limit,
-                sort_columns=config.sort_columns,
-                sort_orders=config.sort_orders,
-                schema_to_select=config.schema_to_select,
-                filters=config.filters,
-            )
-            fk_name = fk_column.key
-            for item in related_data:
-                parent_id = item.get(fk_name)
-                if parent_id in results_by_pk:
-                    results_by_pk[parent_id][nested_key].append(item)
-
-        except Exception as e:
-            logger.warning(
-                "Failed to fetch one-to-many data for %s: %s. "
-                "Falling back to empty list.",
-                config.model.__name__,
-                str(e),
-            )
-            for result in main_results:
-                if nested_key not in result:
-                    result[nested_key] = []
+        children = await _fetch_children_by_parent(
+            db=db,
+            related_model=related_model,
+            fk_column=link.foreign_key,
+            parent_ids=list(parents_by_value),
+            limit_per_parent=config.nested_limit,
+            sort_columns=config.sort_columns,
+            sort_orders=config.sort_orders,
+            schema_to_select=config.schema_to_select,
+            filters=config.filters,
+            conditions=link.conditions,
+        )
+        for parent_value, child in children:
+            for parent in parents_by_value.get(parent_value, []):
+                parent[nested_key].append(dict(child))
 
     return main_results
+
+
+def _attribute_name(model: "ModelType", column: Any) -> str:
+    """The name of the model attribute a column is mapped to, which keys result rows."""
+    name: str = sa_inspect(model).mapper.get_property_by_column(column).key
+    return name
+
+
+def _parents_by_value(
+    main_results: list[dict[str, Any]], parent_key: str, nested_key: str
+) -> dict[Any, list[dict[str, Any]]]:
+    """
+    Give each parent an empty list of children, and group parents by their link value.
+
+    Raises:
+        ValueError: If the results leave out the column the join links parents by
+    """
+    parents_by_value: dict[Any, list[dict[str, Any]]] = {}
+    for parent in main_results:
+        if parent_key not in parent:
+            raise ValueError(
+                f"The nested_limit join '{nested_key}' links parents by their "
+                f"'{parent_key}', which the query doesn't select: add it to "
+                "schema_to_select."
+            )
+        parent[nested_key] = []
+        if parent[parent_key] is not None:
+            parents_by_value.setdefault(parent[parent_key], []).append(parent)
+    return parents_by_value
+
+
+def _warn_if_many_parents(parent_count: int) -> None:
+    if parent_count > _LARGE_PARENT_SET_WARNING_THRESHOLD:
+        logger.warning(
+            "Fetching one-to-many relationships for %d parent records. "
+            "Consider using pagination (limit/offset) in the main query for better "
+            "performance. The IN clause for this many IDs may be slow on some databases.",
+            parent_count,
+        )

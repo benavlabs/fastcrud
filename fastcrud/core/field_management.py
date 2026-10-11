@@ -230,21 +230,28 @@ def _find_join_condition(
     if inspector is None:
         return None
 
-    fk_columns = [col for col in inspector.c if col.foreign_keys]
-    fk_ref = fk_alias if fk_alias is not None else fk_model.__table__
-
-    for col in fk_columns:
-        fk_info = list(col.foreign_keys)[0]
-        if fk_info.column.table == target_model.__table__:
-            target_col_name = fk_info.column.name
-            left = fk_ref.c[col.name]
-            if target_alias is not None:
-                right = getattr(target_alias, target_col_name)
-            else:
-                right = target_model.__table__.c[target_col_name]
+    target_mapper = sa_inspect(target_model).mapper
+    for column in inspector.mapper.columns:
+        for foreign_key in column.foreign_keys:
+            if foreign_key.column.table is not target_model.__table__:
+                continue
+            left = _column_through(fk_alias, inspector.mapper, column)
+            right = _column_through(target_alias, target_mapper, foreign_key.column)
             return cast(ColumnElement, left == right)
 
     return None
+
+
+def _column_through(
+    alias: AliasedClass | None, mapper: Any, column: ColumnElement
+) -> ColumnElement:
+    """A mapped column as the query sees it: through the alias's attribute, if any."""
+    if alias is None:
+        return column
+    aliased_column: ColumnElement = getattr(
+        alias, mapper.get_property_by_column(column).key
+    )
+    return aliased_column
 
 
 def auto_detect_join_condition(

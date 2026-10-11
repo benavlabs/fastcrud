@@ -1,6 +1,9 @@
+from typing import Any
+
 import pytest
 from sqlalchemy import select
-from sqlmodel import SQLModel
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import SQLModel, col
 from fastcrud.crud.fast_crud import FastCRUD
 from pydantic import ValidationError
 
@@ -175,7 +178,9 @@ async def test_create_successful_multi_pk(
 
 
 @pytest.mark.asyncio
-async def test_create_persists_a_nested_to_one_object(async_session):
+async def test_create_persists_a_nested_to_one_object(
+    async_session: AsyncSession,
+) -> None:
     """A nested object is created alongside its owner and linked to it (SQLModel)."""
     from ..conftest import Article, Card
 
@@ -186,22 +191,29 @@ async def test_create_persists_a_nested_to_one_object(async_session):
         title: str
         card: CardCreate
 
-    await FastCRUD(Article).create(
+    crud: FastCRUD[Article, ArticleWithCard, Any, Any, Any, Any] = FastCRUD(Article)
+    await crud.create(
         async_session,
         ArticleWithCard(title="Nested", card=CardCreate(title="Nested Card")),
     )
 
     article = (
-        await async_session.execute(select(Article).where(Article.title == "Nested"))
+        await async_session.execute(
+            select(Article).where(col(Article.title) == "Nested")
+        )
     ).scalar_one()
     card = (
-        await async_session.execute(select(Card).where(Card.title == "Nested Card"))
+        await async_session.execute(
+            select(Card).where(col(Card.title) == "Nested Card")
+        )
     ).scalar_one()
     assert article.card_id == card.id
 
 
 @pytest.mark.asyncio
-async def test_create_persists_a_list_of_nested_objects(async_session):
+async def test_create_persists_a_list_of_nested_objects(
+    async_session: AsyncSession,
+) -> None:
     """A to-many relationship arrives as a list and is created as rows (SQLModel)."""
     from ..conftest import Article, Card
 
@@ -212,7 +224,8 @@ async def test_create_persists_a_list_of_nested_objects(async_session):
         title: str
         articles: list[ArticleTitle]
 
-    await FastCRUD(Card).create(
+    crud: FastCRUD[Card, CardWithArticles, Any, Any, Any, Any] = FastCRUD(Card)
+    await crud.create(
         async_session,
         CardWithArticles(
             title="Full Card",
@@ -221,13 +234,13 @@ async def test_create_persists_a_list_of_nested_objects(async_session):
     )
 
     card = (
-        await async_session.execute(select(Card).where(Card.title == "Full Card"))
+        await async_session.execute(select(Card).where(col(Card.title) == "Full Card"))
     ).scalar_one()
     titles = sorted(
         article.title
         for article in (
             await async_session.execute(
-                select(Article).where(Article.card_id == card.id)
+                select(Article).where(col(Article.card_id) == card.id)
             )
         )
         .scalars()

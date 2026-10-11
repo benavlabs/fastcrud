@@ -170,6 +170,25 @@ class Article(Base):
 Card.articles = relationship("Article", order_by=Article.id, back_populates="card")
 
 
+class TreeNode(Base):
+    __tablename__ = "tree_nodes"
+    id = Column(Integer, primary_key=True)
+    name = Column(String(32))
+    parent_id = Column(Integer, ForeignKey("tree_nodes.id"), nullable=True)
+
+
+class Writer(Base):
+    __tablename__ = "writers"
+    id = Column(Integer, primary_key=True)
+    code = Column(Integer)
+
+
+class Story(Base):
+    __tablename__ = "stories"
+    id = Column(Integer, primary_key=True)
+    writer_code = Column(Integer)
+
+
 class Client(Base):
     __tablename__ = "clients"
     id = Column(Integer, primary_key=True)

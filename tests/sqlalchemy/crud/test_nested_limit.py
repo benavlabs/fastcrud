@@ -5,13 +5,28 @@ This module tests the SQL-level limiting feature using window functions
 when fetching one-to-many related records via get_multi_joined.
 """
 
+import logging
+
 import pytest
 from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.orm import aliased
 
 from fastcrud import FastCRUD, JoinConfig
+from fastcrud.core.field_management import build_relationship_joins_config
+from fastcrud.core.query import (
+    fetch_and_merge_one_to_many,
+    fetch_one_to_many_with_limit,
+    one_to_many,
+)
 from ..conftest import (
     Article,
     Author,
+    ContractPoly,
+    ProjectPoly,
+    Story,
+    TreeNode,
+    Writer,
 )
 
 
@@ -584,3 +599,548 @@ async def test_nested_limit_no_matching_related_records(async_session):
 
     author_data = result["data"][0]
     assert author_data["articles"] == []
+
+
+@pytest.mark.asyncio
+async def test_nested_limit_filters_do_not_change_the_total_count(async_session):
+    async_session.add_all(
+        [
+            Author(id=1, name="Author 1"),
+            Author(id=2, name="Author 2"),
+            Author(id=3, name="Author 3"),
+            Article(
+                id=1,
+                title="Kept",
+                content="C1",
+                author_id=1,
+                published_date="2023-01-01",
+            ),
+            Article(
+                id=2,
+                title="Dropped",
+                content="C2",
+                author_id=2,
+                published_date="2023-01-02",
+            ),
+        ]
+    )
+    await async_session.commit()
+
+    result = await FastCRUD(Author).get_multi_joined(
+        db=async_session,
+        joins_config=[
+            JoinConfig(
+                model=Article,
+                join_on=Author.id == Article.author_id,
+                join_prefix="articles_",
+                relationship_type="one-to-many",
+                nested_limit=5,
+                filters={"published_date": "2023-01-01"},
+            )
+        ],
+        nest_joins=True,
+    )
+
+    articles_by_author = {
+        author["id"]: len(author["articles"]) for author in result["data"]
+    }
+    assert articles_by_author == {1: 1, 2: 0, 3: 0}
+    assert result["total_count"] == 3
+
+
+async def _two_authors_with_articles(async_session):
+    async_session.add_all(
+        [
+            Author(id=1, name="Author 1"),
+            Author(id=2, name="Author 2"),
+            Article(
+                id=1,
+                title="Kept",
+                content="C1",
+                author_id=1,
+                published_date="2023-01-01",
+            ),
+            Article(
+                id=2,
+                title="Dropped",
+                content="C2",
+                author_id=1,
+                published_date="2023-01-02",
+            ),
+            Article(
+                id=3,
+                title="Dropped",
+                content="C3",
+                author_id=2,
+                published_date="2023-01-03",
+            ),
+        ]
+    )
+    await async_session.commit()
+
+
+def _articles_join(join_on):
+    return JoinConfig(
+        model=Article,
+        join_on=join_on,
+        join_prefix="articles_",
+        relationship_type="one-to-many",
+        nested_limit=5,
+    )
+
+
+@pytest.mark.asyncio
+async def test_nested_limit_applies_the_join_on_conditions_on_the_related_model(
+    async_session,
+):
+    await _two_authors_with_articles(async_session)
+
+    result = await FastCRUD(Author).get_multi_joined(
+        db=async_session,
+        joins_config=[
+            _articles_join((Author.id == Article.author_id) & (Article.title == "Kept"))
+        ],
+        nest_joins=True,
+    )
+
+    titles_by_author = {
+        author["id"]: [article["title"] for article in author["articles"]]
+        for author in result["data"]
+    }
+    assert titles_by_author == {1: ["Kept"], 2: []}
+    assert result["total_count"] == 2
+
+
+@pytest.mark.parametrize(
+    ("join_on", "message"),
+    [
+        (
+            (Author.id == Article.author_id) & (Author.name == "Author 1"),
+            "can only add conditions on Article, not on Author",
+        ),
+        (
+            Article.title == "Kept",
+            "Cannot find the equality between Author and Article",
+        ),
+    ],
+    ids=["condition-on-the-parent", "no-link-between-the-models"],
+)
+@pytest.mark.asyncio
+async def test_nested_limit_refuses_a_join_on_it_cannot_apply(
+    async_session, join_on, message
+):
+    await _two_authors_with_articles(async_session)
+
+    with pytest.raises(ValueError, match=message):
+        await FastCRUD(Author).get_multi_joined(
+            db=async_session, joins_config=[_articles_join(join_on)], nest_joins=True
+        )
+
+
+@pytest.mark.asyncio
+async def test_a_where_naming_a_model_fetched_separately_is_refused(async_session):
+    await _two_authors_with_articles(async_session)
+
+    with pytest.raises(ValueError, match="side by side without joining them"):
+        await FastCRUD(Author).get_multi_joined(
+            db=async_session,
+            joins_config=[_articles_join(Author.id == Article.author_id)],
+            nest_joins=True,
+            where=Article.title == "Kept",
+        )
+
+
+@pytest.mark.asyncio
+async def test_nested_limit_accepts_a_subquery_naming_the_parent(async_session):
+    await _two_authors_with_articles(async_session)
+    first_author = select(Author.id).where(Author.name == "Author 1")
+
+    result = await FastCRUD(Author).get_multi_joined(
+        db=async_session,
+        joins_config=[
+            _articles_join(
+                (Author.id == Article.author_id) & Article.author_id.in_(first_author)
+            )
+        ],
+        nest_joins=True,
+    )
+
+    titles_by_author = {
+        author["id"]: [article["title"] for article in author["articles"]]
+        for author in result["data"]
+    }
+    assert titles_by_author == {1: ["Kept", "Dropped"], 2: []}
+
+
+@pytest.mark.asyncio
+async def test_nested_limit_links_the_models_by_the_foreign_key(async_session):
+    await _two_authors_with_articles(async_session)
+
+    with pytest.raises(
+        ValueError, match="not on Author: articles.title = authors.name$"
+    ):
+        await FastCRUD(Author).get_multi_joined(
+            db=async_session,
+            joins_config=[
+                _articles_join(
+                    (Article.title == Author.name) & (Author.id == Article.author_id)
+                )
+            ],
+            nest_joins=True,
+        )
+
+
+@pytest.mark.asyncio
+async def test_nested_limit_through_an_alias_returns_each_child_once(async_session):
+    await _two_authors_with_articles(async_session)
+    article = aliased(Article, name="article_alias")
+
+    result = await FastCRUD(Author).get_multi_joined(
+        db=async_session,
+        joins_config=[
+            JoinConfig(
+                model=Article,
+                alias=article,
+                join_on=Author.id == article.author_id,
+                join_prefix="articles_",
+                relationship_type="one-to-many",
+                nested_limit=5,
+            )
+        ],
+        nest_joins=True,
+    )
+
+    ids_by_author = {
+        author["id"]: [item["id"] for item in author["articles"]]
+        for author in result["data"]
+    }
+    assert ids_by_author == {1: [1, 2], 2: [3]}
+
+
+async def _a_tree(async_session):
+    async_session.add_all(
+        [
+            TreeNode(id=1, name="root", parent_id=None),
+            TreeNode(id=2, name="left", parent_id=1),
+            TreeNode(id=3, name="right", parent_id=1),
+            TreeNode(id=4, name="leaf", parent_id=2),
+        ]
+    )
+    await async_session.commit()
+
+
+@pytest.mark.asyncio
+async def test_nested_limit_on_a_self_referential_join(async_session):
+    await _a_tree(async_session)
+    child = aliased(TreeNode, name="child")
+
+    result = await FastCRUD(TreeNode).get_multi_joined(
+        db=async_session,
+        joins_config=[
+            JoinConfig(
+                model=TreeNode,
+                alias=child,
+                join_on=TreeNode.id == child.parent_id,
+                join_prefix="children_",
+                relationship_type="one-to-many",
+                nested_limit=5,
+            )
+        ],
+        nest_joins=True,
+    )
+
+    children_by_node = {
+        node["id"]: [item["id"] for item in node["children"]] for node in result["data"]
+    }
+    assert children_by_node == {1: [2, 3], 2: [4], 3: [], 4: []}
+
+
+@pytest.mark.asyncio
+async def test_nested_limit_on_a_self_referential_join_needs_an_alias(async_session):
+    await _a_tree(async_session)
+
+    with pytest.raises(ValueError, match="TreeNode to itself needs an alias"):
+        await FastCRUD(TreeNode).get_multi_joined(
+            db=async_session,
+            joins_config=[
+                JoinConfig(
+                    model=TreeNode,
+                    join_on=TreeNode.id == TreeNode.parent_id,
+                    join_prefix="children_",
+                    relationship_type="one-to-many",
+                    nested_limit=5,
+                )
+            ],
+            nest_joins=True,
+        )
+
+
+async def _contracts_with_projects(async_session):
+    async_session.add_all(
+        [
+            ContractPoly(id=1),
+            ContractPoly(id=2),
+            ProjectPoly(id=3, name="p3", contract_id=1),
+            ProjectPoly(id=4, name="p4", contract_id=1),
+            ProjectPoly(id=5, name="p5", contract_id=2),
+        ]
+    )
+    await async_session.commit()
+
+
+def _projects_by_contract(result):
+    return {
+        contract["id"]: [project["id"] for project in contract["projects"]]
+        for contract in result["data"]
+    }
+
+
+@pytest.mark.parametrize(
+    "alias",
+    [
+        None,
+        aliased(ProjectPoly, flat=True),
+        aliased(ProjectPoly, name="project"),
+    ],
+    ids=["no-alias", "flat-alias", "named-alias"],
+)
+@pytest.mark.asyncio
+async def test_nested_limit_between_inheritance_siblings(async_session, alias):
+    await _contracts_with_projects(async_session)
+    project = alias if alias is not None else ProjectPoly
+
+    result = await FastCRUD(ContractPoly).get_multi_joined(
+        db=async_session,
+        joins_config=[
+            JoinConfig(
+                model=ProjectPoly,
+                alias=alias,
+                join_on=ContractPoly.id == project.contract_id,
+                join_prefix="projects_",
+                relationship_type="one-to-many",
+                nested_limit=5,
+            )
+        ],
+        nest_joins=True,
+    )
+
+    assert _projects_by_contract(result) == {1: [3, 4], 2: [5]}
+
+
+@pytest.mark.asyncio
+async def test_nested_limit_on_an_auto_detected_inheritance_relationship(
+    async_session,
+):
+    await _contracts_with_projects(async_session)
+    joins_config = build_relationship_joins_config(
+        ContractPoly, ["projects"], default_nested_limit=5
+    )
+
+    result = await FastCRUD(ContractPoly).get_multi_joined(
+        db=async_session, joins_config=joins_config, nest_joins=True
+    )
+
+    assert _projects_by_contract(result) == {1: [3, 4], 2: [5]}
+
+
+class ArticleTitleSchema(BaseModel):
+    id: int
+    title: str
+
+
+@pytest.mark.asyncio
+async def test_nested_limit_with_a_schema_leaving_out_the_foreign_key(async_session):
+    await _two_authors_with_articles(async_session)
+    join = _articles_join(Author.id == Article.author_id)
+    join.schema_to_select = ArticleTitleSchema
+
+    result = await FastCRUD(Author).get_multi_joined(
+        db=async_session, joins_config=[join], nest_joins=True
+    )
+
+    articles_by_author = {author["id"]: author["articles"] for author in result["data"]}
+    assert articles_by_author == {
+        1: [{"id": 1, "title": "Kept"}, {"id": 2, "title": "Dropped"}],
+        2: [{"id": 3, "title": "Dropped"}],
+    }
+
+
+def _stories_join():
+    return JoinConfig(
+        model=Story,
+        join_on=Writer.code == Story.writer_code,
+        join_prefix="stories_",
+        relationship_type="one-to-many",
+        nested_limit=5,
+    )
+
+
+@pytest.mark.parametrize(
+    ("writers", "stories", "expected"),
+    [
+        ([(1, 2), (2, 1)], [(10, 2), (20, 1)], {1: [10], 2: [20]}),
+        ([(1, 7), (2, 7), (3, 8)], [(10, 7), (20, 8)], {1: [10], 2: [10], 3: [20]}),
+    ],
+    ids=["codes-unlike-the-ids", "writers-sharing-a-code"],
+)
+@pytest.mark.asyncio
+async def test_nested_limit_links_parents_by_the_column_join_on_names(
+    async_session, writers, stories, expected
+):
+    async_session.add_all(
+        [Writer(id=id, code=code) for id, code in writers]
+        + [Story(id=id, writer_code=code) for id, code in stories]
+    )
+    await async_session.commit()
+
+    result = await FastCRUD(Writer).get_multi_joined(
+        db=async_session, joins_config=[_stories_join()], nest_joins=True
+    )
+
+    stories_by_writer = {
+        writer["id"]: [story["id"] for story in writer["stories"]]
+        for writer in result["data"]
+    }
+    assert stories_by_writer == expected
+
+
+class WriterIdSchema(BaseModel):
+    id: int
+
+
+@pytest.mark.asyncio
+async def test_nested_limit_needs_the_column_join_on_names_selected(async_session):
+    async_session.add_all([Writer(id=1, code=2), Story(id=10, writer_code=2)])
+    await async_session.commit()
+
+    with pytest.raises(ValueError, match="links parents by their 'code'"):
+        await FastCRUD(Writer).get_multi_joined(
+            db=async_session,
+            schema_to_select=WriterIdSchema,
+            joins_config=[_stories_join()],
+            nest_joins=True,
+        )
+
+
+@pytest.mark.asyncio
+async def test_the_separate_query_refuses_a_model_it_does_not_read(async_session):
+    await _two_authors_with_articles(async_session)
+    article = aliased(Article, name="article_alias")
+
+    with pytest.raises(ValueError, match="side by side without joining them"):
+        await fetch_one_to_many_with_limit(
+            db=async_session,
+            related_model=Article,
+            fk_column=article.author_id,
+            parent_ids=[1, 2],
+            limit_per_parent=5,
+        )
+
+
+@pytest.mark.asyncio
+async def test_nested_limit_filters_take_the_keyword_filter_operators(async_session):
+    await _two_authors_with_articles(async_session)
+
+    join = _articles_join(Author.id == Article.author_id)
+    join.filters = {"title__ne": "Kept", "published_date__gte": "2023-01-02"}
+    result = await FastCRUD(Author).get_multi_joined(
+        db=async_session, joins_config=[join], nest_joins=True
+    )
+
+    ids_by_author = {
+        author["id"]: [item["id"] for item in author["articles"]]
+        for author in result["data"]
+    }
+    assert ids_by_author == {1: [2], 2: [3]}
+
+
+@pytest.mark.asyncio
+async def test_nested_limit_filters_refuse_an_unknown_column(async_session):
+    await _two_authors_with_articles(async_session)
+
+    join = _articles_join(Author.id == Article.author_id)
+    join.filters = {"tittle": "Kept"}
+    with pytest.raises(ValueError, match="Invalid column 'tittle'"):
+        await FastCRUD(Author).get_multi_joined(
+            db=async_session, joins_config=[join], nest_joins=True
+        )
+
+
+@pytest.mark.asyncio
+async def test_fetch_one_to_many_with_limit_returns_the_related_rows(async_session):
+    await _two_authors_with_articles(async_session)
+
+    rows = await fetch_one_to_many_with_limit(
+        db=async_session,
+        related_model=Article,
+        fk_column=Article.author_id,
+        parent_ids=[1],
+        limit_per_parent=5,
+    )
+
+    assert [(row["id"], row["author_id"]) for row in rows] == [(1, 1), (2, 1)]
+    assert set(rows[0]) == {
+        "id",
+        "title",
+        "content",
+        "published_date",
+        "author_id",
+        "card_id",
+    }
+
+
+@pytest.mark.asyncio
+async def test_fetch_one_to_many_with_limit_without_parents(async_session):
+    rows = await fetch_one_to_many_with_limit(
+        db=async_session,
+        related_model=Article,
+        fk_column=Article.author_id,
+        parent_ids=[],
+        limit_per_parent=5,
+    )
+
+    assert rows == []
+
+
+@pytest.mark.asyncio
+async def test_fetch_and_merge_one_to_many_without_results(async_session):
+    merged = await fetch_and_merge_one_to_many(
+        db=async_session,
+        primary_model=Author,
+        main_results=[],
+        one_to_many_configs=[_articles_join(Author.id == Article.author_id)],
+    )
+
+    assert merged == []
+
+
+@pytest.mark.asyncio
+async def test_nested_limit_parents_without_a_link_value_get_no_children(
+    async_session,
+):
+    async_session.add_all([Writer(id=1, code=None), Story(id=10, writer_code=None)])
+    await async_session.commit()
+
+    result = await FastCRUD(Writer).get_multi_joined(
+        db=async_session, joins_config=[_stories_join()], nest_joins=True
+    )
+
+    assert [(writer["id"], writer["stories"]) for writer in result["data"]] == [(1, [])]
+
+
+@pytest.mark.asyncio
+async def test_nested_limit_warns_about_a_large_parent_set(
+    async_session, monkeypatch, caplog
+):
+    await _two_authors_with_articles(async_session)
+    monkeypatch.setattr(one_to_many, "_LARGE_PARENT_SET_WARNING_THRESHOLD", 1)
+
+    with caplog.at_level(logging.WARNING, logger=one_to_many.__name__):
+        result = await FastCRUD(Author).get_multi_joined(
+            db=async_session,
+            joins_config=[_articles_join(Author.id == Article.author_id)],
+            nest_joins=True,
+        )
+
+    assert "Fetching one-to-many relationships for 2 parent records" in caplog.text
+    assert len(result["data"]) == 2

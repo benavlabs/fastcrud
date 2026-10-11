@@ -1,13 +1,18 @@
+from collections.abc import Sequence
 from typing import TypeVar, Any, Generic
 from datetime import datetime
 from decimal import Decimal
 
 from pydantic import BaseModel
+from sqlalchemy.orm import QueryableAttribute
+from sqlalchemy.sql.elements import ColumnElement, TextClause
 from typing_extensions import TypedDict, NotRequired
 
 FilterValue = str | int | float | bool | datetime | Decimal | None
 FilterValueSequence = list[FilterValue] | tuple[FilterValue, ...] | set[FilterValue]
 FilterValueType = FilterValue | FilterValueSequence | dict[str, FilterValue]
+WhereCondition = ColumnElement[bool] | QueryableAttribute[bool] | TextClause
+WhereClause = WhereCondition | Sequence[WhereCondition] | None
 
 ModelType = TypeVar("ModelType", bound=Any)
 

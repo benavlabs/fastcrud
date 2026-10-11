@@ -88,3 +88,35 @@ async def test_get_multi_joined_auto_relationships_with_joined_inheritance(
 
     assert result["total_count"] == 1
     assert result["data"][0]["name"] == "Project A"
+
+
+@pytest.mark.asyncio
+async def test_get_multi_joined_auto_detects_one_to_many_between_inheritance_siblings(
+    async_session,
+):
+    contract_a = ContractPoly(operator_id=10)
+    contract_b = ContractPoly(operator_id=20)
+    async_session.add_all(
+        [
+            contract_a,
+            contract_b,
+            ProjectPoly(name="A1", contract=contract_a),
+            ProjectPoly(name="A2", contract=contract_a),
+            ProjectPoly(name="B1", contract=contract_b),
+        ]
+    )
+    await async_session.commit()
+
+    result = await FastCRUD(ContractPoly).get_multi_joined(
+        db=async_session,
+        auto_detect_relationships=["projects"],
+        nest_joins=True,
+    )
+
+    projects_by_operator = {
+        contract["operator_id"]: sorted(
+            project["name"] for project in contract["projects"]
+        )
+        for contract in result["data"]
+    }
+    assert projects_by_operator == {10: ["A1", "A2"], 20: ["B1"]}
