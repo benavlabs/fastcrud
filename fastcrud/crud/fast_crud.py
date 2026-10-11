@@ -47,6 +47,7 @@ from ..core import (
     process_joined_data,
     build_joined_query,
     execute_joined_query,
+    refuse_a_cartesian_product,
     format_joined_response,
     split_join_configs,
     fetch_and_merge_one_to_many,
@@ -811,6 +812,7 @@ class FastCRUD(
         stmt = await self.select(
             schema_to_select=schema_to_select, where=where, **kwargs
         )
+        refuse_a_cartesian_product(stmt)
 
         db_row = await db.execute(stmt)
         result: Row | None = db_row.one_or_none() if one_or_none else db_row.first()
@@ -1130,6 +1132,7 @@ class FastCRUD(
         """
         filters = self._filter_processor.parse_filters(where=where, **kwargs)
         stmt = select(self.model).filter(*filters).limit(1)
+        refuse_a_cartesian_product(stmt)
 
         result = await db.execute(stmt)
         return result.first() is not None
@@ -1237,6 +1240,7 @@ class FastCRUD(
                 base_query, joins_config, select_joined_columns=False
             )
             base_query = self._query_builder.apply_filters(base_query, primary_filters)
+            refuse_a_cartesian_product(base_query)
 
             if distinct_on_primary:
                 base_query = base_query.distinct()
@@ -1249,6 +1253,7 @@ class FastCRUD(
             count_query = self._query_builder.apply_filters(
                 count_query, primary_filters
             )
+            refuse_a_cartesian_product(count_query)
 
         total_count: int | None = await db.scalar(count_query)
         if total_count is None:
@@ -1464,6 +1469,7 @@ class FastCRUD(
         )
 
         stmt = self._query_builder.apply_pagination(stmt, offset, limit)
+        refuse_a_cartesian_product(stmt)
         result = await db.execute(stmt)
         data = [dict(row) for row in result.mappings()]
         formatted_data = format_multi_response(data, schema_to_select, return_as_model)
@@ -1956,6 +1962,7 @@ class FastCRUD(
         )
         primary_filters = self._filter_processor.parse_filters(where=where, **kwargs)
         stmt = self._query_builder.apply_filters(stmt, primary_filters)
+        refuse_a_cartesian_product(stmt)
 
         db_rows = await db.execute(stmt)
         has_regular_one_to_many = any(
@@ -2814,6 +2821,7 @@ class FastCRUD(
 
         stmt = self._query_builder.apply_sorting(stmt, sort_column, sort_order)
         stmt = self._query_builder.apply_pagination(stmt, 0, limit)
+        refuse_a_cartesian_product(stmt)
 
         result = await db.execute(stmt)
         data = [dict(row) for row in result.mappings()]
@@ -2991,6 +2999,7 @@ class FastCRUD(
 
         filters = self._filter_processor.parse_filters(where=where, **kwargs)
         refuse_without_filters(filters, "update")
+        refuse_a_cartesian_product(select(self.model).where(*filters))
 
         await validate_update_delete_operation(
             self.count, db, allow_multiple, "update", where=where, **kwargs
@@ -3101,6 +3110,7 @@ class FastCRUD(
             where=where, **combined_filters
         )
         refuse_without_filters(parsed_filters, "delete")
+        refuse_a_cartesian_product(select(self.model).where(*parsed_filters))
 
         if (
             not allow_multiple
@@ -3218,6 +3228,7 @@ class FastCRUD(
             where=where, **combined_filters
         )
         refuse_without_filters(parsed_filters, "delete")
+        refuse_a_cartesian_product(select(self.model).where(*parsed_filters))
 
         await validate_update_delete_operation(
             self.count, db, allow_multiple, "delete", where=where, **combined_filters

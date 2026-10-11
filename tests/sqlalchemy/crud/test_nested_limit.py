@@ -720,3 +720,16 @@ async def test_nested_limit_refuses_a_join_on_it_cannot_apply(
         await FastCRUD(Author).get_multi_joined(
             db=async_session, joins_config=[_articles_join(join_on)], nest_joins=True
         )
+
+
+@pytest.mark.asyncio
+async def test_a_where_naming_a_model_fetched_separately_is_refused(async_session):
+    await _two_authors_with_articles(async_session)
+
+    with pytest.raises(ValueError, match="side by side without joining them"):
+        await FastCRUD(Author).get_multi_joined(
+            db=async_session,
+            joins_config=[_articles_join(Author.id == Article.author_id)],
+            nest_joins=True,
+            where=Article.title == "Kept",
+        )

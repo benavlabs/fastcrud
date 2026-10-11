@@ -6,6 +6,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import select, text, true
 from sqlalchemy.exc import NoResultFound
+from sqlalchemy.orm import aliased
 
 from fastcrud import FastCRUD
 from tests.sqlalchemy.conftest import CategoryModel
@@ -228,3 +229,101 @@ async def test_any_sequence_of_conditions(async_session, crud, test_model):
     )
 
     assert _ids(result) == [6, 10]
+
+
+UNJOINED = "side by side without joining them"
+
+
+@pytest.mark.parametrize(
+    "read",
+    [
+        lambda crud, db, where: crud.get(db, where=where),
+        lambda crud, db, where: crud.exists(db, where=where),
+        lambda crud, db, where: crud.count(db, where=where),
+        lambda crud, db, where: crud.get_multi(db, where=where),
+        lambda crud, db, where: crud.get_multi(
+            db, where=where, return_total_count=False
+        ),
+        lambda crud, db, where: crud.get_multi_by_cursor(db, where=where),
+    ],
+    ids=["get", "exists", "count", "get_multi", "get_multi-no-count", "cursor"],
+)
+async def test_a_read_naming_a_model_it_does_not_join_is_refused(
+    async_session, crud, tier_model, read
+):
+    with pytest.raises(ValueError, match=UNJOINED):
+        await read(crud, async_session, tier_model.name == "Premium")
+
+
+@pytest.mark.parametrize(
+    "write",
+    [
+        lambda crud, db, where: crud.update(
+            db, {"name": "Renamed"}, allow_multiple=True, where=where
+        ),
+        lambda crud, db, where: crud.delete(db, allow_multiple=True, where=where),
+        lambda crud, db, where: crud.db_delete(db, allow_multiple=True, where=where),
+    ],
+    ids=["update", "delete", "db_delete"],
+)
+async def test_a_write_naming_a_model_it_does_not_join_is_refused(
+    async_session, crud, tier_model, write
+):
+    with pytest.raises(ValueError, match=UNJOINED):
+        await write(crud, async_session, tier_model.name == "Premium")
+
+    assert await crud.count(async_session, name="Renamed") == 0
+    assert await crud.count(async_session) == 11
+
+
+async def test_a_joined_model_can_be_named(async_session, crud, test_model, tier_model):
+    result = await crud.get_multi_joined(
+        async_session,
+        join_model=tier_model,
+        join_prefix="tier_",
+        where=(tier_model.name == "Premium") & (test_model.category_id == 2),
+    )
+
+    assert sorted(row["id"] for row in result["data"]) == [3, 7]
+    assert result["total_count"] == 2
+
+
+async def test_an_aliased_join_needs_its_alias_named(
+    async_session, crud, test_model, tier_model
+):
+    tier = aliased(tier_model, name="tier_alias")
+
+    with pytest.raises(ValueError, match=UNJOINED):
+        await crud.get_multi_joined(
+            async_session,
+            join_model=tier_model,
+            join_on=test_model.tier_id == tier.id,
+            alias=tier,
+            join_prefix="tier_",
+            where=tier_model.name == "Premium",
+        )
+
+
+async def test_the_refusal_names_each_table_read_side_by_side(
+    async_session, crud, test_model, tier_model
+):
+    with pytest.raises(ValueError) as refused:
+        await crud.get_multi_joined(
+            async_session,
+            join_model=tier_model,
+            join_prefix="tier_",
+            where=(CategoryModel.name == "Tech") & (test_model.id > 0),
+        )
+
+    message = str(refused.value)
+    assert "test (joined with tier) and category side by side" in message
+    assert "JOIN" not in message
+
+
+async def test_the_refusal_calls_an_unnamed_subquery_a_subquery(
+    async_session, crud, test_model, tier_model
+):
+    tiers = select(tier_model.id).subquery()
+
+    with pytest.raises(ValueError, match="test and a subquery side by side"):
+        await crud.get_multi(async_session, where=test_model.tier_id == tiers.c.id)

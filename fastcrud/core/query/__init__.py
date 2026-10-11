@@ -5,7 +5,12 @@ This module provides utilities for building and modifying SQLAlchemy SELECT
 statements with support for filtering, sorting, pagination, and joins.
 """
 
-from .builder import SQLQueryBuilder, build_joined_query, execute_joined_query
+from .builder import (
+    SQLQueryBuilder,
+    build_joined_query,
+    execute_joined_query,
+    refuse_a_cartesian_product,
+)
 from .sorting import SortProcessor
 from .joins import JoinBuilder
 from .one_to_many import (
@@ -20,6 +25,7 @@ __all__ = [
     "JoinBuilder",
     "build_joined_query",
     "execute_joined_query",
+    "refuse_a_cartesian_product",
     "split_join_configs",
     "fetch_and_merge_one_to_many",
     "fetch_one_to_many_with_limit",
