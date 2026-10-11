@@ -174,6 +174,62 @@ results = await crud.get_multi(
 )
 ```
 
+## SQLAlchemy Conditions with `where=`
+
+Keyword filters cover comparisons between a column and a value. For anything else, such as groups of conditions joined by OR, comparisons between two columns, functions or subqueries, pass SQLAlchemy conditions with `where=`. It takes one condition or a list of them that must all hold, and is AND-ed with the keyword filters. Every read and write takes it: `get`, `exists`, `count`, `get_multi`, `get_multi_by_cursor`, `get_joined`, `get_multi_joined`, `select`, `update`, `delete`, `db_delete` and `upsert_multi`.
+
+```python
+from sqlalchemy import func, select, text
+
+# (author is me AND status is draft) OR region is EU, and not deleted
+posts = await post_crud.get_multi(
+    db,
+    is_deleted=False,
+    where=((Post.author_id == me.id) & (Post.status == "draft")) | (Post.region == "EU"),
+)
+
+# Comparing two columns, and a list of conditions that must all hold
+late = await task_crud.get_multi(
+    db,
+    where=[Task.finished_at > Task.due_at, func.lower(Task.owner) == "ann"],
+)
+
+# A boolean column on its own, a subquery, or a text() clause
+active = await user_crud.count(db, where=User.active)
+authors = await author_crud.get_multi(db, where=Author.articles.any(Article.published))
+recent = await post_crud.get_multi(db, where=text("created_at > :since").bindparams(since=since))
+```
+
+`where=` refuses a value that isn't a SQLAlchemy condition with a `TypeError`. That catches a comparison Python evaluated on its own, such as `"draft" == status` with plain strings on both sides, which SQLAlchemy's own `.where()` would turn into `WHERE true`.
+
+### Conditions on Other Models
+
+A condition may name a model the query joins, such as `join_model` in `get_multi_joined`. If the join uses an alias, name the alias. A condition naming a model the query doesn't join would pair every row with every row of that model, so FastCRUD raises a `ValueError` instead. To test a related model without joining it, use a subquery such as `Author.articles.any(...)`.
+
+A one-to-many join with `nested_limit` isn't part of the main query: its rows are fetched in a query of their own afterwards, so `where=` can't name its model either. To choose parents by their children, use a subquery such as `Author.articles.any(Article.published)`. To choose which children are returned, put the condition in the join's `join_on`, such as `(Author.id == Article.author_id) & Article.published`, or in its `filters`.
+
+### Updates and Deletes
+
+`update`, `delete` and `db_delete` refuse to run with no conditions at all, including an empty `where=[]`, so a filter list built by a loop that added nothing can't reach every record. To update or delete every record on purpose, say so with `where=true()`:
+
+```python
+from sqlalchemy import true
+
+await post_crud.update(db, {"archived": True}, allow_multiple=True, where=true())
+```
+
+### SQLModel
+
+SQLModel types a model's fields as their Python values, so to a type checker `Hero.age > 18` is a `bool`, which `where=` doesn't take. Wrap the field in `col()` to get the SQLAlchemy column and its type:
+
+```python
+from sqlmodel import col
+
+heroes = await hero_crud.get_multi(db, where=(col(Hero.age) > 18) | col(Hero.name).startswith("Spider"))
+```
+
+At runtime both forms work; `col()` only matters to mypy and other type checkers.
+
 ## Error Handling
 
 - Invalid column names raise `ValueError`
