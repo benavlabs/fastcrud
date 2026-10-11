@@ -9,8 +9,8 @@ from .builder import (
     SQLQueryBuilder,
     build_joined_query,
     execute_joined_query,
-    refuse_a_cartesian_product,
 )
+from .cartesian import refuse_a_cartesian_product
 from .sorting import SortProcessor
 from .joins import JoinBuilder
 from .one_to_many import (

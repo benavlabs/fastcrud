@@ -7,19 +7,21 @@ queries with window functions, enabling proper SQL-level limiting per parent rec
 
 import logging
 from collections.abc import Sequence
-from typing import Any, NamedTuple, TYPE_CHECKING
+from typing import Any, NamedTuple, TYPE_CHECKING, cast
 
 from pydantic import BaseModel
 from sqlalchemy import select, func, literal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import operators
-from sqlalchemy.sql.elements import BooleanClauseList, ColumnElement
+from sqlalchemy.sql.elements import BooleanClauseList, ColumnElement, TextClause
 from sqlalchemy.sql.expression import BinaryExpression
 from sqlalchemy.sql.selectable import FromClause, Join
 from sqlalchemy.inspection import inspect as sa_inspect
 
 from ..filtering import FilterProcessor
-from .builder import describe_from_clause, refuse_a_cartesian_product
+from ...types import WhereClause
+from ..filtering.processor import where_conditions
+from .cartesian import describe_from_clause, refuse_a_cartesian_product
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..config import JoinConfig
@@ -118,6 +120,35 @@ def split_join_condition(
     )
 
     conditions = [term for term in terms if term is not link]
+    refuse_conditions_outside_the_related_model(
+        conditions, related_model, primary_model
+    )
+    return JoinLink(foreign_key, parent_column, conditions)
+
+
+def refuse_conditions_outside_the_related_model(
+    conditions: Sequence[ColumnElement[bool] | TextClause],
+    related_model: Any,
+    primary_model: "ModelType",
+) -> None:
+    """
+    Refuse conditions a nested_limit join's own query can't apply.
+
+    The related rows of a one-to-many join with ``nested_limit`` come from a query
+    that reads only the related model, so its extra ``join_on`` conditions and its
+    ``where`` may name only that model, or its alias.
+
+    Args:
+        conditions: The conditions the related rows' query would apply
+        related_model: The related model or its alias (e.g., Article)
+        primary_model: The primary/parent model (e.g., Author)
+
+    Raises:
+        ValueError: If a condition reads any other table, naming it
+    """
+    related = sa_inspect(related_model)
+    related_name = _name_with_alias(related)
+    primary_tables = _tables_of(primary_model)
     for condition in conditions:
         others = [
             from_clause
@@ -138,7 +169,13 @@ def split_join_condition(
                 f"A one-to-many join with nested_limit can only add conditions on "
                 f"{related_name}, not on {names}: {condition}"
             )
-    return JoinLink(foreign_key, parent_column, conditions)
+
+
+def _name_with_alias(inspected: Any) -> str:
+    """A model's name, and its alias's when it has one: ``Article (as article_alias)``."""
+    model_name: str = inspected.mapper.class_.__name__
+    alias_name = inspected.name if inspected.is_aliased_class else None
+    return f"{model_name} (as {alias_name})" if alias_name else model_name
 
 
 def _tables_of(model: Any) -> set[FromClause]:
@@ -190,7 +227,7 @@ async def fetch_one_to_many_with_limit(
     sort_orders: str | list[str] | None = None,
     schema_to_select: type[BaseModel] | None = None,
     filters: dict[str, Any] | None = None,
-    conditions: Sequence[ColumnElement[bool]] = (),
+    conditions: Sequence[ColumnElement[bool] | TextClause] = (),
 ) -> list[dict[str, Any]]:
     """
     Fetch one-to-many related records with SQL-level limiting using window functions.
@@ -257,7 +294,7 @@ async def _fetch_children_by_parent(
     sort_orders: str | list[str] | None,
     schema_to_select: type[BaseModel] | None,
     filters: dict[str, Any] | None,
-    conditions: Sequence[ColumnElement[bool]],
+    conditions: Sequence[ColumnElement[bool] | TextClause],
 ) -> list[tuple[Any, dict[str, Any]]]:
     """
     The rows of fetch_one_to_many_with_limit, each with the parent id it belongs to.
@@ -392,6 +429,10 @@ async def fetch_and_merge_one_to_many(
         )
         related_model = config.alias or config.model
         link = split_join_condition(config.join_on, related_model, primary_model)
+        joined_row_conditions = where_conditions(cast(WhereClause, config.where))
+        refuse_conditions_outside_the_related_model(
+            joined_row_conditions, related_model, primary_model
+        )
         parents_by_value = _parents_by_value(
             main_results,
             _attribute_name(primary_model, link.parent_column),
@@ -414,7 +455,7 @@ async def fetch_and_merge_one_to_many(
             sort_orders=config.sort_orders,
             schema_to_select=config.schema_to_select,
             filters=config.filters,
-            conditions=link.conditions,
+            conditions=[*link.conditions, *joined_row_conditions],
         )
         for parent_value, child in children:
             for parent in parents_by_value.get(parent_value, []):
