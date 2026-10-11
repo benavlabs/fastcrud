@@ -18,6 +18,7 @@ from sqlalchemy.sql.expression import BinaryExpression
 from sqlalchemy.sql.selectable import FromClause, Join
 from sqlalchemy.inspection import inspect as sa_inspect
 
+from ..filtering import FilterProcessor
 from .builder import describe_from_clause, refuse_a_cartesian_product
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -207,11 +208,16 @@ async def fetch_one_to_many_with_limit(
         sort_columns: Optional column(s) to sort by within each parent group
         sort_orders: Optional sort orders ("asc" or "desc") for sort_columns
         schema_to_select: Optional Pydantic schema for column selection
-        filters: Optional dict of column_name: value filters to apply
+        filters: Optional filters on the related model, in the same format as
+            keyword filters, such as ``{"title__ne": "Draft"}``
         conditions: SQLAlchemy conditions on the related model the records must meet
 
     Returns:
         List of dictionaries, each containing related record data with the FK value
+
+    Raises:
+        ValueError: If a filter names a column the related model doesn't have, or
+            the query would read a table it doesn't select from
 
     Example:
         >>> # Fetch top 10 published articles per author
@@ -298,14 +304,12 @@ async def _fetch_children_by_parent(
         .over(partition_by=fk_column, order_by=order_by_clauses)
         .label("_rn")
     )
-    base_query = select(*columns, fk_column.label(_PARENT_ID), row_number).where(
-        fk_column.in_(parent_ids), *conditions
+    filter_conditions = (
+        FilterProcessor(related_model).parse_filters(**filters) if filters else []
     )
-    if filters:
-        for col_name, value in filters.items():
-            if hasattr(related_model, col_name):
-                col_attr = getattr(related_model, col_name)
-                base_query = base_query.where(col_attr == value)
+    base_query = select(*columns, fk_column.label(_PARENT_ID), row_number).where(
+        fk_column.in_(parent_ids), *conditions, *filter_conditions
+    )
     refuse_a_cartesian_product(base_query)
 
     subquery = base_query.subquery()

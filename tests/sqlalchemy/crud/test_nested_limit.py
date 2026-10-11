@@ -1012,3 +1012,32 @@ async def test_the_separate_query_refuses_a_model_it_does_not_read(async_session
             parent_ids=[1, 2],
             limit_per_parent=5,
         )
+
+
+@pytest.mark.asyncio
+async def test_nested_limit_filters_take_the_keyword_filter_operators(async_session):
+    await _two_authors_with_articles(async_session)
+
+    join = _articles_join(Author.id == Article.author_id)
+    join.filters = {"title__ne": "Kept", "published_date__gte": "2023-01-02"}
+    result = await FastCRUD(Author).get_multi_joined(
+        db=async_session, joins_config=[join], nest_joins=True
+    )
+
+    ids_by_author = {
+        author["id"]: [item["id"] for item in author["articles"]]
+        for author in result["data"]
+    }
+    assert ids_by_author == {1: [2], 2: [3]}
+
+
+@pytest.mark.asyncio
+async def test_nested_limit_filters_refuse_an_unknown_column(async_session):
+    await _two_authors_with_articles(async_session)
+
+    join = _articles_join(Author.id == Article.author_id)
+    join.filters = {"tittle": "Kept"}
+    with pytest.raises(ValueError, match="Invalid column 'tittle'"):
+        await FastCRUD(Author).get_multi_joined(
+            db=async_session, joins_config=[join], nest_joins=True
+        )
