@@ -15,6 +15,13 @@ from ..conftest import (
 
 pytestmark = pytest.mark.asyncio
 
+ON_EACH_DATABASE = [
+    pytest.param("sqlite", marks=pytest.mark.dialect("sqlite"), id="sqlite"),
+    pytest.param(
+        "postgresql", marks=pytest.mark.dialect("postgresql"), id="postgresql"
+    ),
+    pytest.param("mysql", marks=pytest.mark.dialect("mysql"), id="mysql"),
+]
 WITH_AND_WITHOUT_NESTED_LIMIT = pytest.mark.parametrize(
     "nested_limit", [None, 5], ids=["joined", "nested-limit"]
 )
@@ -66,9 +73,10 @@ def _article_ids_by_author(result):
     }
 
 
+@pytest.mark.parametrize("dialect", ON_EACH_DATABASE)
 @WITH_AND_WITHOUT_NESTED_LIMIT
 async def test_where_attaches_only_matching_rows_and_keeps_every_parent(
-    async_session, nested_limit
+    async_session, dialect, nested_limit
 ):
     await _authors_with_articles(async_session)
 
@@ -82,7 +90,10 @@ async def test_where_attaches_only_matching_rows_and_keeps_every_parent(
     assert result["total_count"] == 3
 
 
-async def test_where_on_an_inner_join_leaves_out_parents_without_a_match(async_session):
+@pytest.mark.parametrize("dialect", ON_EACH_DATABASE)
+async def test_where_on_an_inner_join_leaves_out_parents_without_a_match(
+    async_session, dialect
+):
     await _authors_with_articles(async_session)
 
     result = await FastCRUD(Author).get_multi_joined(
@@ -95,7 +106,8 @@ async def test_where_on_an_inner_join_leaves_out_parents_without_a_match(async_s
     assert result["total_count"] == 1
 
 
-async def test_where_on_a_one_to_one_join_leaves_nulls(async_session):
+@pytest.mark.parametrize("dialect", ON_EACH_DATABASE)
+async def test_where_on_a_one_to_one_join_leaves_nulls(async_session, dialect):
     await _authors_with_articles(async_session)
 
     result = await FastCRUD(Article).get_multi_joined(
@@ -240,7 +252,8 @@ async def test_filters_choose_parents_where_where_does_not(async_session):
     assert result["total_count"] == 1
 
 
-async def test_count_config_where_counts_only_matching_rows(async_session):
+@pytest.mark.parametrize("dialect", ON_EACH_DATABASE)
+async def test_count_config_where_counts_only_matching_rows(async_session, dialect):
     await _authors_with_articles(async_session)
 
     result = await FastCRUD(Author).get_multi_joined(
