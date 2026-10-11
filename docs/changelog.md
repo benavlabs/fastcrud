@@ -32,6 +32,9 @@ ___
   - Rows written outside `read` are still returned by `create` and `update`; Postgres would refuse the `RETURNING` there
   - The policy covers the base model only: joined rows are filtered only by the join's `JoinConfig.where`, and relationship data in a create or update is refused
   - `crud.with_policy(policy)` returns a copy under another policy and leaves the original unchanged, for an instance shared across requests
+  - `hidden_columns` are left out of everything reads, `create` and `update` return, and the caller may not filter or sort by them, name them in `where=` or a join's `where` (subqueries and aliases included; raw SQL such as `text()`, `column()` and `literal_column()` is refused when columns are hidden, since it can't be inspected), or write them. A response model that requires one raises `AccessDenied` before any query; an optional field is just left out. Joined reads still nest by a hidden primary key and link `nested_limit` joins by a hidden column, dropping them from the results. The policy's own conditions may use them
+  - `read_only_columns` may be read but not written: a create or update that sets one, even to `None`, raises `AccessDenied`, and an unset one is left out of the `INSERT`. Server code that sets such a column writes through `with_policy(None)`
+  - Column rules restrict the caller's input only: the columns FastCRUD writes itself, such as `updated_at` and the soft delete columns, are written as usual. A name that isn't a column of the model raises `ValueError` when the policy is attached
   - `AccessDenied`, exported from `fastcrud`, is raised for a denied operation, a written row that fails its check, or data the policy doesn't let the caller write; its `reason` (`"operation"`, `"check"` or `"columns"`), `operation`, `model` and `columns` tell them apart
 
 #### Changed

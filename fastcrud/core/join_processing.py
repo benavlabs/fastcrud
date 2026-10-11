@@ -5,6 +5,7 @@ This module provides classes and functions for handling complex multi-join scena
 with proper caching of model introspection results and composite primary key handling.
 """
 
+from collections.abc import Collection
 from typing import Sequence, Any, TYPE_CHECKING
 from pydantic import BaseModel
 
@@ -299,6 +300,7 @@ class JoinProcessor:
         return_as_model: bool = False,
         schema_to_select: type[SelectSchemaType] | None = None,
         nested_schema_to_select: dict[str, type[SelectSchemaType]] | None = None,
+        hidden_columns: Collection[str] = (),
     ) -> Sequence[dict | SelectSchemaType]:
         """
         Nests joined data based on join definitions provided for multiple records. This function processes the input list of
@@ -312,6 +314,8 @@ class JoinProcessor:
             schema_to_select: Pydantic schema for selecting specific columns from the primary model. Used for converting
                               dictionaries back to Pydantic models.
             nested_schema_to_select: A dictionary mapping join prefixes to their corresponding Pydantic schemas.
+            hidden_columns: Base model fields to drop from each result once it's nested, as a
+                policy's ``hidden_columns`` that nesting still needed.
 
         Returns:
             Sequence[Union[dict, SelectSchemaType]]: A list of dictionaries with nested structures for joined table data or Pydantic models.
@@ -404,7 +408,14 @@ class JoinProcessor:
                     join_prefix,
                 )
 
-        nested_data: list = list(pre_nested_data.values())
+        nested_data: list = [
+            {
+                field: value
+                for field, value in row.items()
+                if field not in hidden_columns
+            }
+            for row in pre_nested_data.values()
+        ]
 
         if return_as_model:
             if not schema_to_select:

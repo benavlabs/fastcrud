@@ -5,6 +5,7 @@ This module provides the main SQLQueryBuilder class that coordinates
 query construction with support for filtering, sorting, pagination, and joins.
 """
 
+from collections.abc import Collection
 from typing import Any, TYPE_CHECKING
 from sqlalchemy import Select, select, func
 from sqlalchemy.sql.elements import ColumnElement, TextClause
@@ -167,6 +168,7 @@ def build_joined_query(
     config: dict[str, Any],
     schema_to_select: type["SelectSchemaType"] | None = None,
     nest_joins: bool = False,
+    hidden_columns: Collection[str] = (),
     **kwargs: Any,
 ) -> Select:
     """
@@ -179,14 +181,20 @@ def build_joined_query(
         config: Configuration dictionary with join_definitions and counts_config
         schema_to_select: Pydantic schema for column selection
         nest_joins: Whether to use temporary prefixes for nesting
+        hidden_columns: Attribute names of the primary model's columns to leave
+            out of the selection, as a policy's ``hidden_columns``
         **kwargs: Additional filter parameters
 
     Returns:
         SQLAlchemy SELECT statement with joins and filters
     """
-    primary_select = extract_matching_columns_from_schema(
-        model=model, schema=schema_to_select
-    )
+    primary_select = [
+        column
+        for column in extract_matching_columns_from_schema(
+            model=model, schema=schema_to_select
+        )
+        if getattr(column, "key", None) not in hidden_columns
+    ]
     stmt = query_builder.build_base_select(primary_select)
 
     join_definitions = config["join_definitions"]

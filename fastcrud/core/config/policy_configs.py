@@ -54,6 +54,23 @@ class PolicyConfig(BaseModel):
         update_check: Conditions an updated row must meet afterwards, checked the
             same way. When omitted, it's the ``update`` condition, as in Postgres:
             an updated row must still be within ``update``'s reach.
+        hidden_columns: Attribute names of columns the caller never sees: reads,
+            ``create`` and ``update`` leave them out of what they return, and the
+            caller may not filter or sort by them, name them in ``where=`` or a
+            join's ``where``, or write them. A response schema that requires one
+            raises ``AccessDenied``; an optional field is just left out. The
+            policy's own conditions may use them.
+        read_only_columns: Attribute names of columns the caller may see but not
+            write: a create or update that sets one raises ``AccessDenied``. A
+            field the caller leaves unset isn't written, so the database default
+            applies. Server code that sets one, such as ``owner_id``, writes
+            through ``with_policy(None)`` or a policy without this rule.
+
+    Column rules restrict the caller's input only: the columns FastCRUD writes
+    itself, such as ``updated_at`` and the soft delete columns, are written as
+    usual. They cover this model's columns only, so a self-referential join shows
+    the joined rows' hidden columns, as it shows rows outside ``read``; a join's
+    ``JoinConfig.schema_to_select`` limits what it shows.
 
     Example:
         >>> PolicyConfig(
@@ -71,6 +88,8 @@ class PolicyConfig(BaseModel):
     delete: SkipValidation[PolicyRule] = False
     create_check: SkipValidation[WhereClause] = None
     update_check: SkipValidation[WhereClause] = None
+    hidden_columns: frozenset[str] = frozenset()
+    read_only_columns: frozenset[str] = frozenset()
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -142,6 +161,11 @@ class PolicyConfig(BaseModel):
         if self.update_check is None:
             return self.row_conditions("update")
         return where_conditions(cast(WhereClause, self.update_check))
+
+    @property
+    def unwritable_columns(self) -> frozenset[str]:
+        """The columns the caller may not write: the hidden and read-only ones."""
+        return self.hidden_columns | self.read_only_columns
 
 
 def _holds_conditions(value: object) -> bool:

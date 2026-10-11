@@ -11,6 +11,7 @@ from collections.abc import Sequence
 from typing import Any, Literal
 
 AccessDeniedReason = Literal["operation", "check", "columns"]
+ColumnAction = Literal["write", "filter", "return"]
 
 _PAST_PARTICIPLES = {"create": "created", "update": "updated"}
 
@@ -23,12 +24,15 @@ class AccessDenied(Exception):
         operation: The operation refused: ``"read"``, ``"create"``, ``"update"``
             or ``"delete"``.
         model: The SQLAlchemy model the operation was on.
-        columns: The fields the caller may not write, when ``reason`` is
-            ``"columns"``.
+        columns: The fields involved when ``reason`` is ``"columns"``.
         reason: Why the policy refused it: ``"operation"`` when the policy
             denies the operation itself, ``"check"`` when a written row fails
             ``create_check`` or ``update_check``, and ``"columns"`` when the data
-            names fields the caller may not write.
+            names fields the caller may not write, filter on, sort by or get back.
+        action: For ``reason="columns"``, what the caller tried to do with the
+            columns: ``"write"`` them, ``"filter"`` or sort by them, or
+            ``"return"`` them through a response schema that requires them;
+            ``None`` for the other reasons.
 
     Example:
         >>> try:
@@ -44,11 +48,17 @@ class AccessDenied(Exception):
         model: Any,
         columns: Sequence[str] = (),
         reason: AccessDeniedReason = "operation",
+        action: ColumnAction | None = None,
     ) -> None:
         self.operation = operation
         self.model = model
         self.columns = tuple(columns)
         self.reason = reason
+        self.action: ColumnAction | None = (
+            (action or ("filter" if operation == "read" else "write"))
+            if reason == "columns"
+            else None
+        )
         super().__init__(self._message())
 
     def _message(self) -> str:
@@ -57,8 +67,21 @@ class AccessDenied(Exception):
             written = _PAST_PARTICIPLES.get(self.operation, self.operation)
             return f"the {written} {model_name} doesn't pass {self.operation}_check"
         if self.reason == "columns":
-            return (
-                f"{self.operation} on {model_name} may not write: "
-                f"{', '.join(self.columns)}"
-            )
+            return self._columns_message(model_name)
         return f"{self.operation} on {model_name} is not allowed by the policy"
+
+    def _columns_message(self, model_name: str) -> str:
+        names = ", ".join(self.columns)
+        if self.action == "return":
+            return f"{self.operation} on {model_name} may not return: {names}"
+        if self.action == "filter" and not self.columns:
+            return (
+                f"{self.operation} on {model_name} may not filter by raw SQL such as "
+                "text(), column() or literal_column(), which can't be checked for "
+                "hidden columns"
+            )
+        if self.action == "filter":
+            return (
+                f"{self.operation} on {model_name} may not filter or sort by: {names}"
+            )
+        return f"{self.operation} on {model_name} may not write: {names}"

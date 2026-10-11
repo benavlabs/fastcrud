@@ -20,6 +20,7 @@ from sqlalchemy.engine.row import Row
 from sqlalchemy.orm.util import AliasedClass
 from sqlalchemy.sql.elements import BinaryExpression
 from sqlalchemy.sql.selectable import Select
+from pydantic import BaseModel
 
 from fastcrud.types import (
     WhereClause,
@@ -66,12 +67,21 @@ from .validation import (
 from .data_preparation import instantiate_related_objects, prepare_update_data
 from .policy_enforcement import (
     conditions_in_reach,
+    hidden_column_keys,
+    hidden_columns_of,
     primary_key_of,
     primary_keys_matching,
+    refuse_columns_that_are_not_columns,
+    refuse_hidden_input,
     refuse_relationship_data,
     refuse_rows_failing_check,
+    refuse_schema_requiring_hidden,
+    refuse_unwritable_data,
     row_in_reach,
+    without_hidden_columns,
+    without_hidden_fields,
 )
+from ..core.query.one_to_many import parent_link_attributes
 from ..core.config.policy_configs import PolicyConfig, RowOperation
 from ..core.filtering.processor import where_conditions
 from ..exceptions.access import AccessDenied
@@ -553,6 +563,7 @@ class FastCRUD(
         self._primary_keys = get_primary_key_columns(self.model)
         self._filter_processor = FilterProcessor(self.model, custom_filters)
         self._query_builder = SQLQueryBuilder(self.model)
+        refuse_columns_that_are_not_columns(policy, model)
         self.policy = policy
 
     def with_policy(self, policy: PolicyConfig | None) -> Self:
@@ -575,9 +586,39 @@ class FastCRUD(
             ...     crud = post_crud.with_policy(PolicyConfig(read=Post.owner_id == me))
             ...     return await crud.get_multi(db)
         """
+        refuse_columns_that_are_not_columns(policy, self.model)
         copy_under_policy = copy.copy(self)
         copy_under_policy.policy = policy
         return copy_under_policy
+
+    def _refuse_response_schema(
+        self, schema_to_select: type[BaseModel] | None, return_as_model: bool
+    ) -> None:
+        """Refuse a response model that needs a hidden column, before any query."""
+        if return_as_model:
+            refuse_schema_requiring_hidden(self.policy, self.model, schema_to_select)
+
+    def _hidden_columns_joins_need(
+        self, one_to_many_with_limits: Sequence[JoinConfig]
+    ) -> frozenset[str]:
+        """
+        The hidden columns a joined read selects anyway, because FastCRUD needs them.
+
+        Nesting groups rows by the primary key, and a ``nested_limit`` join links
+        parents by the columns its ``join_on`` names. They're selected for that and
+        dropped from the results before they're returned.
+        """
+        hidden = hidden_columns_of(self.policy)
+        if not hidden:
+            return frozenset()
+        needed = set(get_primary_key_names(self.model)) | parent_link_attributes(
+            one_to_many_with_limits, self.model
+        )
+        return hidden & needed
+
+    def _joined_where(self, *configs: Sequence[Any] | None) -> list[Any]:
+        """The ``where`` of the caller's join and count configs."""
+        return [config.where for group in configs for config in group or []]
 
     def _reach(self, operation: RowOperation) -> list[Any]:
         """
@@ -660,11 +701,22 @@ class FastCRUD(
             raise ValueError(
                 "schema_to_select must be provided when return_as_model is True."
             )
+        self._refuse_response_schema(schema_to_select, return_as_model)
 
         object_data = object.model_dump()
         if self.policy is not None and not self.policy.grants("create"):
             raise AccessDenied("create", self.model)
         refuse_relationship_data(self.policy, self.model, "create", object_data)
+        refuse_unwritable_data(
+            self.policy, self.model, "create", object.model_fields_set
+        )
+        if self.policy is not None:
+            object_data = {
+                field: value
+                for field, value in object_data.items()
+                if field in object.model_fields_set
+                or field not in self.policy.unwritable_columns
+            }
         object_dict = instantiate_related_objects(object_data, self.model)
         db_object: ModelType = self.model(**object_dict)
 
@@ -694,8 +746,11 @@ class FastCRUD(
             return None
 
         mapper = inspect(db_object.__class__)
+        hidden = hidden_columns_of(self.policy)
         data_dict = {
-            attr.key: getattr(db_object, attr.key) for attr in mapper.column_attrs
+            attr.key: getattr(db_object, attr.key)
+            for attr in mapper.column_attrs
+            if attr.key not in hidden
         }
         if not return_as_model:
             return data_dict
@@ -765,8 +820,18 @@ class FastCRUD(
             This method does not execute the generated SQL statement.
             Use `db.execute(stmt)` to run the query and fetch results.
         """
-        to_select = extract_matching_columns_from_schema(
-            model=self.model, schema=schema_to_select
+        refuse_hidden_input(
+            self.policy,
+            self.model,
+            filters=kwargs,
+            where=where,
+            sort_columns=sort_columns,
+        )
+        to_select = without_hidden_columns(
+            self.policy,
+            extract_matching_columns_from_schema(
+                model=self.model, schema=schema_to_select
+            ),
         )
         filters = self._filter_processor.parse_filters(where=where, **kwargs)
         stmt = select(*to_select).filter(*filters, *self._reach("read"))
@@ -884,6 +949,7 @@ class FastCRUD(
             user = await user_crud.get(db, username__ne='admin')
             ```
         """
+        self._refuse_response_schema(schema_to_select, return_as_model)
         stmt = await self.select(
             schema_to_select=schema_to_select, where=where, **kwargs
         )
@@ -1215,6 +1281,7 @@ class FastCRUD(
             exists = await user_crud.exists(db, username__ne='admin')
             ```
         """
+        refuse_hidden_input(self.policy, self.model, filters=kwargs, where=where)
         filters = self._filter_processor.parse_filters(where=where, **kwargs)
         stmt = select(self.model).filter(*filters, *self._reach("read")).limit(1)
         refuse_a_cartesian_product(stmt)
@@ -1309,6 +1376,13 @@ class FastCRUD(
             count = await project_crud.count(db, joins_config=joins_config)
             ```
         """
+        refuse_hidden_input(
+            self.policy,
+            self.model,
+            filters=kwargs,
+            where=where,
+            joined_where=self._joined_where(joins_config),
+        )
         return await self._count_in_reach(
             db,
             self._reach("read"),
@@ -1552,6 +1626,7 @@ class FastCRUD(
             )
             ```
         """
+        self._refuse_response_schema(schema_to_select, return_as_model)
         validate_pagination_params(offset, limit)
         regular_filters, joined_filters_info = (
             self._filter_processor.separate_joined_filters(**kwargs)
@@ -2003,6 +2078,14 @@ class FastCRUD(
             # All defined relationships (tier, department, etc.) are automatically joined
             ```
         """
+        self._refuse_response_schema(schema_to_select, return_as_model)
+        refuse_hidden_input(
+            self.policy,
+            self.model,
+            filters=kwargs,
+            where=where,
+            joined_where=self._joined_where(joins_config),
+        )
         if auto_detect_relationships:
             if (
                 joins_config
@@ -2046,12 +2129,6 @@ class FastCRUD(
                 "You need one of join_model, joins_config, or auto_detect_relationships."
             )
 
-        primary_select = extract_matching_columns_from_schema(
-            model=self.model,
-            schema=schema_to_select,
-        )
-        stmt = self._query_builder.build_base_select(primary_select)
-
         join_definitions = joins_config if joins_config else []
         if join_model:
             join_definitions.append(
@@ -2070,6 +2147,15 @@ class FastCRUD(
             )
 
         regular_joins, one_to_many_with_limits = split_join_configs(join_definitions)
+        primary_select = without_hidden_columns(
+            self.policy,
+            extract_matching_columns_from_schema(
+                model=self.model,
+                schema=schema_to_select,
+            ),
+            kept=self._hidden_columns_joins_need(one_to_many_with_limits),
+        )
+        stmt = self._query_builder.build_base_select(primary_select)
         stmt = self._query_builder.prepare_joins(
             stmt=stmt, joins_config=regular_joins, use_temporary_prefix=nest_joins
         )
@@ -2111,6 +2197,8 @@ class FastCRUD(
             )
             processed_data = merged_results[0] if merged_results else None
 
+        if processed_data is not None:
+            processed_data = without_hidden_fields(self.policy, processed_data)
         if processed_data is None or not return_as_model:
             return processed_data
 
@@ -2641,6 +2729,15 @@ class FastCRUD(
             # All defined relationships (tier, department, etc.) are automatically joined
             ```
         """
+        self._refuse_response_schema(schema_to_select, return_as_model)
+        refuse_hidden_input(
+            self.policy,
+            self.model,
+            filters=kwargs,
+            where=where,
+            sort_columns=sort_columns,
+            joined_where=self._joined_where(joins_config, counts_config),
+        )
         if auto_detect_relationships:
             if (
                 joins_config
@@ -2708,6 +2805,8 @@ class FastCRUD(
             config=main_query_config,
             schema_to_select=schema_to_select,
             nest_joins=nest_joins,
+            hidden_columns=hidden_columns_of(self.policy)
+            - self._hidden_columns_joins_need(one_to_many_with_limits),
             where=[*where_conditions(where), *self._reach("read")],
             **kwargs,
         )
@@ -2742,6 +2841,7 @@ class FastCRUD(
                 db=db,
                 nested_schema_to_select=nested_schema_to_select,
                 count_func=self.count if return_total_count else None,
+                hidden_columns=hidden_columns_of(self.policy),
                 where=where,
                 **kwargs,
             ),
@@ -2907,6 +3007,8 @@ class FastCRUD(
             This method is designed for efficient pagination in large datasets and is ideal for infinite scrolling features.
             Make sure the column used for cursor pagination is indexed for performance.
         """
+        self._refuse_response_schema(schema_to_select, return_as_model)
+        refuse_hidden_input(self.policy, self.model, sort_columns=sort_column)
         if limit == 0:
             return {"data": [], "next_cursor": None}
 
@@ -3105,9 +3207,11 @@ class FastCRUD(
             )
 
         reach = self._reach("update")
-        refuse_relationship_data(
-            self.policy, self.model, "update", self._written_data(object)
-        )
+        written_data = self._written_data(object)
+        refuse_relationship_data(self.policy, self.model, "update", written_data)
+        refuse_unwritable_data(self.policy, self.model, "update", written_data)
+        refuse_hidden_input(self.policy, self.model, filters=kwargs, where=where)
+        self._refuse_response_schema(schema_to_select, return_as_model)
         filters = self._filter_processor.parse_filters(where=where, **kwargs)
         refuse_without_filters(filters, "update")
         filters_in_reach = [*filters, *reach]
@@ -3128,6 +3232,11 @@ class FastCRUD(
 
         if return_as_model:
             return_columns = self.model_col_names
+        if return_columns:
+            hidden_keys = hidden_column_keys(self.policy, self.model)
+            return_columns = [
+                name for name in return_columns if name not in hidden_keys
+            ]
 
         check = self.policy.check_conditions_for("update") if self.policy else []
         if not check:
@@ -3263,6 +3372,9 @@ class FastCRUD(
         if filters:
             combined_filters.update(filters.model_dump(exclude_unset=True))
         combined_filters.update(kwargs)
+        refuse_hidden_input(
+            self.policy, self.model, filters=combined_filters, where=where
+        )
 
         reach = self._reach("delete")
         parsed_filters = self._filter_processor.parse_filters(
@@ -3374,6 +3486,9 @@ class FastCRUD(
         if filters:
             combined_filters.update(filters.model_dump(exclude_unset=True))
         combined_filters.update(kwargs)
+        refuse_hidden_input(
+            self.policy, self.model, filters=combined_filters, where=where
+        )
 
         if db_row:
             if not await row_in_reach(db, self.model, db_row, self._reach("delete")):
