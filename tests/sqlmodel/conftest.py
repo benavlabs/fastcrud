@@ -103,12 +103,42 @@ class Card(SQLModel, table=True):
     articles: list["Article"] = Relationship(back_populates="card")
 
 
+class Author(SQLModel, table=True):
+    __tablename__ = "article_authors"
+    id: int | None = Field(default=None, primary_key=True)
+    name: str | None = None
+    articles: list["Article"] = Relationship(back_populates="author")
+
+
 class Article(SQLModel, table=True):
     __tablename__ = "articles"
     id: int | None = Field(default=None, primary_key=True)
     title: str
+    content: str | None = None
+    published_date: str | None = None
+    author_id: int | None = Field(default=None, foreign_key="article_authors.id")
+    author: Author | None = Relationship(back_populates="articles")
     card_id: int | None = Field(foreign_key="cards.id")
     card: Card | None = Relationship(back_populates="articles")
+
+
+class TreeNode(SQLModel, table=True):
+    __tablename__ = "tree_nodes"
+    id: int | None = Field(default=None, primary_key=True)
+    name: str | None = None
+    parent_id: int | None = Field(default=None, foreign_key="tree_nodes.id")
+
+
+class Writer(SQLModel, table=True):
+    __tablename__ = "writers"
+    id: int | None = Field(default=None, primary_key=True)
+    code: int | None = None
+
+
+class Story(SQLModel, table=True):
+    __tablename__ = "stories"
+    id: int | None = Field(default=None, primary_key=True)
+    writer_code: int | None = None
 
 
 class Client(SQLModel, table=True):
