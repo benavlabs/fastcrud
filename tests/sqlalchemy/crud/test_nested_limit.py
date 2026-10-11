@@ -5,6 +5,8 @@ This module tests the SQL-level limiting feature using window functions
 when fetching one-to-many related records via get_multi_joined.
 """
 
+import logging
+
 import pytest
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -12,7 +14,11 @@ from sqlalchemy.orm import aliased
 
 from fastcrud import FastCRUD, JoinConfig
 from fastcrud.core.field_management import build_relationship_joins_config
-from fastcrud.core.query import fetch_one_to_many_with_limit
+from fastcrud.core.query import (
+    fetch_and_merge_one_to_many,
+    fetch_one_to_many_with_limit,
+    one_to_many,
+)
 from ..conftest import (
     Article,
     Author,
@@ -1058,3 +1064,83 @@ async def test_nested_limit_filters_refuse_an_unknown_column(async_session):
         await FastCRUD(Author).get_multi_joined(
             db=async_session, joins_config=[join], nest_joins=True
         )
+
+
+@pytest.mark.asyncio
+async def test_fetch_one_to_many_with_limit_returns_the_related_rows(async_session):
+    await _two_authors_with_articles(async_session)
+
+    rows = await fetch_one_to_many_with_limit(
+        db=async_session,
+        related_model=Article,
+        fk_column=Article.author_id,
+        parent_ids=[1],
+        limit_per_parent=5,
+    )
+
+    assert [(row["id"], row["author_id"]) for row in rows] == [(1, 1), (2, 1)]
+    assert set(rows[0]) == {
+        "id",
+        "title",
+        "content",
+        "published_date",
+        "author_id",
+        "card_id",
+    }
+
+
+@pytest.mark.asyncio
+async def test_fetch_one_to_many_with_limit_without_parents(async_session):
+    rows = await fetch_one_to_many_with_limit(
+        db=async_session,
+        related_model=Article,
+        fk_column=Article.author_id,
+        parent_ids=[],
+        limit_per_parent=5,
+    )
+
+    assert rows == []
+
+
+@pytest.mark.asyncio
+async def test_fetch_and_merge_one_to_many_without_results(async_session):
+    merged = await fetch_and_merge_one_to_many(
+        db=async_session,
+        primary_model=Author,
+        main_results=[],
+        one_to_many_configs=[_articles_join(Author.id == Article.author_id)],
+    )
+
+    assert merged == []
+
+
+@pytest.mark.asyncio
+async def test_nested_limit_parents_without_a_link_value_get_no_children(
+    async_session,
+):
+    async_session.add_all([Writer(id=1, code=None), Story(id=10, writer_code=None)])
+    await async_session.commit()
+
+    result = await FastCRUD(Writer).get_multi_joined(
+        db=async_session, joins_config=[_stories_join()], nest_joins=True
+    )
+
+    assert [(writer["id"], writer["stories"]) for writer in result["data"]] == [(1, [])]
+
+
+@pytest.mark.asyncio
+async def test_nested_limit_warns_about_a_large_parent_set(
+    async_session, monkeypatch, caplog
+):
+    await _two_authors_with_articles(async_session)
+    monkeypatch.setattr(one_to_many, "_LARGE_PARENT_SET_WARNING_THRESHOLD", 1)
+
+    with caplog.at_level(logging.WARNING, logger=one_to_many.__name__):
+        result = await FastCRUD(Author).get_multi_joined(
+            db=async_session,
+            joins_config=[_articles_join(Author.id == Article.author_id)],
+            nest_joins=True,
+        )
+
+    assert "Fetching one-to-many relationships for 2 parent records" in caplog.text
+    assert len(result["data"]) == 2
