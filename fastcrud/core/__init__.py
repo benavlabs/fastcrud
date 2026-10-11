@@ -106,6 +106,7 @@ from ..fastapi_dependencies import (
 from .config import (
     JoinConfig,
     CountConfig,
+    PolicyConfig,
     CreateConfig,
     UpdateConfig,
     DeleteConfig,
@@ -195,6 +196,7 @@ __all__ = [
     # Configuration classes
     "JoinConfig",
     "CountConfig",
+    "PolicyConfig",
     "CreateConfig",
     "UpdateConfig",
     "DeleteConfig",

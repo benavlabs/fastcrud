@@ -1,4 +1,8 @@
+import copy
+from functools import partial
 from typing import Any, Generic, Sequence, overload, Literal, cast
+
+from typing_extensions import Self
 from datetime import datetime, timezone
 
 from sqlalchemy import (
@@ -9,7 +13,7 @@ from sqlalchemy import (
     func,
     column,
 )
-from sqlalchemy.exc import MultipleResultsFound
+from sqlalchemy.exc import MultipleResultsFound, NoResultFound
 from sqlalchemy.sql import Join
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.engine.row import Row
@@ -60,6 +64,17 @@ from .validation import (
     validate_joined_query_params,
 )
 from .data_preparation import instantiate_related_objects, prepare_update_data
+from .policy_enforcement import (
+    conditions_in_reach,
+    primary_key_of,
+    primary_keys_matching,
+    refuse_relationship_data,
+    refuse_rows_failing_check,
+    row_in_reach,
+)
+from ..core.config.policy_configs import PolicyConfig, RowOperation
+from ..core.filtering.processor import where_conditions
+from ..exceptions.access import AccessDenied
 from .execution import (
     execute_update_and_return_response,
     handle_joined_filters_delegation,
@@ -95,6 +110,9 @@ class FastCRUD(
         updated_at_column: Optional column name to use for storing the timestamp of an update. Defaults to `"updated_at"`.
         custom_filters: Optional dictionary of custom filter operators. Keys are operator names (e.g., 'year'),
             values are callables that take a column and return a filter function.
+        policy: Optional `PolicyConfig` deciding which operations are allowed and which rows each one reaches.
+            Defaults to `None`, no restriction. Use `with_policy` to get a copy with another policy, such as one
+            built per request.
 
     Methods:
         create:
@@ -523,6 +541,7 @@ class FastCRUD(
         updated_at_column: str = "updated_at",
         multi_response_key: str = "data",
         custom_filters: dict[str, FilterCallable] | None = None,
+        policy: PolicyConfig | None = None,
     ) -> None:
         self.model = model
         self.model_col_names = [col.key for col in model.__table__.columns]
@@ -534,6 +553,40 @@ class FastCRUD(
         self._primary_keys = get_primary_key_columns(self.model)
         self._filter_processor = FilterProcessor(self.model, custom_filters)
         self._query_builder = SQLQueryBuilder(self.model)
+        self.policy = policy
+
+    def with_policy(self, policy: PolicyConfig | None) -> Self:
+        """
+        A copy of this instance under another policy.
+
+        The original is unchanged, so an instance shared across requests can hand
+        each request its own policy. The copy keeps every other setting, such as
+        ``custom_filters`` and the soft delete columns.
+
+        Args:
+            policy: The copy's policy, or ``None`` for no restriction.
+
+        Returns:
+            A new instance with ``policy``.
+
+        Example:
+            >>> post_crud = FastCRUD(Post)
+            >>> async def list_posts(db, me):
+            ...     crud = post_crud.with_policy(PolicyConfig(read=Post.owner_id == me))
+            ...     return await crud.get_multi(db)
+        """
+        copy_under_policy = copy.copy(self)
+        copy_under_policy.policy = policy
+        return copy_under_policy
+
+    def _reach(self, operation: RowOperation) -> list[Any]:
+        """
+        The policy's conditions on the rows an operation reaches; ``[]`` without one.
+
+        Raises:
+            AccessDenied: If the policy denies the operation.
+        """
+        return conditions_in_reach(self.policy, self.model, operation)
 
     @overload
     async def create(
@@ -608,9 +661,27 @@ class FastCRUD(
                 "schema_to_select must be provided when return_as_model is True."
             )
 
-        object_dict = instantiate_related_objects(object.model_dump(), self.model)
+        object_data = object.model_dump()
+        if self.policy is not None and not self.policy.grants("create"):
+            raise AccessDenied("create", self.model)
+        refuse_relationship_data(self.policy, self.model, "create", object_data)
+        object_dict = instantiate_related_objects(object_data, self.model)
         db_object: ModelType = self.model(**object_dict)
-        db.add(db_object)
+
+        check = self.policy.check_conditions_for("create") if self.policy else []
+        if check:
+            async with db.begin_nested():
+                db.add(db_object)
+                await db.flush()
+                await refuse_rows_failing_check(
+                    db,
+                    self.model,
+                    [primary_key_of(self.model, db_object)],
+                    check,
+                    "create",
+                )
+        else:
+            db.add(db_object)
 
         if commit:
             await db.commit()
@@ -657,6 +728,10 @@ class FastCRUD(
 
         Returns:
             An SQL Alchemy `Select` statement object that can be executed or further modified.
+            Under a policy, it already carries the policy's `read` condition.
+
+        Raises:
+            AccessDenied: If the instance's policy denies reads.
 
         Examples:
             Selecting specific columns with filtering and sorting:
@@ -694,7 +769,7 @@ class FastCRUD(
             model=self.model, schema=schema_to_select
         )
         filters = self._filter_processor.parse_filters(where=where, **kwargs)
-        stmt = select(*to_select).filter(*filters)
+        stmt = select(*to_select).filter(*filters, *self._reach("read"))
 
         if sort_columns:
             stmt = self._query_builder.apply_sorting(stmt, sort_columns, sort_orders)
@@ -893,6 +968,11 @@ class FastCRUD(
             - When `return_as_model=True` and `schema_to_select` is provided: `SelectSchemaType`
             - When `return_as_model=False`: `Dict[str, Any]`
         """
+        if self.policy is not None:
+            raise NotImplementedError(
+                "upsert doesn't support a policy yet: use get, create and update, "
+                "or an instance without a policy"
+            )
         _pks = self._get_pk_dict(instance)
         schema_to_select = schema_to_select or type(instance)  # type: ignore
         db_instance = await self.get(
@@ -1024,6 +1104,11 @@ class FastCRUD(
             ValueError: If the MySQL dialect is used with filters, return_columns, schema_to_select, or return_as_model.
             NotImplementedError: If the database dialect is not supported for upsert multi.
         """
+        if self.policy is not None:
+            raise NotImplementedError(
+                "upsert_multi doesn't support a policy yet: use create and update, "
+                "or an instance without a policy"
+            )
         if update_override is None:
             update_override = {}
         filters = self._filter_processor.parse_filters(where=where, **kwargs)
@@ -1131,7 +1216,7 @@ class FastCRUD(
             ```
         """
         filters = self._filter_processor.parse_filters(where=where, **kwargs)
-        stmt = select(self.model).filter(*filters).limit(1)
+        stmt = select(self.model).filter(*filters, *self._reach("read")).limit(1)
         refuse_a_cartesian_product(stmt)
 
         result = await db.execute(stmt)
@@ -1224,7 +1309,35 @@ class FastCRUD(
             count = await project_crud.count(db, joins_config=joins_config)
             ```
         """
-        primary_filters = self._filter_processor.parse_filters(where=where, **kwargs)
+        return await self._count_in_reach(
+            db,
+            self._reach("read"),
+            joins_config=joins_config,
+            distinct_on_primary=distinct_on_primary,
+            where=where,
+            **kwargs,
+        )
+
+    async def _count_in_reach(
+        self,
+        db: AsyncSession,
+        reach: list[Any],
+        joins_config: list[JoinConfig] | None = None,
+        distinct_on_primary: bool = False,
+        where: WhereClause = None,
+        **kwargs: Any,
+    ) -> int:
+        """
+        Count the matching rows among those a policy lets an operation reach.
+
+        ``count`` passes the ``read`` reach; updates and deletes pass their own, so
+        the counts behind ``allow_multiple`` and ``NoResultFound`` see only the
+        rows the write can reach.
+        """
+        primary_filters = [
+            *self._filter_processor.parse_filters(where=where, **kwargs),
+            *reach,
+        ]
 
         if joins_config is not None:
             primary_keys = list(get_primary_key_names(self.model))
@@ -1961,7 +2074,9 @@ class FastCRUD(
             stmt=stmt, joins_config=regular_joins, use_temporary_prefix=nest_joins
         )
         primary_filters = self._filter_processor.parse_filters(where=where, **kwargs)
-        stmt = self._query_builder.apply_filters(stmt, primary_filters)
+        stmt = self._query_builder.apply_filters(
+            stmt, [*primary_filters, *self._reach("read")]
+        )
         refuse_a_cartesian_product(stmt)
 
         db_rows = await db.execute(stmt)
@@ -2593,7 +2708,7 @@ class FastCRUD(
             config=main_query_config,
             schema_to_select=schema_to_select,
             nest_joins=nest_joins,
-            where=where,
+            where=[*where_conditions(where), *self._reach("read")],
             **kwargs,
         )
         raw_data = await execute_joined_query(
@@ -2989,30 +3104,81 @@ class FastCRUD(
                 "return_columns must be a list of column name strings or None."
             )
 
+        reach = self._reach("update")
+        refuse_relationship_data(
+            self.policy, self.model, "update", self._written_data(object)
+        )
         filters = self._filter_processor.parse_filters(where=where, **kwargs)
         refuse_without_filters(filters, "update")
-        refuse_a_cartesian_product(select(self.model).where(*filters))
+        filters_in_reach = [*filters, *reach]
+        refuse_a_cartesian_product(select(self.model).where(*filters_in_reach))
 
         await validate_update_delete_operation(
-            self.count, db, allow_multiple, "update", where=where, **kwargs
+            partial(self._count_in_reach, reach=reach),
+            db,
+            allow_multiple,
+            "update",
+            where=where,
+            **kwargs,
         )
         update_data = prepare_update_data(
             object, self.model_col_names, self.updated_at_column, self.model
         )
-        stmt = update(self.model).filter(*filters).values(update_data)
+        stmt = update(self.model).filter(*filters_in_reach).values(update_data)
 
         if return_as_model:
             return_columns = self.model_col_names
 
-        return await execute_update_and_return_response(
-            db=db,
-            stmt=stmt,
-            commit=commit,
-            return_columns=return_columns,
-            schema_to_select=schema_to_select,
-            return_as_model=return_as_model,
-            allow_multiple=allow_multiple,
-            one_or_none=one_or_none,
+        check = self.policy.check_conditions_for("update") if self.policy else []
+        if not check:
+            return await execute_update_and_return_response(
+                db=db,
+                stmt=stmt,
+                commit=commit,
+                return_columns=return_columns,
+                schema_to_select=schema_to_select,
+                return_as_model=return_as_model,
+                allow_multiple=allow_multiple,
+                one_or_none=one_or_none,
+            )
+
+        async with db.begin_nested():
+            keys_before = await primary_keys_matching(db, self.model, filters_in_reach)
+            response = await execute_update_and_return_response(
+                db=db,
+                stmt=stmt,
+                commit=False,
+                return_columns=return_columns,
+                schema_to_select=schema_to_select,
+                return_as_model=return_as_model,
+                allow_multiple=allow_multiple,
+                one_or_none=one_or_none,
+            )
+            await refuse_rows_failing_check(
+                db,
+                self.model,
+                [self._key_after_update(key, update_data) for key in keys_before],
+                check,
+                "update",
+            )
+        if commit:
+            await db.commit()
+        return response
+
+    def _written_data(self, object: Any) -> dict[str, Any]:
+        """The fields a create or update writes, as a dict."""
+        if isinstance(object, dict):
+            return object
+        written: dict[str, Any] = object.model_dump(exclude_unset=True)
+        return written
+
+    def _key_after_update(
+        self, key: tuple[Any, ...], update_data: dict[str, Any]
+    ) -> tuple[Any, ...]:
+        """A row's primary key once an update has set any of its columns."""
+        return tuple(
+            update_data.get(column.key, value)
+            for column, value in zip(self._primary_keys, key)
         )
 
     async def db_delete(
@@ -3098,15 +3264,21 @@ class FastCRUD(
             combined_filters.update(filters.model_dump(exclude_unset=True))
         combined_filters.update(kwargs)
 
+        reach = self._reach("delete")
         parsed_filters = self._filter_processor.parse_filters(
             where=where, **combined_filters
         )
         refuse_without_filters(parsed_filters, "delete")
+        parsed_filters = [*parsed_filters, *reach]
         refuse_a_cartesian_product(select(self.model).where(*parsed_filters))
 
         if (
             not allow_multiple
-            and (total_count := await self.count(db, where=where, **combined_filters))
+            and (
+                total_count := await self._count_in_reach(
+                    db, reach, where=where, **combined_filters
+                )
+            )
             > 1
         ):
             raise MultipleResultsFound(
@@ -3204,6 +3376,8 @@ class FastCRUD(
         combined_filters.update(kwargs)
 
         if db_row:
+            if not await row_in_reach(db, self.model, db_row, self._reach("delete")):
+                raise NoResultFound("No record found to delete.")
             has_soft_delete = hasattr(db_row, self.is_deleted_column) and hasattr(
                 db_row, self.deleted_at_column
             )
@@ -3216,14 +3390,21 @@ class FastCRUD(
                 await db.commit()
             return
 
+        reach = self._reach("delete")
         parsed_filters = self._filter_processor.parse_filters(
             where=where, **combined_filters
         )
         refuse_without_filters(parsed_filters, "delete")
+        parsed_filters = [*parsed_filters, *reach]
         refuse_a_cartesian_product(select(self.model).where(*parsed_filters))
 
         await validate_update_delete_operation(
-            self.count, db, allow_multiple, "delete", where=where, **combined_filters
+            partial(self._count_in_reach, reach=reach),
+            db,
+            allow_multiple,
+            "delete",
+            where=where,
+            **combined_filters,
         )
 
         update_values: dict[str, bool | datetime] = {}

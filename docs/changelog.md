@@ -22,6 +22,17 @@ ___
   - With `alias=`, the conditions name the alias's columns; naming the unaliased model raises `ValueError`
   - `JoinConfig.filters` is unchanged: on a joined query it chooses parents, and on a `nested_limit` join it filters the nested rows. To choose parents by their joined rows, use the method's `where=` or a subquery such as `Author.articles.any(...)`
   - `CountConfig.where` applies inside the count subquery: every parent is kept, and only the matching rows are counted. It may name the counted model and the tables its `join_on` reads; any other table raises `ValueError`, since it would multiply the counts
+- **Row-Level Policies with `PolicyConfig`** by [@igorbenav](https://github.com/igorbenav)
+  - `FastCRUD(Model, policy=PolicyConfig(...))` decides which operations are allowed and which rows each one reaches, in the manner of Postgres row-level security; `policy=None`, the default, changes nothing
+  - `read`, `update` and `delete` take `True` for every row, `False` to deny, or SQLAlchemy conditions; `create` takes `True` or `False`. Everything is denied unless granted, so `PolicyConfig()` denies every operation
+  - Reads (`select`, `get`, `exists`, `count`, `get_multi`, `get_multi_by_cursor`, `get_joined`, `get_multi_joined` and their `total_count`) reach only rows matching `read`; updates and deletes reach only rows matching `read` and their own rule. Rows outside reach behave as absent: reads leave them out and writes raise `NoResultFound`
+  - The caller's `where=` and keyword filters are AND-ed with the policy and can never widen it; `where=true()` means every row in reach, and a write with no filters is still refused
+  - `create_check` and `update_check` are conditions a written row must meet, checked after a flush in a savepoint: a row that fails is rolled back without discarding the caller's earlier work in the session, even with `commit=False`. `update_check` defaults to the `update` condition
+  - A soft delete is governed by `delete`, and `delete(db_row=...)` checks the row against it first
+  - Rows written outside `read` are still returned by `create` and `update`; Postgres would refuse the `RETURNING` there
+  - The policy covers the base model only: joined rows are filtered only by the join's `JoinConfig.where`, and relationship data in a create or update is refused
+  - `crud.with_policy(policy)` returns a copy under another policy and leaves the original unchanged, for an instance shared across requests
+  - `AccessDenied`, exported from `fastcrud`, is raised for a denied operation, a written row that fails its check, or data the policy doesn't let the caller write; its `reason` (`"operation"`, `"check"` or `"columns"`), `operation`, `model` and `columns` tell them apart
 
 #### Changed
 - **`where` is a reserved keyword argument**: a model column named `where` can no longer be filtered as `where=value`; use `where=Model.where == value`

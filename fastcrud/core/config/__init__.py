@@ -6,6 +6,7 @@ throughout the FastCRUD library for joins, field injection, and endpoint customi
 """
 
 from .join_configs import JoinConfig, CountConfig
+from .policy_configs import PolicyConfig
 from .crud_configs import (
     CreateConfig,
     UpdateConfig,
@@ -19,6 +20,7 @@ __all__ = [
     # Join configurations
     "JoinConfig",
     "CountConfig",
+    "PolicyConfig",
     # CRUD operation configurations
     "CreateConfig",
     "UpdateConfig",
