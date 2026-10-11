@@ -5,6 +5,35 @@
 The Changelog documents all notable changes made to FastCRUD. This includes new features, bug fixes, and improvements. It's organized by version and date, providing a clear history of the library's development.
 ___
 
+## Unreleased
+
+#### Added
+- **SQLAlchemy Conditions with `where=`** by [@igorbenav](https://github.com/igorbenav)
+  - Every read and write (`get`, `exists`, `count`, `get_multi`, `get_multi_by_cursor`, `get_joined`, `get_multi_joined`, `select`, `update`, `delete`, `db_delete`, `upsert_multi`) takes `where=`: one SQLAlchemy condition or a list of them, AND-ed with the keyword filters
+  - Covers what keyword filters can't express: groups joined by OR, column-to-column comparisons, functions and subqueries
+  - Takes expressions, boolean columns on their own such as `User.active`, and `text()` clauses; anything else, such as a comparison Python evaluated itself, raises `TypeError`
+  - SQLModel users need `col(Model.field)` for type checkers to accept a condition; see [Advanced Filtering](advanced/filters.md#sqlalchemy-conditions-with-where)
+- **`join_on` Conditions on `nested_limit` Joins** by [@igorbenav](https://github.com/igorbenav)
+  - A one-to-many join with `nested_limit` now applies the conditions its `join_on` adds on the related model, such as `(Author.id == Article.author_id) & (Article.published)`, to the rows it fetches per parent
+  - `JoinConfig.filters` on these joins takes the keyword filter operators (`title__ne`, `published_date__gte`, ...), as it does on other joins
+
+#### Changed
+- **`where` is a reserved keyword argument**: a model column named `where` can no longer be filtered as `where=value`; use `where=Model.where == value`
+- **`update` with no filters is refused**: it raises `ValueError`, as `delete` and `db_delete` already did; pass `where=true()` to update every record on purpose. All three also refuse filters that produce no conditions, such as `where=[]`
+- **A query naming a model it doesn't join raises `ValueError`**: such a condition pairs every row with every row of that model, which SQLAlchemy only warned about while FastCRUD returned the wrong rows, or updated and deleted them. Join the model, name its alias, or test it in a subquery such as `Author.articles.any(...)`. `refuse_a_cartesian_product` is exported from `fastcrud.core`
+- **Errors on the `nested_limit` path propagate**: a join condition or filter the separate query can't apply used to leave the nested lists empty; it now raises `ValueError`. That includes an unknown column in `JoinConfig.filters`, which used to be ignored, a self-referential join without an alias, and a `schema_to_select` that leaves out the column the join links parents by, which used to leave the nested key out
+- **`fetch_and_merge_one_to_many` no longer takes `pk_column_name`**: each join's `join_on` now names the parent column its children are matched by, so direct callers of this `fastcrud.core` function must drop the argument
+
+#### Fixed
+- **`upsert` of an existing record** raised `MultipleResultsFound` once the table held more than one row, because it ran the update with no filters; it now updates only that record
+- **`total_count` with `nested_limit` joins** counted the joined rows those joins fetch separately, so their filters changed the count of parents returned
+- **Aliased `nested_limit` joins** returned every child twice, from a query that read both the model and its alias
+- **Self-referential `nested_limit` joins** returned each row as its own child
+- **`nested_limit` children went missing** when the join's `schema_to_select` left out the foreign key, or the foreign key's attribute is named differently from its column, as through a named alias of a joined-table inheritance model
+- **`nested_limit` joins linked by a column other than the primary key** matched children against the parents' primary keys, giving them to the wrong parents or to none; they now match the column the `join_on` names, and parents sharing a value share their children
+
+___
+
 ## 0.22.3 - Jun 21, 2026
 
 #### Added
