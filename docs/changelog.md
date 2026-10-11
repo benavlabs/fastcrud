@@ -31,6 +31,7 @@ ___
 - **Self-referential `nested_limit` joins** returned each row as its own child
 - **`nested_limit` children went missing** when the join's `schema_to_select` left out the foreign key, or the foreign key's attribute is named differently from its column, as through a named alias of a joined-table inheritance model
 - **`nested_limit` joins linked by a column other than the primary key** matched children against the parents' primary keys, giving them to the wrong parents or to none; they now match the column the `join_on` names, and parents sharing a value share their children
+- **Auto-detected one-to-many relationships between joined-table inheritance models** were skipped, logged as `has no attribute 'c'`, so `auto_detect_relationships` left them out of the results; they're now joined through the flat alias auto-detection builds for models that share tables
 
 ___
 

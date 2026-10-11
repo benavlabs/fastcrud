@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import aliased
 
 from fastcrud import FastCRUD, JoinConfig
+from fastcrud.core.field_management import build_relationship_joins_config
 from fastcrud.core.query import fetch_one_to_many_with_limit
 from ..conftest import (
     Article,
@@ -915,6 +916,22 @@ async def test_nested_limit_between_inheritance_siblings(async_session, alias):
             )
         ],
         nest_joins=True,
+    )
+
+    assert _projects_by_contract(result) == {1: [3, 4], 2: [5]}
+
+
+@pytest.mark.asyncio
+async def test_nested_limit_on_an_auto_detected_inheritance_relationship(
+    async_session,
+):
+    await _contracts_with_projects(async_session)
+    joins_config = build_relationship_joins_config(
+        ContractPoly, ["projects"], default_nested_limit=5
+    )
+
+    result = await FastCRUD(ContractPoly).get_multi_joined(
+        db=async_session, joins_config=joins_config, nest_joins=True
     )
 
     assert _projects_by_contract(result) == {1: [3, 4], 2: [5]}
