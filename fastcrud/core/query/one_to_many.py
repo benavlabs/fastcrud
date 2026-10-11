@@ -7,16 +7,18 @@ queries with window functions, enabling proper SQL-level limiting per parent rec
 
 import logging
 from collections.abc import Sequence
-from typing import Any, TYPE_CHECKING, TypeGuard
+from typing import Any, TYPE_CHECKING
 
 from pydantic import BaseModel
-from sqlalchemy import select, func
+from sqlalchemy import select, func, literal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql import operators
 from sqlalchemy.sql.elements import BooleanClauseList, ColumnElement
 from sqlalchemy.sql.expression import BinaryExpression
-from sqlalchemy.sql.util import find_tables
+from sqlalchemy.sql.selectable import FromClause
 from sqlalchemy.inspection import inspect as sa_inspect
+
+from .builder import describe_from_clause
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..config import JoinConfig
@@ -27,67 +29,9 @@ logger = logging.getLogger(__name__)
 _LARGE_PARENT_SET_WARNING_THRESHOLD = 1000
 
 
-def extract_foreign_key_info(
-    join_on: BinaryExpression,
-    related_model: "ModelType",
-    primary_model: "ModelType",
-) -> tuple[Any, Any]:
-    """
-    Extract foreign key column and parent primary key column from join condition.
-
-    Args:
-        join_on: SQLAlchemy join condition (e.g., Article.author_id == Author.id)
-        related_model: The related model (e.g., Article)
-        primary_model: The primary/parent model (e.g., Author)
-
-    Returns:
-        Tuple of (foreign_key_column, parent_pk_column)
-
-    Raises:
-        ValueError: If cannot extract foreign key info from join condition
-    """
-    try:
-        left = join_on.left
-        right = join_on.right
-
-        related_table = related_model.__table__
-        primary_table = primary_model.__table__
-
-        if hasattr(left, "table") and left.table == related_table:
-            fk_column = left
-            pk_column = right
-        elif hasattr(right, "table") and right.table == related_table:
-            fk_column = right
-            pk_column = left
-        else:
-            left_key = getattr(left, "key", None)
-            right_key = getattr(right, "key", None)
-
-            related_cols = {c.key for c in related_table.columns}
-            primary_cols = {c.key for c in primary_table.columns}
-
-            if left_key in related_cols and right_key in primary_cols:
-                fk_column = left
-                pk_column = right
-            elif right_key in related_cols and left_key in primary_cols:
-                fk_column = right
-                pk_column = left
-            else:
-                raise ValueError(
-                    f"Cannot determine foreign key relationship from join condition: {join_on}"
-                )
-
-        return fk_column, pk_column
-
-    except Exception as e:
-        raise ValueError(
-            f"Cannot extract foreign key info from join condition: {join_on}. Error: {e}"
-        )
-
-
 def split_join_condition(
     join_on: ColumnElement[bool],
-    related_model: "ModelType",
+    related_model: Any,
     primary_model: "ModelType",
 ) -> tuple[Any, list[ColumnElement[bool]]]:
     """
@@ -98,9 +42,13 @@ def split_join_condition(
     related rows that meet the rest. The rest is applied when the related rows
     are fetched in their own query.
 
+    When more than one equality compares the two models, such as
+    ``Article.lang == Author.lang`` beside the foreign key, the link is the one
+    whose related column has a foreign key to the primary model.
+
     Args:
         join_on: The join condition, one comparison or several joined by AND
-        related_model: The related model (e.g., Article)
+        related_model: The related model or its alias (e.g., Article)
         primary_model: The primary/parent model (e.g., Author)
 
     Returns:
@@ -108,39 +56,91 @@ def split_join_condition(
 
     Raises:
         ValueError: If no equality links the two models, or another condition
-            involves the primary model, which the related rows' own query can't see
+            reads a table other than the related model's, which the related rows'
+            own query can't see
     """
     is_and = (
         isinstance(join_on, BooleanClauseList) and join_on.operator is operators.and_
     )
     terms = list(join_on.clauses) if is_and else [join_on]
 
-    link = next((term for term in terms if _links_two_columns(term)), None)
-    if link is None:
+    related = sa_inspect(related_model)
+    related_name = related.mapper.class_.__name__
+    related_tables = _tables_of(related_model)
+    primary_tables = _tables_of(primary_model)
+
+    links = [
+        (term, columns)
+        for term in terms
+        if (columns := _linked_columns(term, related_tables, primary_tables))
+    ]
+    if not links:
         raise ValueError(
             f"Cannot find the equality between {primary_model.__name__} and "
-            f"{related_model.__name__} columns in the join condition: {join_on}"
+            f"{related_name} columns in the join condition: {join_on}"
         )
-    fk_column, _ = extract_foreign_key_info(link, related_model, primary_model)
+    link, (fk_column, _) = next(
+        (
+            (term, columns)
+            for term, columns in links
+            if _references(columns[0], primary_tables)
+        ),
+        links[0],
+    )
 
-    primary_table = primary_model.__table__
     conditions = [term for term in terms if term is not link]
-    if primary_table is not related_model.__table__:
-        for condition in conditions:
-            if primary_table in find_tables(condition, check_columns=True):
-                raise ValueError(
-                    f"A one-to-many join with nested_limit can only add conditions on "
-                    f"{related_model.__name__}, not on {primary_model.__name__}: {condition}"
-                )
+    for condition in conditions:
+        others = [
+            from_clause
+            for from_clause in select(literal(1))
+            .select_from(related.selectable)
+            .where(condition)
+            .get_final_froms()
+            if from_clause is not related.selectable
+        ]
+        if others:
+            names = ", ".join(
+                primary_model.__name__
+                if from_clause in primary_tables
+                else describe_from_clause(from_clause)
+                for from_clause in others
+            )
+            raise ValueError(
+                f"A one-to-many join with nested_limit can only add conditions on "
+                f"{related_name}, not on {names}: {condition}"
+            )
     return fk_column, conditions
 
 
-def _links_two_columns(term: ColumnElement[bool]) -> TypeGuard[BinaryExpression]:
-    return (
-        isinstance(term, BinaryExpression)
-        and term.operator is operators.eq
-        and hasattr(term.left, "table")
-        and hasattr(term.right, "table")
+def _tables_of(model: Any) -> set[FromClause]:
+    """The tables a model's columns belong to: its alias, or its mapped tables."""
+    inspected = sa_inspect(model)
+    if inspected.is_aliased_class:
+        return {inspected.selectable}
+    return set(inspected.mapper.tables)
+
+
+def _linked_columns(
+    term: ColumnElement[bool],
+    related_tables: set[FromClause],
+    primary_tables: set[FromClause],
+) -> tuple[Any, Any] | None:
+    """The (related, primary) columns an equality between the two models compares."""
+    if not (isinstance(term, BinaryExpression) and term.operator is operators.eq):
+        return None
+    left_table = getattr(term.left, "table", None)
+    right_table = getattr(term.right, "table", None)
+    if left_table in related_tables and right_table in primary_tables:
+        return term.left, term.right
+    if right_table in related_tables and left_table in primary_tables:
+        return term.right, term.left
+    return None
+
+
+def _references(column: Any, tables: set[FromClause]) -> bool:
+    return any(
+        foreign_key.column.table in tables
+        for foreign_key in getattr(column, "foreign_keys", ())
     )
 
 

@@ -7,6 +7,7 @@ when fetching one-to-many related records via get_multi_joined.
 
 import pytest
 from pydantic import BaseModel
+from sqlalchemy import select
 
 from fastcrud import FastCRUD, JoinConfig
 from ..conftest import (
@@ -732,4 +733,44 @@ async def test_a_where_naming_a_model_fetched_separately_is_refused(async_sessio
             joins_config=[_articles_join(Author.id == Article.author_id)],
             nest_joins=True,
             where=Article.title == "Kept",
+        )
+
+
+@pytest.mark.asyncio
+async def test_nested_limit_accepts_a_subquery_naming_the_parent(async_session):
+    await _two_authors_with_articles(async_session)
+    first_author = select(Author.id).where(Author.name == "Author 1")
+
+    result = await FastCRUD(Author).get_multi_joined(
+        db=async_session,
+        joins_config=[
+            _articles_join(
+                (Author.id == Article.author_id) & Article.author_id.in_(first_author)
+            )
+        ],
+        nest_joins=True,
+    )
+
+    titles_by_author = {
+        author["id"]: [article["title"] for article in author["articles"]]
+        for author in result["data"]
+    }
+    assert titles_by_author == {1: ["Kept", "Dropped"], 2: []}
+
+
+@pytest.mark.asyncio
+async def test_nested_limit_links_the_models_by_the_foreign_key(async_session):
+    await _two_authors_with_articles(async_session)
+
+    with pytest.raises(
+        ValueError, match="not on Author: articles.title = authors.name$"
+    ):
+        await FastCRUD(Author).get_multi_joined(
+            db=async_session,
+            joins_config=[
+                _articles_join(
+                    (Article.title == Author.name) & (Author.id == Article.author_id)
+                )
+            ],
+            nest_joins=True,
         )
