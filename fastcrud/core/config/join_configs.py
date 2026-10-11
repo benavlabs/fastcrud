@@ -6,9 +6,12 @@ and count operations in multi-table queries.
 """
 
 from typing import Any
-from pydantic import BaseModel, ConfigDict
-from pydantic.functional_validators import field_validator
+from pydantic import BaseModel, ConfigDict, SkipValidation
+from pydantic.functional_validators import field_validator, model_validator
 from sqlalchemy.orm.util import AliasedClass
+
+from ...types import WhereClause
+from ..filtering.processor import where_conditions
 
 
 class JoinConfig(BaseModel):
@@ -23,9 +26,26 @@ class JoinConfig(BaseModel):
         join_on: The join condition (SQLAlchemy expression).
         join_prefix: Optional prefix for joined columns in results.
         schema_to_select: Optional Pydantic schema for the joined model.
-        join_type: Type of SQL join ("left" or "inner").
+        join_type: Type of SQL join ("left" or "inner"). A one-to-many join with
+            ``nested_limit`` must be a left join: its rows come from a query of
+            their own, so it never removes parents.
         alias: Optional SQLAlchemy alias for the joined model.
-        filters: Optional filters to apply to the joined model.
+        filters: Optional keyword filters on the joined model. On a joined query
+            they go into its WHERE, so they choose which parents come back: a
+            parent with no matching joined row is left out. On a one-to-many
+            join with ``nested_limit``, whose rows come from a query of their own,
+            they filter the nested rows instead.
+        where: Optional SQLAlchemy conditions, as the methods' ``where=`` takes,
+            that choose which joined rows attach to each parent, never which
+            parents come back. On a left join a parent with no matching row
+            stays, with nulls for a one-to-one join and ``[]`` for a
+            one-to-many one; on an inner join it's left out, as with
+            ``filters``. A one-to-many join with ``nested_limit`` keeps every
+            parent, and its ``where`` may name only the related model, since
+            its rows come from a query of their own.
+            With ``alias``, name the alias's columns. To choose parents by their
+            joined rows, use the method's ``where=`` or a subquery such as
+            ``Author.articles.any(...)``.
         relationship_type: Type of relationship ("one-to-one" or "one-to-many").
         sort_columns: Optional column(s) to sort joined results by.
         sort_orders: Optional sort order(s) for the sort columns.
@@ -43,6 +63,16 @@ class JoinConfig(BaseModel):
         ...     sort_orders=["desc", "asc"],
         ...     nested_limit=10  # Only return first 10 articles per author
         ... )
+
+        Attach only each author's published articles, keeping authors with none:
+
+        >>> join_config = JoinConfig(
+        ...     model=Article,
+        ...     join_on=Article.author_id == Author.id,
+        ...     join_prefix="articles_",
+        ...     relationship_type="one-to-many",
+        ...     where=Article.published,
+        ... )
     """
 
     model: Any
@@ -56,8 +86,15 @@ class JoinConfig(BaseModel):
     sort_columns: str | list[str] | None = None
     sort_orders: str | list[str] | None = None
     nested_limit: int | None = None
+    where: SkipValidation[WhereClause] = None
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    @field_validator("where")
+    def check_where_conditions(cls, value):
+        """Validate that where holds SQLAlchemy conditions, as the methods' where= must."""
+        where_conditions(value)
+        return value
 
     @field_validator("relationship_type")
     def check_valid_relationship_type(cls, value):
@@ -75,6 +112,22 @@ class JoinConfig(BaseModel):
             raise ValueError(f"Unsupported join type: {value}")
         return value
 
+    @model_validator(mode="after")
+    def check_nested_limit_join_type(self):
+        """Refuse an inner one-to-many join with nested_limit, which couldn't remove parents."""
+        if (
+            self.nested_limit is not None
+            and self.relationship_type == "one-to-many"
+            and self.join_type == "inner"
+        ):
+            raise ValueError(
+                "A one-to-many join with nested_limit can't be an inner join: its "
+                "rows come from a query of their own, so it never removes parents. "
+                "Use a left join, and choose parents with the method's where= or a "
+                "subquery such as Author.articles.any(...)."
+            )
+        return self
+
 
 class CountConfig(BaseModel):
     """
@@ -90,6 +143,9 @@ class CountConfig(BaseModel):
         join_on: The join condition for the count query.
         alias: Optional alias for the count column in the result. Defaults to "{model.__tablename__}_count".
         filters: Optional filters to apply to the count query.
+        where: Optional SQLAlchemy conditions, as the methods' ``where=`` takes,
+            applied inside the count query: every parent is kept, and only
+            the rows matching them are counted.
 
     Example:
         ```python
@@ -117,5 +173,12 @@ class CountConfig(BaseModel):
     join_on: Any
     alias: str | None = None
     filters: dict | None = None
+    where: SkipValidation[WhereClause] = None
 
     model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    @field_validator("where")
+    def check_where_conditions(cls, value):
+        """Validate that where holds SQLAlchemy conditions, as the methods' where= must."""
+        where_conditions(value)
+        return value

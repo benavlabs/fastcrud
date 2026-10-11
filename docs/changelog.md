@@ -16,12 +16,19 @@ ___
 - **`join_on` Conditions on `nested_limit` Joins** by [@igorbenav](https://github.com/igorbenav)
   - A one-to-many join with `nested_limit` now applies the conditions its `join_on` adds on the related model, such as `(Author.id == Article.author_id) & (Article.published)`, to the rows it fetches per parent
   - `JoinConfig.filters` on these joins takes the keyword filter operators (`title__ne`, `published_date__gte`, ...), as it does on other joins
+- **`JoinConfig.where` and `CountConfig.where`** by [@igorbenav](https://github.com/igorbenav)
+  - `JoinConfig.where` takes the same conditions as the methods' `where=` and chooses which joined rows attach to each parent, never which parents come back: on a left join a parent with no matching row stays, with nulls for a one-to-one join and `[]` for a one-to-many one; on an inner join it's left out. A one-to-many join with `nested_limit` keeps every parent, and its `where` may name only the related model, since its rows come from a query of their own
+  - It applies on every path: in the join's `ON` clause for `get_joined` and `get_multi_joined`, in the separate query of a `nested_limit` join, and in `total_count`, which always agrees with the data
+  - With `alias=`, the conditions name the alias's columns; naming the unaliased model raises `ValueError`
+  - `JoinConfig.filters` is unchanged: on a joined query it chooses parents, and on a `nested_limit` join it filters the nested rows. To choose parents by their joined rows, use the method's `where=` or a subquery such as `Author.articles.any(...)`
+  - `CountConfig.where` applies inside the count subquery: every parent is kept, and only the matching rows are counted. It may name the counted model and the tables its `join_on` reads; any other table raises `ValueError`, since it would multiply the counts
 
 #### Changed
 - **`where` is a reserved keyword argument**: a model column named `where` can no longer be filtered as `where=value`; use `where=Model.where == value`
 - **`update` with no filters is refused**: it raises `ValueError`, as `delete` and `db_delete` already did; pass `where=true()` to update every record on purpose. All three also refuse filters that produce no conditions, such as `where=[]`
 - **A query naming a model it doesn't join raises `ValueError`**: such a condition pairs every row with every row of that model, which SQLAlchemy only warned about while FastCRUD returned the wrong rows, or updated and deleted them. Join the model, name its alias, or test it in a subquery such as `Author.articles.any(...)`. `refuse_a_cartesian_product` is exported from `fastcrud.core`
 - **Errors on the `nested_limit` path propagate**: a join condition or filter the separate query can't apply used to leave the nested lists empty; it now raises `ValueError`. That includes an unknown column in `JoinConfig.filters`, which used to be ignored, a self-referential join without an alias, and a `schema_to_select` that leaves out the column the join links parents by, which used to leave the nested key out
+- **A one-to-many `JoinConfig` with `nested_limit` and `join_type="inner"` raises `ValueError`**: its rows come from a query of their own, so the inner join never removed parents and `join_type` was silently ignored. Use a left join, and choose parents with the method's `where=` or a subquery such as `Author.articles.any(...)`
 - **`fetch_and_merge_one_to_many` no longer takes `pk_column_name`**: each join's `join_on` now names the parent column its children are matched by, so direct callers of this `fastcrud.core` function must drop the argument
 
 #### Fixed

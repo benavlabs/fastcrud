@@ -5,73 +5,21 @@ This module provides the main SQLQueryBuilder class that coordinates
 query construction with support for filtering, sorting, pagination, and joins.
 """
 
-from typing import Any, TYPE_CHECKING, TypeGuard
+from typing import Any, TYPE_CHECKING
 from sqlalchemy import Select, select, func
-from sqlalchemy.sql.elements import ColumnElement, TextClause, _anonymous_label
-from sqlalchemy.sql.selectable import FromClause, Join
+from sqlalchemy.sql.elements import ColumnElement, TextClause
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .cartesian import describe_from_clause, refuse_a_cartesian_product
 from .sorting import SortProcessor
 from .joins import JoinBuilder
 from ...types import ModelType
 from ..introspection import get_primary_key_columns
 from ..field_management import extract_matching_columns_from_schema
+from ..filtering.processor import where_conditions
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...types import SelectSchemaType
-
-
-def refuse_a_cartesian_product(statement: Select) -> None:
-    """
-    Refuse a statement that reads tables it never joins.
-
-    A condition naming a model the query doesn't join adds that model's table to
-    the FROM clause on its own, and every row is paired with every row of it.
-    Subqueries such as ``Author.articles.any(...)`` don't, since they're
-    correlated with the query.
-
-    Args:
-        statement: The SELECT statement about to run, or one with the same FROM
-            clause and conditions as an update or delete
-
-    Raises:
-        ValueError: Naming the tables read side by side
-
-    Example:
-        >>> refuse_a_cartesian_product(select(Author).where(Article.title == "x"))
-        Traceback (most recent call last):
-        ValueError: The query reads author and article side by side without joining them...
-    """
-    froms = statement.get_final_froms()
-    if len(froms) > 1:
-        names = [describe_from_clause(f) for f in froms]
-        raise ValueError(
-            f"The query reads {', '.join(names[:-1])} and {names[-1]} side by side "
-            "without joining them, which pairs every row of each with every row of "
-            "the others. A condition names a model the query doesn't join: join it, "
-            "name its alias if the join uses one, or test it in a subquery such as "
-            "Author.articles.any(...)."
-        )
-
-
-def describe_from_clause(from_clause: FromClause) -> str:
-    """Name a FROM element by its tables: ``author`` or ``author (joined with article)``."""
-    names = _table_names(from_clause)
-    if len(names) == 1:
-        return names[0]
-    return f"{names[0]} (joined with {', '.join(names[1:])})"
-
-
-def _table_names(from_clause: FromClause) -> list[str]:
-    if isinstance(from_clause, Join):
-        return _table_names(from_clause.left) + _table_names(from_clause.right)
-    name = getattr(from_clause, "name", None)
-    return [name if _is_given_name(name) else "a subquery"]
-
-
-def _is_given_name(name: object) -> TypeGuard[str]:
-    """Whether a FROM element has a name of its own, not an unnamed subquery's placeholder."""
-    return isinstance(name, str) and not isinstance(name, _anonymous_label)
 
 
 class SQLQueryBuilder:
@@ -255,7 +203,12 @@ def build_joined_query(
                     f"The model '{count_model.__name__}' does not have a primary key defined, which is required for counting."
                 )
 
+            counted_row_conditions = where_conditions(count.where)
             count_subquery = select(func.count()).where(count.join_on)
+            _refuse_count_conditions_on_other_tables(
+                count_subquery, counted_row_conditions, count_model
+            )
+            count_subquery = count_subquery.where(*counted_row_conditions)
             if count.filters:
                 count_filters = filter_processor.parse_filters(
                     model=count_model, **count.filters
@@ -292,6 +245,36 @@ def build_joined_query(
         stmt = query_builder.apply_filters(stmt, primary_filters)
 
     return stmt
+
+
+def _refuse_count_conditions_on_other_tables(
+    count_query: Select, conditions: list[Any], count_model: Any
+) -> None:
+    """
+    Refuse ``CountConfig.where`` conditions naming a table the count doesn't read.
+
+    The count may read its model and the tables its ``join_on`` names, such as
+    the parent and an association table. Any other table would be added to the
+    count's FROM, multiplying every counted row by its rows. SQLAlchemy only warns
+    about that, and ``refuse_a_cartesian_product`` never sees inside the scalar
+    subquery.
+
+    Raises:
+        ValueError: Naming the tables the conditions add
+    """
+    tables_read = set(count_query.get_final_froms())
+    other_tables = [
+        from_clause
+        for from_clause in count_query.where(*conditions).get_final_froms()
+        if from_clause not in tables_read
+    ]
+    if other_tables:
+        names = ", ".join(describe_from_clause(table) for table in other_tables)
+        raise ValueError(
+            f"CountConfig.where can only name {count_model.__name__} and the tables "
+            f"its join_on reads, not {names}: name them in join_on to count through "
+            "them, or test them in a subquery."
+        )
 
 
 async def execute_joined_query(

@@ -8,7 +8,7 @@ from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy import make_url, Column, String
+from sqlalchemy import URL, make_url, Column, String
 from pydantic import ConfigDict
 from sqlmodel import SQLModel, Field, Relationship
 from fastapi import FastAPI
@@ -324,18 +324,18 @@ async_engine = create_async_engine(
 
 
 @asynccontextmanager
-async def _setup_database(url: str) -> AsyncGenerator[AsyncSession]:
+async def _setup_database(url: str | URL) -> AsyncGenerator[AsyncSession]:
     engine = create_async_engine(url, echo=True, future=True)
     session_maker = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)  # type: ignore
-    async with session_maker() as session:
-        async with engine.begin() as conn:
-            await conn.run_sync(SQLModel.metadata.create_all)
-        try:
-            yield session
-        finally:
+    try:
+        async with session_maker() as session:
             async with engine.begin() as conn:
-                await conn.run_sync(SQLModel.metadata.drop_all)
-    await engine.dispose()
+                await conn.run_sync(SQLModel.metadata.create_all)
+            yield session
+    finally:
+        async with engine.begin() as conn:
+            await conn.run_sync(SQLModel.metadata.drop_all)
+        await engine.dispose()
 
 
 @pytest_asyncio.fixture(scope="function")
@@ -350,8 +350,8 @@ async def async_session(
             pytest.skip("Docker is required, but not running")
 
         if dialect == "postgresql":
-            with PostgresContainer() as postgres:
-                url = postgres.get_connection_url()
+            with PostgresContainer(driver="psycopg") as postgres:
+                url = postgres.get_connection_url(host=postgres.get_container_host_ip())
                 async with _setup_database(url) as session:
                     yield session
         elif dialect == "mysql":
@@ -359,7 +359,7 @@ async def async_session(
                 url = make_url(mysql.get_connection_url())._replace(
                     drivername="mysql+aiomysql"
                 )
-                async with _setup_database(str(url)) as session:
+                async with _setup_database(url) as session:
                     yield session
     else:
         async with _setup_database("sqlite+aiosqlite:///:memory:") as session:

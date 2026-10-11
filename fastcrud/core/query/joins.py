@@ -6,11 +6,13 @@ involving relationships between models.
 """
 
 from typing import Any
-from sqlalchemy import Select
+from sqlalchemy import Select, and_
 
 from ...types import ModelType
 from ..field_management import extract_matching_columns_from_schema
 from ..filtering import FilterProcessor
+from ..filtering.processor import where_conditions
+from .cartesian import refuse_a_cartesian_product
 
 
 class JoinBuilder:
@@ -37,7 +39,9 @@ class JoinBuilder:
 
         This method applies joins to the given SQL statement based on a list
         of JoinConfig objects. It supports both left and inner joins with
-        column selection and filtering.
+        column selection and filtering. A join's ``filters`` go into the
+        statement's WHERE, choosing parents; its ``where`` goes into its ON
+        clause, choosing which joined rows attach.
 
         Args:
             stmt: SQLAlchemy SELECT statement to modify
@@ -49,7 +53,8 @@ class JoinBuilder:
             Modified SELECT statement with JOIN clauses applied
 
         Raises:
-            ValueError: If unsupported join type is specified
+            ValueError: If unsupported join type is specified, or a join's
+                ``where`` names a model the statement doesn't join
 
         Example:
             >>> builder = JoinBuilder(User)
@@ -78,7 +83,10 @@ class JoinBuilder:
                 joined_model_filters = filter_processor.parse_filters(**join.filters)
 
             join_type = getattr(join, "join_type", "left").lower()
+            joined_row_conditions = where_conditions(getattr(join, "where", None))
             join_on = getattr(join, "join_on")
+            if joined_row_conditions:
+                join_on = and_(join_on, *joined_row_conditions)
 
             if join_type == "left":
                 stmt = stmt.outerjoin(model, join_on)
@@ -93,7 +101,21 @@ class JoinBuilder:
                     f"Unsupported join type: {join_type}. Supported types: 'left', 'inner'"
                 )
 
+            if joined_row_conditions:
+                _refuse_conditions_on_unjoined_models(stmt, joined_row_conditions)
             if joined_model_filters:
                 stmt = stmt.filter(*joined_model_filters)
 
         return stmt
+
+
+def _refuse_conditions_on_unjoined_models(stmt: Select, conditions: list[Any]) -> None:
+    """
+    Refuse ON-clause conditions that name a model the statement doesn't join.
+
+    A table named only in an ON clause isn't added to the FROM clause, so the
+    database would reject the query. Testing the conditions as a WHERE on the
+    joined statement adds any such table to its FROM, which
+    ``refuse_a_cartesian_product`` refuses with the usual message.
+    """
+    refuse_a_cartesian_product(stmt.where(*conditions))
