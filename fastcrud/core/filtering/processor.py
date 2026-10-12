@@ -15,7 +15,12 @@ from sqlalchemy.sql.elements import ColumnElement, TextClause
 from ..introspection import get_column_types, get_model_column
 from ...types import ModelType, FilterValueType, WhereClause
 from .filter_model import Filter
-from .operators import get_operator_wrap_type, get_sqlalchemy_filter, FilterCallable
+from .operators import (
+    COLLECTION_OPERATORS,
+    get_operator_wrap_type,
+    get_sqlalchemy_filter,
+    FilterCallable,
+)
 from .validators import validate_joined_filter_format
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -207,6 +212,24 @@ class FilterProcessor:
         model_column = get_model_column(model, key)
         return [model_column == value]
 
+    @staticmethod
+    def _operator_values(operator: str, value: FilterValueType) -> list:
+        """
+        Split the value of an OR/NOT entry into the values to apply the operator to.
+
+        A list normally holds several values for the operator, each applied on its
+        own. For ``in``, ``not_in`` and ``between`` the value is itself a collection,
+        so a flat list such as ``{'between': [18, 30]}`` is one value. A list made
+        only of collections (``{'between': [[1, 5], [10, 20]]}``) still means several.
+        """
+        if not isinstance(value, list):
+            return [value]
+        if operator in COLLECTION_OPERATORS and not all(
+            isinstance(item, (tuple, list, set)) for item in value
+        ):
+            return [value]
+        return value
+
     def _handle_or_filter(self, col: Column, value: dict) -> list[ColumnElement]:
         """
         Handle OR conditions: field__or={'gt': 18, 'lt': 65}
@@ -229,27 +252,15 @@ class FilterProcessor:
 
         or_conditions = []
         for or_op, or_value in value.items():
-            if isinstance(or_value, list):
-                for single_value in or_value:
-                    filter_func = get_sqlalchemy_filter(
-                        or_op, single_value, self.custom_filters
-                    )
-                    if filter_func:
-                        condition = (
-                            filter_func(col)(*single_value)
-                            if or_op == "between"
-                            else filter_func(col)(single_value)
-                        )
-                        or_conditions.append(condition)
-            else:
+            for single_value in self._operator_values(or_op, or_value):
                 filter_func = get_sqlalchemy_filter(
-                    or_op, or_value, self.custom_filters
+                    or_op, single_value, self.custom_filters
                 )
                 if filter_func:
                     condition = (
-                        filter_func(col)(*or_value)
+                        filter_func(col)(*single_value)
                         if or_op == "between"
-                        else filter_func(col)(or_value)
+                        else filter_func(col)(single_value)
                     )
                     or_conditions.append(condition)
 
@@ -277,27 +288,15 @@ class FilterProcessor:
 
         not_conditions = []
         for not_op, not_value in value.items():
-            if isinstance(not_value, list):
-                for single_value in not_value:
-                    filter_func = get_sqlalchemy_filter(
-                        not_op, single_value, self.custom_filters
-                    )
-                    if filter_func:
-                        condition = (
-                            filter_func(col)(*single_value)
-                            if not_op == "between"
-                            else filter_func(col)(single_value)
-                        )
-                        not_conditions.append(not_(condition))
-            else:
+            for single_value in self._operator_values(not_op, not_value):
                 filter_func = get_sqlalchemy_filter(
-                    not_op, not_value, self.custom_filters
+                    not_op, single_value, self.custom_filters
                 )
                 if filter_func:
                     condition = (
-                        filter_func(col)(*not_value)
+                        filter_func(col)(*single_value)
                         if not_op == "between"
-                        else filter_func(col)(not_value)
+                        else filter_func(col)(single_value)
                     )
                     not_conditions.append(not_(condition))
 
