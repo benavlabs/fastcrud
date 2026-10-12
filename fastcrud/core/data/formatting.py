@@ -6,6 +6,7 @@ the potential for circular dependencies. These are separated to maintain
 clean dependency hierarchy.
 """
 
+from collections.abc import Collection
 from typing import Any, Callable, TYPE_CHECKING, cast
 
 from ...types import SelectSchemaType
@@ -99,6 +100,7 @@ async def format_joined_response(
     db: "AsyncSession | None" = None,
     nested_schema_to_select: dict[str, type[SelectSchemaType]] | None = None,
     count_func: Callable | None = None,
+    hidden_columns: Collection[str] = (),
     **kwargs: Any,
 ) -> dict[str, Any]:
     """
@@ -115,6 +117,8 @@ async def format_joined_response(
         db: Database session (for count queries)
         nested_schema_to_select: Schemas for nested data
         count_func: Function to get total count
+        hidden_columns: Primary model fields to drop from each result once it's
+            nested, as a policy's ``hidden_columns`` that nesting still needed
         **kwargs: Additional filter parameters
 
     Returns:
@@ -154,13 +158,24 @@ async def format_joined_response(
                 for join in join_definitions
                 if join.schema_to_select
             },
+            hidden_columns=hidden_columns,
         )
         nested_data = list(nested_result)
     else:
         from ..join_processing import handle_null_primary_key_multi_join
 
         nested_data = handle_null_primary_key_multi_join(
-            cast(list[dict[str, Any] | SelectSchemaType], processed_data),
+            cast(
+                list[dict[str, Any] | SelectSchemaType],
+                [
+                    {
+                        field: value
+                        for field, value in row.items()
+                        if field not in hidden_columns
+                    }
+                    for row in processed_data
+                ],
+            ),
             join_definitions,
         )
 

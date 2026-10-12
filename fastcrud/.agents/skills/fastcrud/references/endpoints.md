@@ -236,3 +236,22 @@ crud_router(..., crud=crud)
 ```
 
 Pass the pre-built `FastCRUD` instance via `crud=` to apply.
+
+## Per-request policies (v0.23+)
+
+`crud_router(..., policy=get_policy)` / `EndpointCreator(..., policy=get_policy)` take a FastAPI dependency returning the request's `PolicyConfig`, or `None` for no restriction on that request.
+
+```python
+def post_policy(user: User = Depends(get_current_user)) -> PolicyConfig | None:
+    if user.is_admin:
+        return None
+    return PolicyConfig(read=Post.owner_id == user.id, create=True,
+                        update=Post.owner_id == user.id, read_only_columns={"owner_id"})
+
+router = crud_router(..., policy=post_policy,
+                     create_config=CreateConfig(auto_fields={"owner_id": current_user_id}))
+```
+
+- `AccessDenied` → 403 with its message; rows outside the policy → 404.
+- `auto_fields` are written as `server_data`: they skip the column rules (so a read-only `owner_id` can still be set from the user) but are part of the row the checks see.
+- A `crud` with its own policy and no `policy=` keeps it for every request; passing both raises `ValueError`.

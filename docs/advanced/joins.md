@@ -12,7 +12,8 @@ FastCRUD simplifies CRUD operations while offering capabilities for handling com
 - **`schema_to_select`**: An optional Pydantic schema for selecting specific columns from the joined model.
 - **`join_type`**: The type of join (e.g., `"left"`, `"inner"`).
 - **`alias`**: An optional SQLAlchemy `AliasedClass` for complex scenarios like self-referential joins or multiple joins on the same model.
-- **`filters`**: An optional dictionary to apply filters directly to the joined model.
+- **`filters`**: An optional dictionary of keyword filters on the joined model. On a joined query they go into the query's `WHERE`, so they choose which parents come back; on a one-to-many join with `nested_limit` they filter the nested rows.
+- **`where`**: Optional SQLAlchemy conditions, as the methods' `where=` takes, that choose which joined rows attach to each parent, never which parents come back. See [Choosing Joined Rows with `JoinConfig.where`](#choosing-joined-rows-with-joinconfigwhere).
 - **`relationship_type`**: Specifies the relationship type, such as `"one-to-one"` or `"one-to-many"`. Default is `"one-to-one"`.
 - **`sort_columns`**: An optional column name or list of column names to sort the nested items by. Only applies to `"one-to-many"` relationships.
 - **`sort_orders`**: An optional sort order (`"asc"` or `"desc"`) or list of sort orders corresponding to the columns in `sort_columns`. If not provided, defaults to `"asc"` for each column.
@@ -22,6 +23,10 @@ FastCRUD simplifies CRUD operations while offering capabilities for handling com
 
     For `"many-to-many"`, you don't need to pass a `relationship_type`.
 
+!!! NOTE "`filters` chooses parents, `where` chooses joined rows"
+
+    `JoinConfig.filters` leaves out a parent with no matching joined row. `JoinConfig.where` keeps every parent on a left join and only decides which joined rows attach to it. To choose parents by their joined rows, use the method's `where=` or a subquery such as `Author.articles.any(Article.published)`.
+
 ## Understanding `CountConfig`
 
 `CountConfig` is a configuration mechanism for counting related objects in joined queries. This is particularly useful for many-to-many relationships where you want to include counts of related objects without actually joining the data. It contains the following key attributes:
@@ -30,6 +35,7 @@ FastCRUD simplifies CRUD operations while offering capabilities for handling com
 - **`join_on`**: The condition defining how the count query connects to the primary model.
 - **`alias`**: An optional alias for the count column in the result. Defaults to `"{model.__tablename__}_count"`.
 - **`filters`**: An optional dictionary to apply filters directly to the count query.
+- **`where`**: Optional SQLAlchemy conditions applied inside the count query. Every parent is kept, and only the matching rows are counted.
 
 The count is implemented as a scalar subquery, which means all records from the primary model will be returned with their respective counts (including 0 for records with no related objects).
 
@@ -979,6 +985,51 @@ Now, `projects_with_participants['data']` will contain projects along with their
 }
 ```
 
+### Choosing Joined Rows with `JoinConfig.where`
+
+`JoinConfig.where` takes the same conditions as the methods' `where=`: one SQLAlchemy condition, or a list of them that must all hold. It decides which joined rows attach to each parent, the way Postgres row-level security treats a joined table: rows that don't match behave as if they weren't there.
+
+```python
+from fastcrud import FastCRUD, JoinConfig
+
+author_crud = FastCRUD(Author)
+
+result = await author_crud.get_multi_joined(
+    db=session,
+    joins_config=[
+        JoinConfig(
+            model=Article,
+            join_on=Author.id == Article.author_id,
+            join_prefix="articles_",
+            relationship_type="one-to-many",
+            where=Article.published,
+        )
+    ],
+    nest_joins=True,
+)
+```
+
+Every author comes back, each with only their published articles.
+
+How the conditions apply depends on the join:
+
+| Join | Where the conditions go | Parents without a matching row |
+|---|---|---|
+| Left join (the default) | The join's `ON` clause | Kept, with `None` for a one-to-one join and `[]` for a one-to-many one |
+| Inner join | The join's `ON` clause | Left out, as with `filters` |
+| One-to-many with `nested_limit` | The separate query that fetches the nested rows | Kept, with `[]` |
+
+`total_count` always agrees with the data: a left join with `where` doesn't change how many parents there are.
+
+A few rules follow from where the conditions go:
+
+- **With `alias=`, name the alias's columns.** A condition naming the unaliased model reads a table the query doesn't join, and FastCRUD refuses it with a `ValueError` rather than pair every row with every row of that table.
+- **On a joined query, `where` may name the parent**, since an `ON` clause can compare both sides, for example `where=Article.published_at > Author.joined_at`.
+- **On a `nested_limit` join, `where` may name only the related model.** Its rows come from a query that reads only that model, so a condition on the parent raises a `ValueError` naming it. The same applies to the extra conditions of its `join_on`.
+- **A `nested_limit` join is always a left join.** It never removes parents, so `JoinConfig` refuses `join_type="inner"` with `nested_limit` on a one-to-many join.
+
+There's no flat `join_where` parameter on `get_joined` and `get_multi_joined`: next to `join_filters`, it would read as the same thing while doing the opposite. Use a `JoinConfig`.
+
 ### Counting Related Objects with `CountConfig`
 
 FastCRUD provides `CountConfig` for efficiently counting related objects without fetching the actual data. This is particularly useful for many-to-many relationships or when you need to display counts alongside your main data.
@@ -1085,6 +1136,21 @@ result = await author_crud.get_multi_joined(
     counts_config=[count_config],
 )
 ```
+
+#### Counting with `where`
+
+`CountConfig.where` takes SQLAlchemy conditions applied inside the count query. Every parent is still returned, and only the matching rows are counted:
+
+```python
+count_config = CountConfig(
+    model=Article,
+    join_on=Article.author_id == Author.id,
+    alias="published_count",
+    where=Article.published,
+)
+```
+
+The conditions may name the counted model and the tables its `join_on` reads, such as the parent or a many-to-many association table. Any other table raises a `ValueError`: it would join the count's subquery and multiply every count by its rows.
 
 #### Combining with Regular Joins
 

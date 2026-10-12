@@ -59,6 +59,12 @@ Customize the key used for list responses in FastCRUD through the `multi_respons
 
 - [Response Key Configuration Guide](response_keys.md)
 
+### 10. Row-Level Policies
+
+Decide which operations a caller may perform and which rows and columns each one reaches with `PolicyConfig`, in the manner of Postgres row-level security, directly on `FastCRUD` or per request in `crud_router`.
+
+- [Row-Level Policies Guide](policies.md)
+
 ## Prerequisites
 
 Advanced usage assumes a solid understanding of the basic features and functionalities of our application. Knowledge of FastAPI, SQLAlchemy, and Pydantic is highly recommended to fully grasp the concepts discussed.

@@ -80,6 +80,7 @@ edit_uri = "edit/main/docs/"
     { "Advanced Filtering" = "advanced/filters.md" },
     { "Dependency-Based Filtering" = "advanced/dependency_filtering.md" },
     { "Joining Models" = "advanced/joins.md" },
+    { "Row-Level Policies" = "advanced/policies.md" },
     { "Response Key Configuration" = "advanced/response_keys.md" },
 ]
 

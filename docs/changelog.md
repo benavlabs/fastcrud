@@ -5,7 +5,7 @@
 The Changelog documents all notable changes made to FastCRUD. This includes new features, bug fixes, and improvements. It's organized by version and date, providing a clear history of the library's development.
 ___
 
-## Unreleased
+## 0.23.0 - Oct 11, 2026
 
 #### Added
 - **SQLAlchemy Conditions with `where=`** by [@igorbenav](https://github.com/igorbenav)
@@ -22,6 +22,23 @@ ___
   - With `alias=`, the conditions name the alias's columns; naming the unaliased model raises `ValueError`
   - `JoinConfig.filters` is unchanged: on a joined query it chooses parents, and on a `nested_limit` join it filters the nested rows. To choose parents by their joined rows, use the method's `where=` or a subquery such as `Author.articles.any(...)`
   - `CountConfig.where` applies inside the count subquery: every parent is kept, and only the matching rows are counted. It may name the counted model and the tables its `join_on` reads; any other table raises `ValueError`, since it would multiply the counts
+- **Row-Level Policies with `PolicyConfig`** by [@igorbenav](https://github.com/igorbenav)
+  - `FastCRUD(Model, policy=PolicyConfig(...))` decides which operations are allowed and which rows each one reaches, in the manner of Postgres row-level security; `policy=None`, the default, changes nothing
+  - `read`, `update` and `delete` take `True` for every row, `False` to deny, or SQLAlchemy conditions; `create` takes `True` or `False`. Everything is denied unless granted, so `PolicyConfig()` denies every operation
+  - Reads (`select`, `get`, `exists`, `count`, `get_multi`, `get_multi_by_cursor`, `get_joined`, `get_multi_joined` and their `total_count`) reach only rows matching `read`; updates and deletes reach only rows matching `read` and their own rule. Rows outside reach behave as absent: reads leave them out and writes raise `NoResultFound`
+  - The caller's `where=` and keyword filters are AND-ed with the policy and can never widen it; `where=true()` means every row in reach, and a write with no filters is still refused
+  - `create_check` and `update_check` are conditions a written row must meet, checked after a flush in a savepoint: a row that fails is rolled back without discarding the caller's earlier work in the session, even with `commit=False`. `update_check` defaults to the `update` condition
+  - A soft delete is governed by `delete`, and `delete(db_row=...)` checks the row against it first
+  - Rows written outside `read` are still returned by `create` and `update`; Postgres would refuse the `RETURNING` there
+  - The policy covers the base model only: joined rows are filtered only by the join's `JoinConfig.where`, and relationship data in a create or update is refused
+  - `crud.with_policy(policy)` returns a copy under another policy and leaves the original unchanged, for an instance shared across requests
+  - `upsert` and `upsert_multi` work under a policy on SQLite, PostgreSQL and MySQL. The keys are looked up first, locking existing rows with `SELECT ... FOR UPDATE`: new keys need `create` and must pass `create_check`, and conflicting rows must be within `update`'s reach and pass `update_check`. A conflicting row outside the reach raises `AccessDenied` with `reason="row"`, as Postgres refuses an `ON CONFLICT DO UPDATE` whose row fails its `USING`; one the caller's own `where=` skips stays silently skipped. The column rules apply to each record and to `update_override`, and unwritable columns are left out of both the insert and the conflict update. PostgreSQL and SQLite enforce the reach in `ON CONFLICT DO UPDATE ... WHERE` and check every supplied key that wasn't written, so a conflicting row another transaction inserted after the lookup is refused too; MySQL checks the locked rows first, which blocks concurrent inserts of missing keys only under `REPEATABLE READ`. A row inserted concurrently after the lookup gets `create_check`. On MySQL, `upsert_multi` under a policy with `create_check` needs every record's primary key, since it can't return the created rows
+  - `hidden_columns` are left out of everything reads, `create` and `update` return, and the caller may not filter or sort by them, name them in `where=` or a join's `where` (subqueries and aliases included; raw SQL such as `text()`, `column()` and `literal_column()` is refused when columns are hidden, since it can't be inspected), or write them. A response model that requires one raises `AccessDenied` before any query; an optional field is just left out. Joined reads still nest by a hidden primary key and link `nested_limit` joins by a hidden column, dropping them from the results. The policy's own conditions may use them
+  - `read_only_columns` may be read but not written: a create or update that sets one, even to `None`, raises `AccessDenied`, and an unset one is left out of the `INSERT`. Server code that sets such a column, such as `owner_id`, passes it as `server_data`
+  - Column rules restrict the caller's input only: the columns FastCRUD writes itself, such as `updated_at` and the soft delete columns, are written as usual. A name that isn't a column of the model raises `ValueError` when the policy is attached
+  - `create` and `update` take a keyword-only `server_data`: column values server code writes, such as an owner taken from the request's user. They win over the caller's values for the same field and are exempt from the column rules, but they're part of the row `create_check` and `update_check` see
+  - `crud_router` and `EndpointCreator` take `policy=`, a FastAPI dependency returning the request's `PolicyConfig`, or `None` for no restriction on that request, resolved per request like the `*_deps` callables. `AccessDenied` becomes a 403 and rows outside the policy a 404. Without it, a `crud` with its own policy keeps it for every request; passing both raises `ValueError`. Endpoint `auto_fields` are written as `server_data`, the create endpoint's unique-value check runs without the policy, but only after a denied create is refused and only on columns the caller may write, so it can't reveal values they can't see; the delete endpoint's `auto_fields` update runs without the policy, and rows read back after a write are returned even when they're outside `read`
+  - `AccessDenied`, exported from `fastcrud`, is raised for a denied operation, a written row that fails its check, or data the policy doesn't let the caller write; its `reason` (`"operation"`, `"check"`, `"columns"`, or `"row"` for an upsert meeting an existing row outside its reach), `operation`, `model` and `columns` tell them apart
 
 #### Changed
 - **`where` is a reserved keyword argument**: a model column named `where` can no longer be filtered as `where=value`; use `where=Model.where == value`
@@ -29,9 +46,17 @@ ___
 - **A query naming a model it doesn't join raises `ValueError`**: such a condition pairs every row with every row of that model, which SQLAlchemy only warned about while FastCRUD returned the wrong rows, or updated and deleted them. Join the model, name its alias, or test it in a subquery such as `Author.articles.any(...)`. `refuse_a_cartesian_product` is exported from `fastcrud.core`
 - **Errors on the `nested_limit` path propagate**: a join condition or filter the separate query can't apply used to leave the nested lists empty; it now raises `ValueError`. That includes an unknown column in `JoinConfig.filters`, which used to be ignored, a self-referential join without an alias, and a `schema_to_select` that leaves out the column the join links parents by, which used to leave the nested key out
 - **A one-to-many `JoinConfig` with `nested_limit` and `join_type="inner"` raises `ValueError`**: its rows come from a query of their own, so the inner join never removed parents and `join_type` was silently ignored. Use a left join, and choose parents with the method's `where=` or a subquery such as `Author.articles.any(...)`
+- **`db_delete` raises `NoResultFound` when it reaches no row**, as `delete` and `update` do, policy or not; it used to succeed without deleting anything. The `db_delete` endpoint answers such a request with a 404 instead of a 200
+- **`server_data` is a reserved keyword argument of `update`**, as `where` is: a model column named `server_data` can no longer be filtered as `server_data=value`
 - **`fetch_and_merge_one_to_many` no longer takes `pk_column_name`**: each join's `join_on` now names the parent column its children are matched by, so direct callers of this `fastcrud.core` function must drop the argument
 
 #### Fixed
+- **Creating a record with nested related objects** by [@Bhavana257](https://github.com/Bhavana257) (closes [#282](https://github.com/benavlabs/fastcrud/issues/282))
+  - `create()` with a schema carrying nested related objects crashed with `AttributeError: 'dict' object has no attribute '_sa_instance_state'`, because `model_dump()` turns them into plain dicts
+  - Relationship fields are now built as their models, to any depth; a to-many relationship given something other than a list, or a to-one given a list, raises a `ValueError` naming the field, and a relationship set to `None` is treated as nothing to relate
+- **Endpoint filters on values FastAPI has already parsed** by [@avyuga](https://github.com/avyuga)
+  - A filter on a `UUID` column, among others, failed because the generated filter dependency converted a value that FastAPI had already parsed, and `UUID()` can't take a `UUID`
+  - A value that's already of the filter's type is now passed through as is, and so is one that converting would fail or mangle
 - **`upsert` of an existing record** raised `MultipleResultsFound` once the table held more than one row, because it ran the update with no filters; it now updates only that record
 - **`total_count` with `nested_limit` joins** counted the joined rows those joins fetch separately, so their filters changed the count of parents returned
 - **Aliased `nested_limit` joins** returned every child twice, from a query that read both the model and its alias
@@ -39,6 +64,15 @@ ___
 - **`nested_limit` children went missing** when the join's `schema_to_select` left out the foreign key, or the foreign key's attribute is named differently from its column, as through a named alias of a joined-table inheritance model
 - **`nested_limit` joins linked by a column other than the primary key** matched children against the parents' primary keys, giving them to the wrong parents or to none; they now match the column the `join_on` names, and parents sharing a value share their children
 - **Auto-detected one-to-many relationships between joined-table inheritance models** were skipped, logged as `has no attribute 'c'`, so `auto_detect_relationships` left them out of the results; they're now joined through the flat alias auto-detection builds for models that share tables
+
+#### What's Changed
+* Fix the changelog by [@igorbenav](https://github.com/igorbenav) in https://github.com/benavlabs/fastcrud/pull/335
+* Support nested related object creation in `FastCRUD.create()` by [@Bhavana257](https://github.com/Bhavana257) in https://github.com/benavlabs/fastcrud/pull/336
+* Fix dynamic filter type coercion when FastAPI pre-parses query params by [@avyuga](https://github.com/avyuga) in https://github.com/benavlabs/fastcrud/pull/337
+* `where=`: SQLAlchemy conditions on every read and write by [@igorbenav](https://github.com/igorbenav) in https://github.com/benavlabs/fastcrud/pull/338
+* `JoinConfig.where` and `CountConfig.where` by [@igorbenav](https://github.com/igorbenav) in https://github.com/benavlabs/fastcrud/pull/339
+
+**Full Changelog**: https://github.com/benavlabs/fastcrud/compare/v0.22.3...v0.23.0
 
 ___
 

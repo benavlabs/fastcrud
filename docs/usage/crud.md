@@ -418,6 +418,7 @@ db_delete(
     db: AsyncSession, 
     allow_multiple: bool = False,
     commit: bool = True,
+    where: WhereClause = None,
     **kwargs: Any,
 ) -> None
 ```
@@ -428,6 +429,8 @@ db_delete(
 ```python
 await item_crud.db_delete(db, id=item_id)
 ```
+
+Like `delete` and `update`, it raises `NoResultFound` when no record matches, and `MultipleResultsFound` when several do without `allow_multiple=True`.
 
 ---
 

@@ -1,3 +1,4 @@
+from functools import wraps
 from typing import Type, Optional, Callable, Sequence, Union, Any, cast, Awaitable
 from enum import Enum
 from datetime import datetime
@@ -25,8 +26,10 @@ from fastcrud.types import (
     SelectSchemaType,
     UpdateSchemaType,
 )
+from ..exceptions.access import AccessDenied
 from ..exceptions.http_exceptions import (
     DuplicateValueException,
+    ForbiddenException,
     NotFoundException,
     BadRequestException,
 )
@@ -43,6 +46,7 @@ from ..core import (
     UpdateConfig,
     DeleteConfig,
     JoinConfig,
+    PolicyConfig,
     inject_dependencies,
     apply_model_pk,
     create_dynamic_filters,
@@ -93,6 +97,10 @@ class EndpointCreator:
         nest_joins: If `True`, nested data structures will be returned where joined model data are nested as dictionaries or lists. Defaults to `True`.
         include_one_to_many: If `True`, include one-to-many relationships when auto-detecting. Defaults to `False` for safety since
             one-to-many JOINs can return unbounded data. This is ignored when specific relationship names are provided.
+        policy: Optional FastAPI dependency returning the `PolicyConfig` for the current request, or `None` for no
+            restriction on that request. It's resolved per request, like the `*_deps` callables, and applied to that
+            request's operations: `AccessDenied` becomes a 403 and rows outside the policy a 404. Without it, a `crud`
+            with its own policy keeps it for every request; passing both raises `ValueError`.
 
     Raises:
         ValueError: If both `included_methods` and `deleted_methods` are provided.
@@ -296,6 +304,7 @@ class EndpointCreator:
         nest_joins: bool = True,
         default_nested_limit: int | None = None,
         include_one_to_many: bool = False,
+        policy: Callable[..., PolicyConfig | None] | None = None,
     ) -> None:
         self._primary_keys = get_primary_key_columns(model)
         self._primary_keys_types = {
@@ -313,6 +322,12 @@ class EndpointCreator:
             updated_at_column=updated_at_column,
             custom_filters=custom_filters,
         )
+        if policy is not None and self.crud.policy is not None:
+            raise ValueError(
+                "The crud already has a policy and policy= would replace it on every "
+                "request: pass one or the other"
+            )
+        self.policy = policy
         self.model = model
         self.create_schema = create_schema
         self.update_schema = update_schema
@@ -452,63 +467,12 @@ class EndpointCreator:
         """
         if cursor is None:
             return
-
-        # Integer validation with precise range checks based on SQLAlchemy type
-        if sqlalchemy_type is not None and isinstance(
-            sqlalchemy_type, (Integer, BigInteger, SmallInteger)
-        ):
-            try:
-                cursor_int = int(cursor)
-
-                # Define ranges for different integer types
-                INT16_MIN, INT16_MAX = -32768, 32767  # SmallInteger
-                INT32_MIN, INT32_MAX = -2147483648, 2147483647  # Integer
-                INT64_MIN, INT64_MAX = (
-                    -9223372036854775808,
-                    9223372036854775807,
-                )  # BigInteger
-
-                # Determine range based on SQLAlchemy type
-                if isinstance(sqlalchemy_type, BigInteger):
-                    min_val, max_val = INT64_MIN, INT64_MAX
-                    type_name = "BIGINT"
-                elif isinstance(sqlalchemy_type, SmallInteger):
-                    min_val, max_val = INT16_MIN, INT16_MAX
-                    type_name = "SMALLINT"
-                else:  # Integer (default for int-like types)
-                    min_val, max_val = INT32_MIN, INT32_MAX
-                    type_name = "INTEGER"
-
-                if cursor_int < min_val or cursor_int > max_val:
-                    raise BadRequestException(
-                        detail=f"Cursor value {cursor} exceeds valid {type_name} range ({min_val} to {max_val}) for column '{column_name}'"
-                    )
-            except (ValueError, TypeError):
-                raise BadRequestException(
-                    detail=f"Invalid cursor value for integer column '{column_name}': {cursor}"
-                )
-            return
-
-        # Datetime validation
-        if python_type == datetime:
-            if isinstance(cursor, str):
-                try:
-                    # Handle both ISO format and common datetime formats
-                    datetime.fromisoformat(cursor.replace("Z", "+00:00"))
-                except (ValueError, TypeError):
-                    raise BadRequestException(
-                        detail=f"Invalid cursor value for datetime column '{column_name}': {cursor}. Expected ISO 8601 format (e.g., '2024-01-01T12:00:00')."
-                    )
-
-        # UUID validation
+        if isinstance(sqlalchemy_type, Integer):
+            _validate_integer_cursor(cursor, sqlalchemy_type, column_name)
+        elif python_type == datetime:
+            _validate_datetime_cursor(cursor, column_name)
         elif python_type == UUID:
-            if isinstance(cursor, str):
-                try:
-                    UUID(cursor)
-                except (ValueError, TypeError):
-                    raise BadRequestException(
-                        detail=f"Invalid cursor value for UUID column '{column_name}': {cursor}. Expected valid UUID format (e.g., '123e4567-e89b-12d3-a456-426614174000')."
-                    )
+            _validate_uuid_cursor(cursor, column_name)
 
     def _create_cursor_validator(self) -> Callable:
         """
@@ -545,7 +509,6 @@ class EndpointCreator:
                 BadRequestException: If cursor value doesn't match column type constraints
             """
             if query.cursor is not None and query.sort_column:
-                # Get both SQLAlchemy type (for precise int range) and Python type (for datetime/UUID)
                 sqlalchemy_type = self.sqlalchemy_column_types.get(query.sort_column)
                 python_type = self.column_types.get(query.sort_column)
 
@@ -559,6 +522,42 @@ class EndpointCreator:
             return query
 
         return validate_pagination_args
+
+    def _request_policy_dependency(self) -> Callable[..., PolicyConfig | None]:
+        """The dependency resolving the request's policy, or one keeping the crud's."""
+        return self.policy or _keep_the_cruds_policy
+
+    def _crud_for(self, request_policy: PolicyConfig | None) -> FastCRUD:
+        """The crud for a request: under the request's policy when ``policy=`` is set."""
+        if self.policy is None:
+            return self.crud
+        return self.crud.with_policy(request_policy)
+
+    def _crud_reading_back(self, crud: FastCRUD) -> FastCRUD:
+        """
+        The crud an endpoint reads a written row back with.
+
+        A written row is returned even when it's outside the policy's ``read``, so
+        the read-back uses the same policy with ``read=True``; hidden columns stay
+        hidden.
+        """
+        if crud.policy is None:
+            return crud
+        return crud.with_policy(crud.policy.model_copy(update={"read": True}))
+
+    def _refusing_access_denied(
+        self, endpoint: Callable[..., Awaitable[Any]]
+    ) -> Callable[..., Awaitable[Any]]:
+        """An endpoint that answers a policy's ``AccessDenied`` with a 403."""
+
+        @wraps(endpoint)
+        async def refusing_access_denied(*args: Any, **kwargs: Any) -> Any:
+            try:
+                return await endpoint(*args, **kwargs)
+            except AccessDenied as denied:
+                raise ForbiddenException(detail=str(denied))
+
+        return refusing_access_denied
 
     def _should_include_relationships(self) -> bool:
         """Check if relationships should be included in responses."""
@@ -610,20 +609,27 @@ class EndpointCreator:
             db: AsyncSession = Depends(self.session),
             item: BaseModel = Body(...),
             auto_fields: dict = Depends(auto_field_injector),
+            request_policy: Any = Depends(self._request_policy_dependency()),
         ):
+            crud = self._crud_for(request_policy)
+            if crud.policy is not None and not crud.policy.grants("create"):
+                raise AccessDenied("create", self.model)
             unique_columns = get_unique_columns(self.model)
+            unwritable = crud.policy.unwritable_columns if crud.policy else frozenset()
 
             for column in unique_columns:
                 col_name = column.name
-                if hasattr(item, col_name):
+                if hasattr(item, col_name) and col_name not in unwritable:
                     value = getattr(item, col_name)
-                    exists = await self.crud.exists(db, **{col_name: value})
+                    exists = await crud.with_policy(None).exists(
+                        db, **{col_name: value}
+                    )
                     if exists:  # pragma: no cover
                         raise DuplicateValueException(
                             f"Value {value} is already registered"
                         )
 
-            if auto_fields:
+            if auto_fields and crud.policy is None:
                 item_dict = item.model_dump()
                 item_dict.update(auto_fields)
                 db_object = self.model(**item_dict)
@@ -636,7 +642,7 @@ class EndpointCreator:
                     pk_values = {
                         pk: getattr(db_object, pk) for pk in self.primary_key_names
                     }
-                    result = await self.crud.get_joined(
+                    result = await crud.get_joined(
                         db,
                         schema_to_select=cast(type[BaseModel], self.select_schema)
                         if self.select_schema
@@ -649,8 +655,11 @@ class EndpointCreator:
                     return result
                 return db_object
 
-            created_item = await self.crud.create(
-                db, item, schema_to_select=self.select_schema
+            created_item = await crud.create(
+                db,
+                item,
+                schema_to_select=self.select_schema,
+                server_data=auto_fields or None,
             )
 
             join_params = self._get_join_params()
@@ -665,7 +674,7 @@ class EndpointCreator:
                         for pk in self.primary_key_names
                     }
 
-                result = await self.crud.get_joined(
+                result = await self._crud_reading_back(crud).get_joined(
                     db,
                     schema_to_select=cast(type[BaseModel], self.select_schema)
                     if self.select_schema
@@ -687,10 +696,15 @@ class EndpointCreator:
         """Creates an endpoint for reading a single item from the database."""
 
         @apply_model_pk(**self._primary_keys_types)
-        async def endpoint(db: AsyncSession = Depends(self.session), **pkeys):
+        async def endpoint(
+            db: AsyncSession = Depends(self.session),
+            request_policy: Any = Depends(self._request_policy_dependency()),
+            **pkeys,
+        ):
+            crud = self._crud_for(request_policy)
             join_params = self._get_join_params()
             if self._should_include_relationships() and join_params:
-                item = await self.crud.get_joined(
+                item = await crud.get_joined(
                     db,
                     schema_to_select=cast(type[BaseModel], self.select_schema)
                     if self.select_schema
@@ -702,14 +716,14 @@ class EndpointCreator:
                 )
             else:
                 if self.select_schema is not None:
-                    item = await self.crud.get(
+                    item = await crud.get(
                         db,
                         schema_to_select=cast(type[BaseModel], self.select_schema),
                         return_as_model=True,
                         **pkeys,
                     )
                 else:
-                    item = await self.crud.get(db, **pkeys)
+                    item = await crud.get(db, **pkeys)
             if not item:  # pragma: no cover
                 raise NotFoundException(detail="Item not found")
             return item  # pragma: no cover
@@ -743,7 +757,9 @@ class EndpointCreator:
             db: AsyncSession = Depends(self.session),
             query: PaginatedRequestQuery = Depends(),
             filters: dict = Depends(dynamic_filters),
+            request_policy: Any = Depends(self._request_policy_dependency()),
         ) -> dict[str, Any] | PaginatedListResponse | ListResponse:
+            crud = self._crud_for(request_policy)
             is_paginated = (query.page is not None) or (
                 query.items_per_page is not None
             )
@@ -784,7 +800,7 @@ class EndpointCreator:
 
             join_params = self._get_join_params()
             if self._should_include_relationships() and join_params:
-                crud_data = await self.crud.get_multi_joined(
+                crud_data = await crud.get_multi_joined(
                     db,
                     offset=offset,  # type: ignore
                     limit=limit,  # type: ignore
@@ -798,7 +814,7 @@ class EndpointCreator:
                 )
             else:
                 if self.select_schema is not None:
-                    crud_data = await self.crud.get_multi(
+                    crud_data = await crud.get_multi(
                         db,
                         offset=offset,  # type: ignore
                         limit=limit,  # type: ignore
@@ -809,7 +825,7 @@ class EndpointCreator:
                         **filters,
                     )
                 else:
-                    crud_data = await self.crud.get_multi(
+                    crud_data = await crud.get_multi(
                         db,
                         offset=offset,  # type: ignore
                         limit=limit,  # type: ignore
@@ -823,7 +839,7 @@ class EndpointCreator:
                     crud_data=crud_data,
                     page=page,  # type: ignore
                     items_per_page=items_per_page,  # type: ignore
-                    multi_response_key=self.crud.multi_response_key,
+                    multi_response_key=crud.multi_response_key,
                 )
 
             return cast(dict[str, Any], crud_data)  # pragma: no cover
@@ -846,19 +862,18 @@ class EndpointCreator:
             item: BaseModel = Body(...),
             db: AsyncSession = Depends(self.session),
             auto_fields: dict = Depends(auto_field_injector),
+            request_policy: Any = Depends(self._request_policy_dependency()),
             **pkeys,
         ):
+            crud = self._crud_for(request_policy)
             try:
-                if auto_fields:
-                    item_dict = item.model_dump(exclude_unset=True)
-                    item_dict.update(auto_fields)
-                    updated_item = await self.crud.update(db, item_dict, **pkeys)
-                else:
-                    updated_item = await self.crud.update(db, item, **pkeys)
+                updated_item = await crud.update(
+                    db, item, server_data=auto_fields or None, **pkeys
+                )
 
                 join_params = self._get_join_params()
                 if self._should_include_relationships() and join_params:
-                    result = await self.crud.get_joined(
+                    result = await self._crud_reading_back(crud).get_joined(
                         db,
                         schema_to_select=cast(type[BaseModel], self.select_schema)
                         if self.select_schema
@@ -887,19 +902,21 @@ class EndpointCreator:
         async def endpoint(
             db: AsyncSession = Depends(self.session),
             auto_fields: dict = Depends(auto_field_injector),
+            request_policy: Any = Depends(self._request_policy_dependency()),
             **pkeys,
         ):
+            crud = self._crud_for(request_policy)
             try:
-                await self.crud.delete(db, **pkeys)
+                await crud.delete(db, **pkeys)
 
                 if auto_fields:
-                    await self.crud.update(
+                    await crud.with_policy(None).update(
                         db, auto_fields, allow_multiple=False, **pkeys
                     )
 
                 join_params = self._get_join_params()
                 if self._should_include_relationships() and join_params:
-                    result = await self.crud.get_joined(
+                    result = await self._crud_reading_back(crud).get_joined(
                         db,
                         schema_to_select=cast(type[BaseModel], self.select_schema)
                         if self.select_schema
@@ -929,11 +946,16 @@ class EndpointCreator:
         """
 
         @apply_model_pk(**self._primary_keys_types)
-        async def endpoint(db: AsyncSession = Depends(self.session), **pkeys):
+        async def endpoint(
+            db: AsyncSession = Depends(self.session),
+            request_policy: Any = Depends(self._request_policy_dependency()),
+            **pkeys,
+        ):
+            crud = self._crud_for(request_policy)
             item_to_delete = None
             join_params = self._get_join_params()
             if self._should_include_relationships() and join_params:
-                item_to_delete = await self.crud.get_joined(
+                item_to_delete = await crud.get_joined(
                     db,
                     schema_to_select=cast(type[BaseModel], self.select_schema)
                     if self.select_schema
@@ -944,7 +966,10 @@ class EndpointCreator:
                     **pkeys,
                 )
 
-            await self.crud.db_delete(db, **pkeys)
+            try:
+                await crud.db_delete(db, **pkeys)
+            except NoResultFound:
+                raise NotFoundException(detail="Item not found")
 
             if item_to_delete:
                 return item_to_delete
@@ -1076,7 +1101,7 @@ class EndpointCreator:
         if ("create" in included_methods) and ("create" not in deleted_methods):
             self.router.add_api_route(
                 self._get_endpoint_path(operation="create"),
-                self._create_item(),
+                self._refusing_access_denied(self._create_item()),
                 methods=["POST"],
                 include_in_schema=self.include_in_schema,
                 tags=self.tags,
@@ -1088,7 +1113,7 @@ class EndpointCreator:
         if ("read" in included_methods) and ("read" not in deleted_methods):
             self.router.add_api_route(
                 self._get_endpoint_path(operation="read"),
-                self._read_item(),
+                self._refusing_access_denied(self._read_item()),
                 methods=["GET"],
                 include_in_schema=self.include_in_schema,
                 tags=self.tags,
@@ -1110,7 +1135,7 @@ class EndpointCreator:
 
             self.router.add_api_route(
                 self._get_endpoint_path(operation="read_multi"),
-                self._read_items(),
+                self._refusing_access_denied(self._read_items()),
                 methods=["GET"],
                 include_in_schema=self.include_in_schema,
                 tags=self.tags,
@@ -1135,7 +1160,7 @@ class EndpointCreator:
         if ("update" in included_methods) and ("update" not in deleted_methods):
             self.router.add_api_route(
                 self._get_endpoint_path(operation="update"),
-                self._update_item(),
+                self._refusing_access_denied(self._update_item()),
                 methods=["PATCH"],
                 include_in_schema=self.include_in_schema,
                 tags=self.tags,
@@ -1148,7 +1173,7 @@ class EndpointCreator:
             path = self._get_endpoint_path(operation="delete")
             self.router.add_api_route(
                 path,
-                self._delete_item(),
+                self._refusing_access_denied(self._delete_item()),
                 methods=["DELETE"],
                 include_in_schema=self.include_in_schema,
                 tags=self.tags,
@@ -1164,7 +1189,7 @@ class EndpointCreator:
         ):
             self.router.add_api_route(
                 self._get_endpoint_path(operation="db_delete"),
-                self._db_delete(),
+                self._refusing_access_denied(self._db_delete()),
                 methods=["DELETE"],
                 include_in_schema=self.include_in_schema,
                 tags=self.tags,
@@ -1228,3 +1253,95 @@ class EndpointCreator:
             description=description,
             response_description=response_description,
         )
+
+
+_INTEGER_RANGES: tuple[tuple[type[Integer], str, int, int], ...] = (
+    (BigInteger, "BIGINT", -(2**63), 2**63 - 1),
+    (SmallInteger, "SMALLINT", -(2**15), 2**15 - 1),
+    (Integer, "INTEGER", -(2**31), 2**31 - 1),
+)
+
+
+def _integer_range(column_type: Integer) -> tuple[str, int, int]:
+    """
+    The SQL name and bounds of an integer column type.
+
+    ``BigInteger`` and ``SmallInteger`` subclass ``Integer``, so they're matched
+    before it.
+    """
+    return next(
+        (name, lowest, highest)
+        for kind, name, lowest, highest in _INTEGER_RANGES
+        if isinstance(column_type, kind)
+    )
+
+
+def _validate_integer_cursor(
+    cursor: Any, column_type: Integer, column_name: str
+) -> None:
+    """
+    Refuse a cursor that isn't an integer, or that's outside the column type's range.
+
+    Raises:
+        BadRequestException: Naming the column, and the range when it's exceeded.
+    """
+    try:
+        cursor_int = int(cursor)
+    except (ValueError, TypeError):
+        raise BadRequestException(
+            detail=f"Invalid cursor value for integer column '{column_name}': {cursor}"
+        )
+    type_name, min_val, max_val = _integer_range(column_type)
+    if not min_val <= cursor_int <= max_val:
+        raise BadRequestException(
+            detail=f"Cursor value {cursor} exceeds valid {type_name} range ({min_val} to {max_val}) for column '{column_name}'"
+        )
+
+
+def _validate_datetime_cursor(cursor: Any, column_name: str) -> None:
+    """
+    Refuse a string cursor that isn't an ISO 8601 datetime.
+
+    Raises:
+        BadRequestException: Naming the column and the expected format.
+    """
+    if not isinstance(cursor, str):
+        return
+    try:
+        _parse_iso_datetime(cursor)
+    except (ValueError, TypeError):
+        raise BadRequestException(
+            detail=f"Invalid cursor value for datetime column '{column_name}': {cursor}. Expected ISO 8601 format (e.g., '2024-01-01T12:00:00')."
+        )
+
+
+def _parse_iso_datetime(value: str) -> datetime:
+    """
+    Parse an ISO 8601 datetime, accepting a trailing ``Z`` for UTC.
+
+    ``datetime.fromisoformat`` only accepts the ``Z`` from Python 3.11, so it's
+    replaced by the equivalent ``+00:00`` first.
+    """
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def _validate_uuid_cursor(cursor: Any, column_name: str) -> None:
+    """
+    Refuse a string cursor that isn't a UUID.
+
+    Raises:
+        BadRequestException: Naming the column and the expected format.
+    """
+    if not isinstance(cursor, str):
+        return
+    try:
+        UUID(cursor)
+    except (ValueError, TypeError):
+        raise BadRequestException(
+            detail=f"Invalid cursor value for UUID column '{column_name}': {cursor}. Expected valid UUID format (e.g., '123e4567-e89b-12d3-a456-426614174000')."
+        )
+
+
+def _keep_the_cruds_policy() -> None:
+    """The request policy dependency when ``policy=`` isn't set: the crud's own applies."""
+    return None

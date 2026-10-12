@@ -58,7 +58,8 @@ Use this for: self-joins, custom join conditions, per-join schemas, per-join fil
 | `schema_to_select`  | no       | `None`         | Limit columns selected from this join                            |
 | `join_type`         | no       | `"left"`       | `"left"` or `"inner"`                                            |
 | `alias`             | no       | `None`         | Pass an `aliased(Model, flat=True)` for self-joins / polymorphic |
-| `filters`           | no       | `None`         | Dict of filters applied to this join's table                     |
+| `filters`           | no       | `None`         | Keyword filters on this join; choose **parents** on a joined query, filter nested rows under `nested_limit` |
+| `where`             | no       | `None`         | (v0.23+) SQLAlchemy conditions choosing which joined rows **attach**; parents are kept on a left join |
 | `relationship_type` | no       | `"one-to-one"` | Set `"one-to-many"` for collections                              |
 | `sort_columns`      | no       | `None`         | Sort nested items (one-to-many only)                             |
 | `sort_orders`       | no       | `None`         | `"asc"` / `"desc"` matching `sort_columns`                       |
@@ -191,3 +192,26 @@ Implemented as a scalar subquery, so every primary row is returned (with `0` for
 When calling FastCRUD methods directly, pass `nest_joins=True` explicitly if you want the nested shape — clients usually expect it. The router defaults to nesting because that's the typical API response shape; the direct method defaults to flat because it's the cheaper structure when you're consuming the rows in Python.
 
 **One-to-many always requires `nest_joins=True`** — `nest_joins=False` with a one-to-many `JoinConfig` raises `ValueError`.
+
+## `JoinConfig.where` and `CountConfig.where` (v0.23+)
+
+`JoinConfig.where` takes the same conditions as the methods' `where=` and decides which joined rows attach to each parent, never which parents come back:
+
+```python
+JoinConfig(
+    model=Article,
+    join_on=Author.id == Article.author_id,
+    join_prefix="articles_",
+    relationship_type="one-to-many",
+    where=Article.published,
+)
+```
+
+Every author comes back, each with only their published articles.
+
+- Left join: conditions go in the `ON` clause; parents without a match keep `None` / `[]`. Inner join: they're left out.
+- `nested_limit`: conditions go in the separate per-parent query and may name only the related model. A `nested_limit` one-to-many join can't be `join_type="inner"` (`ValueError`).
+- With `alias=`, name the alias's columns; naming the unaliased model raises `ValueError`.
+- To choose **parents** by their joined rows, use the method's `where=` or `Author.articles.any(...)`.
+
+`CountConfig.where` applies inside the count subquery: every parent is kept, only matching rows are counted. It may name only the counted model and the tables its `join_on` reads.

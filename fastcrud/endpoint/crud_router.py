@@ -12,7 +12,14 @@ from fastcrud.types import (
     SelectSchemaType,
 )
 from .endpoint_creator import EndpointCreator
-from ..core import FilterConfig, CreateConfig, UpdateConfig, DeleteConfig, JoinConfig
+from ..core import (
+    FilterConfig,
+    CreateConfig,
+    UpdateConfig,
+    DeleteConfig,
+    JoinConfig,
+    PolicyConfig,
+)
 from ..core.filtering.operators import FilterCallable
 
 
@@ -50,6 +57,7 @@ def crud_router(
     nest_joins: bool = True,
     default_nested_limit: int | None = None,
     include_one_to_many: bool = False,
+    policy: Callable[..., PolicyConfig | None] | None = None,
 ) -> APIRouter:
     """
     Creates and configures a FastAPI router with CRUD endpoints for a given model.
@@ -101,6 +109,10 @@ def crud_router(
         include_one_to_many: If `True`, include one-to-many relationships when auto-detecting.
             Defaults to `False` for safety since one-to-many JOINs can return unbounded data.
             This is ignored when specific relationship names are provided via `include_relationships`.
+        policy: Optional FastAPI dependency returning the `PolicyConfig` for the current request, or `None`
+            for no restriction on that request, resolved per request like the `*_deps` callables. `AccessDenied`
+            becomes a 403 and rows outside the policy a 404. Without it, a `crud` with its own policy keeps it for
+            every request; passing both raises `ValueError`.
 
     Returns:
         Configured `APIRouter` instance with the CRUD endpoints.
@@ -580,6 +592,7 @@ def crud_router(
         default_nested_limit=default_nested_limit,
         include_one_to_many=include_one_to_many,
         custom_filters=custom_filters,
+        policy=policy,
     )
 
     endpoint_creator_instance.add_routes_to_router(

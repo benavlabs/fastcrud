@@ -14,7 +14,7 @@ FastCRUD generates async CRUD methods (and optionally CRUD endpoints) for SQLAlc
 - **`FastCRUD(Model)`** — the data-access class. Use this for per-row CRUD operations (single-record get / create / update / delete, paginated lists, joins with relationships). Real codebases use this in services, workers, and custom endpoints.
 - **`crud_router(...)`** — returns an `APIRouter` with create/read/update/delete endpoints auto-wired. Use this only when you want generated endpoints; many apps skip it and hand-roll FastAPI routes on top of `FastCRUD` instances.
 
-This skill covers the public API across `fastcrud >= 0.22`. SQLAlchemy is the default ORM in examples; SQLModel works the same way except where noted.
+This skill covers the public API across `fastcrud >= 0.22`; features marked (v0.23+) need `fastcrud >= 0.23`. SQLAlchemy is the default ORM in examples; SQLModel works the same way except where noted.
 
 **Before reaching for FastCRUD, check the [When NOT to use FastCRUD](#when-not-to-use-fastcrud) section below.** Aggregate roll-ups, CTEs, `GROUP BY` projections, and bulk writes are SQLAlchemy's job — FastCRUD is for per-row CRUD.
 
@@ -246,7 +246,7 @@ FastCRUD is the right tool for **per-row CRUD on a single model**, optionally wi
 | Query shape                                                              | Use instead                                       |
 |--------------------------------------------------------------------------|---------------------------------------------------|
 | Aggregate roll-up (`SUM`, conditional `COUNT FILTER WHERE`, `HAVING`)    | `select(func.sum(...), func.count().filter(...))` |
-| CTEs, correlated subqueries, `EXISTS()` filters                          | `select(...).where(~exists().where(...))`         |
+| CTEs                                                                     | `select(...)` with `.cte()`                       |
 | `GROUP BY` with derived columns (`Project + count(clips)`)               | `select(Project, func.count(Clip.id)).group_by(Project.id)` |
 | Bulk `UPDATE ... WHERE id IN (...)` with column-expression RHS           | `update(...).values(expires_at=Model.expires_at + interval)` |
 | Bulk `INSERT` (more than ~10 rows)                                       | `db.execute(insert(Model), records)`              |
@@ -269,6 +269,24 @@ FastCRUD is the right tool for **per-row CRUD on a single model**, optionally wi
 3. **`get_multi(limit=None)` then Python filtering** — push the filter into kwargs so the database does the work.
 4. **`crud.get()` in a hot path without `schema_to_select`** — selects every column. Pass a minimal schema to cut payload size.
 5. **Loop of `crud.create()`** — calls go one-at-a-time. For >10 rows use `crud.upsert_multi(...)` or raw `db.execute(insert(Model), records)`.
+
+6. **Hand-written `select(...).where(...)` for an OR group, a column comparison or an `EXISTS`** (v0.23+) — pass the condition as `where=` to the FastCRUD method instead: `await crud.get_multi(db, where=(Post.owner_id == me) | Post.published)`.
+
+---
+
+## `where=` and row-level policies (v0.23+)
+
+Every read and write takes `where=`: one SQLAlchemy condition or a list of them, AND-ed with the keyword filters. Use it for what keyword filters can't express — OR groups, column-to-column comparisons, `.any()` / `.has()` / `exists()` subqueries:
+
+```python
+active_or_mine = await post_crud.get_multi(
+    db, where=Post.published | (Post.owner_id == me), is_deleted=False
+)
+```
+
+`JoinConfig.where` chooses which joined rows attach to each parent, never which parents come back (`JoinConfig.filters` does that); `CountConfig.where` chooses which rows are counted.
+
+`FastCRUD(Model, policy=PolicyConfig(...))` — or `crud.with_policy(policy)` per request — restricts every operation the way Postgres row-level security does: rows outside the policy behave as absent, writes can only reach rows the caller can read, and `create_check` / `update_check` validate written rows. `crud_router(policy=...)` resolves a policy per request and turns `AccessDenied` into a 403. Read `references/policies.md` before writing policy code.
 
 ---
 
@@ -412,6 +430,10 @@ If you want every read to exclude soft-deleted rows automatically, wrap `FastCRU
 11. **Joined-table polymorphic inheritance is supported.** v0.22.0 fixed auto-aliasing when primary and joined share a base table; v0.22.2 fixed inherited columns missing from `create()` responses.
 12. **SQLModel joined-table inheritance is fragile** — redeclaring `id` in a subclass breaks the SQLModel metaclass mapping. Stick to plain SQLAlchemy if you need polymorphism.
 13. **Python 3.10+ required.** Python 3.14 works since v0.22.1 (earlier versions crashed at import under PEP 649).
+14. **`update` / `delete` / `db_delete` refuse to run with no filters** (v0.23+), including `where=[]`. Pass `where=true()` to reach every row on purpose.
+15. **A condition naming a model the query doesn't join raises `ValueError`** (v0.23+) instead of returning a cartesian product. Join the model, or use `.any()` / `.has()`.
+16. **`db_delete` raises `NoResultFound` when nothing matches** (v0.23+), like `delete` and `update`.
+17. **`where` and `server_data` are reserved keyword arguments** (v0.23+): `where` on every read and write, so a column named `where` can't be filtered by keyword (use `where=Model.where == value`); `server_data` only on `update`, the one method that takes both it and keyword filters.
 
 ---
 
@@ -424,6 +446,7 @@ Load these on demand:
 - `references/joins.md` — `JoinConfig` fields, auto-detection rules, `nested_limit` mechanics, polymorphism
 - `references/pagination.md` — offset vs cursor pagination, `paginated_response`, `CursorPaginatedRequestQuery`
 - `references/endpoints.md` — `crud_router` full signature, `EndpointCreator` subclassing, `included_methods`, per-method dependencies, soft delete, custom endpoint names
+- `references/policies.md` — `PolicyConfig`, `AccessDenied`, `with_policy`, column rules, `server_data`, upserts and endpoints under a policy (v0.23+)
 
 ---
 
@@ -445,3 +468,4 @@ class User(SQLModel, table=True):
 Schemas can also be `SQLModel` (without `table=True`) instead of `BaseModel`. The CRUD layer is identical because SQLModel inherits from SQLAlchemy. One caveat:
 
 - **Joined-table inheritance is unreliable** — see gotcha #11. For polymorphic models, drop to plain SQLAlchemy.
+- **Conditions need `col()` for type checkers** (v0.23+) — SQLModel types `Hero.age > 18` as `bool`, so write `col(Hero.age) > 18` in `where=`, `JoinConfig.where` and policy rules.

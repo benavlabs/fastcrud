@@ -83,7 +83,7 @@ Returns the SQLAlchemy `Select` statement without executing. Use when you need t
 
 ## Writes
 
-### `create(db, object, commit=True, schema_to_select=None, return_as_model=False)`
+### `create(db, object, commit=True, schema_to_select=None, return_as_model=False, *, server_data=None)`
 
 Insert one row. Returns `None` by default (since v0.20.0) — pass `schema_to_select` to get back data.
 
@@ -110,7 +110,7 @@ Batch upsert via dialect-specific `ON CONFLICT` (Postgres / SQLite) or `ON DUPLI
 - **MySQL caveat:** doesn't support `RETURNING`, so passing `return_columns` / `schema_to_select` / `return_as_model` / filter kwargs raises `ValueError` on MySQL.
 - Unsupported dialects raise `NotImplementedError`.
 
-### `update(db, object, commit=True, return_columns=None, schema_to_select=None, return_as_model=False, allow_multiple=False, **kwargs)`
+### `update(db, object, commit=True, return_columns=None, schema_to_select=None, return_as_model=False, allow_multiple=False, where=None, server_data=None, **kwargs)`
 
 Patch by filters. `kwargs` select the row(s); `object` (Pydantic model or dict) carries the new values.
 
@@ -133,7 +133,9 @@ Two execution paths with slightly different rules:
 
 You almost always want the filter path. The `db_row` path exists for cases where you've already loaded the row for another reason.
 
-### `db_delete(db, allow_multiple=False, commit=True, **kwargs)`
+### `db_delete(db, allow_multiple=False, commit=True, where=None, **kwargs)`
+
+Since v0.23, raises `NoResultFound` when no row matches, like `delete` and `update`.
 
 Always hard delete (`DELETE FROM ...`), regardless of soft-delete configuration.
 
@@ -174,3 +176,9 @@ result = await crud.get(db, id=1, schema_to_select=UserAdminRead, return_as_mode
 ```
 
 No `cast()` needed — the previous version required it.
+
+## v0.23 additions
+
+- **`where=`** on every read and write: SQLAlchemy conditions AND-ed with the keyword filters (see `filters.md`).
+- **`server_data=`** on `create` and `update`: column values server code writes (e.g. `{"owner_id": user.id}`); they win over the caller's values and skip a policy's column rules but are part of the row its checks see.
+- **`with_policy(policy)`** returns a copy of the instance under another `PolicyConfig` (see `policies.md`).

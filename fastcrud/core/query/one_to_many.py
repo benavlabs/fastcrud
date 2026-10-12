@@ -362,6 +362,21 @@ async def _fetch_children_by_parent(
     return children
 
 
+def parent_link_attributes(
+    one_to_many_configs: Sequence["JoinConfig"], primary_model: "ModelType"
+) -> set[str]:
+    """The primary model's attributes the nested_limit joins link their children by."""
+    return {
+        _attribute_name(
+            primary_model,
+            split_join_condition(
+                config.join_on, config.alias or config.model, primary_model
+            ).parent_column,
+        )
+        for config in one_to_many_configs
+    }
+
+
 def split_join_configs(
     joins_config: list["JoinConfig"],
 ) -> tuple[list["JoinConfig"], list["JoinConfig"]]:
