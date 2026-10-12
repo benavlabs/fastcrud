@@ -143,3 +143,18 @@ For the full registration protocol see `fastcrud.core.filtering.operators.Filter
 If a filter key doesn't match any column and isn't a registered operator, FastCRUD raises `ValueError`. There's no silent fall-through, so a typo in `"price__gtee"` will be caught — but only at query time, not at startup.
 
 For startup-time validation, instantiate the `FilterConfig` early in your app and call `validate_joined_filter_path` (from `fastcrud.core.config`) against each joined key if you want to fail fast.
+
+## SQLAlchemy conditions with `where=` (v0.23+)
+
+Every read and write takes `where=`: one SQLAlchemy condition, or a list of them that must all hold, AND-ed with the keyword filters.
+
+```python
+await crud.get_multi(db, where=(Post.owner_id == me) | (Post.region == "EU"))
+await crud.count(db, where=[Task.finished_at > Task.due_at, Task.owner_id == me])
+await crud.get_multi(db, where=Author.articles.any(Article.published))
+await crud.update(db, {"archived": True}, allow_multiple=True, where=true())
+```
+
+- Conditions may be expressions, boolean columns (`User.active`) or `text()`; anything else (e.g. a Python `bool` from `"a" == status`) raises `TypeError`.
+- A condition naming a model the query doesn't join raises `ValueError`; use `.any()` / `.has()` for related models.
+- Writes with no filters at all are refused, including `where=[]`; `where=true()` reaches every row on purpose.

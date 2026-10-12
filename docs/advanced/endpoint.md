@@ -184,6 +184,7 @@ FastCRUD automates the creation of CRUD (Create, Read, Update, Delete) endpoints
 - **Path Parameters**: `id` - The ID of the item to hard delete.
 - **Example Request**: `DELETE /items/db_delete/1`.
 - **Example Return**: `None`
+- Note: If no item is found by ID, the generated endpoint returns a 404 Not Found with detail "Item not found".
 
 ## Selective CRUD Operations
 
@@ -691,6 +692,50 @@ For more details on auto-detection, see [Auto-Detecting Relationships](joins.md#
     - Use `joins_config` for full control over join conditions and schemas
     - For high-throughput write endpoints, consider disabling relationships entirely
 
+
+## Row-Level Policies
+
+`crud_router` and `EndpointCreator` take `policy=`, a FastAPI dependency returning the [`PolicyConfig`](policies.md) for the current request, or `None` for no restriction on that request. It's resolved per request, like the `*_deps` callables, so it can depend on the current user:
+
+```python
+from fastapi import Depends
+from fastcrud import CreateConfig, PolicyConfig, crud_router
+
+def post_policy(user: User = Depends(get_current_user)) -> PolicyConfig | None:
+    if user.is_admin:
+        return None
+    return PolicyConfig(
+        read=Post.published | (Post.owner_id == user.id),
+        create=True,
+        update=Post.owner_id == user.id,
+        delete=Post.owner_id == user.id,
+        read_only_columns={"owner_id"},
+    )
+
+def current_user_id(user: User = Depends(get_current_user)) -> int:
+    return user.id
+
+router = crud_router(
+    session=get_session,
+    model=Post,
+    create_schema=PostCreate,
+    update_schema=PostUpdate,
+    path="/posts",
+    tags=["posts"],
+    policy=post_policy,
+    create_config=CreateConfig(auto_fields={"owner_id": current_user_id}),
+)
+```
+
+Every generated endpoint applies the request's policy to its operations:
+
+- **A refusal is a 403.** `AccessDenied` becomes a 403 Forbidden with its message as the detail, for example "create on Post is not allowed by the policy". That includes filtering or sorting the list endpoint by a hidden column.
+- **A row outside the policy is a 404**, as for a row that doesn't exist, on the read, update, delete and hard delete endpoints.
+- **`auto_fields` are server-written.** They're passed as `server_data`, so they win over the request body and skip the column rules: in the example above, `owner_id` is read-only for the caller but set from the current user. They're still part of the row `create_check` and `update_check` see. The delete endpoint's `auto_fields` update runs without the policy, after the policy-checked delete succeeds.
+- **The create endpoint's unique-value check** runs without the policy, so a duplicate outside the caller's `read` gets the usual 422 instead of a database error. It runs only after a denied create is refused, and only on columns the caller may write, so it never reveals values the caller can't see.
+- **A written row is read back even outside `read`.** When an endpoint returns the row it wrote with its relationships, it reads it with the same policy and `read=True`. Hidden columns stay hidden.
+
+Without `policy=`, a `crud` that has its own policy keeps it for every request. Passing both a `crud` with a policy and `policy=` raises `ValueError` when the router is built, instead of the per-request policy silently replacing it.
 
 ## Extending `EndpointCreator`
 
