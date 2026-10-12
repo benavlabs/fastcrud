@@ -199,3 +199,30 @@ async def test_or_filter_with_in_operator_list(async_session, test_model):
 
     # This should match all tier_ids (1,2,3,4)
     assert len(result["data"]) == 4
+
+
+@pytest.mark.asyncio
+async def test_or_and_not_filters_with_flat_collection_values(
+    async_session, test_model
+):
+    """A flat list is the value of in, not_in and between inside OR and NOT filters"""
+    for tier_id, name in [(1, "Alice"), (2, "Bob"), (3, "Charlie"), (4, "David")]:
+        async_session.add(test_model(name=name, tier_id=tier_id, category_id=1))
+    await async_session.commit()
+
+    crud = FastCRUD(test_model)
+
+    async def tiers(**filters):
+        result = await crud.get_multi(async_session, sort_columns="tier_id", **filters)
+        return [item["tier_id"] for item in result["data"]]
+
+    assert await tiers(tier_id__or={"in": [1, 4]}) == [1, 4]
+    assert await tiers(tier_id__or={"between": [2, 3]}) == [2, 3]
+    assert await tiers(tier_id__or={"in": [1], "gt": 3}) == [1, 4]
+    assert await tiers(tier_id__not={"in": [1, 4]}) == [2, 3]
+    assert await tiers(tier_id__not={"between": [2, 3]}) == [1, 4]
+    assert await tiers(tier_id__not={"not_in": [2, 3]}) == [2, 3]
+
+    # lists of collections still mean several collections
+    assert await tiers(tier_id__or={"between": [[1, 1], [4, 4]]}) == [1, 4]
+    assert await tiers(tier_id__not={"in": [[1], [4]]}) == [2, 3]
