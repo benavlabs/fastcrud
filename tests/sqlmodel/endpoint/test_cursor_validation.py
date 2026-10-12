@@ -241,3 +241,8 @@ def test_cursor_smallint_overflow(client):
     assert response.status_code == 400
     data = response.json()
     assert "SMALLINT" in data["detail"]
+
+
+def test_non_string_datetime_and_uuid_cursors_are_left_to_the_database():
+    EC._validate_cursor_value(datetime(2024, 1, 1), None, datetime, "created_at")
+    EC._validate_cursor_value(uuid4(), None, UUID, "uuid")

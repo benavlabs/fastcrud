@@ -332,3 +332,55 @@ async def test_the_unique_value_check_never_reveals_a_value_the_caller_cant_writ
     assert (taken.status_code, taken.json()) == (free.status_code, free.json())
     assert taken.status_code == 403
     assert taken.json()["detail"] == detail
+
+
+def _tier_join(test_model, tier_model):
+    return JoinConfig(
+        model=tier_model,
+        join_on=test_model.tier_id == tier_model.id,
+        join_prefix="tier_",
+    )
+
+
+class ItemWithTier(BaseModel):
+    id: int
+    name: str | None = None
+    tier: dict | None = None
+
+
+async def test_create_and_db_delete_return_the_row_with_its_joins_under_a_policy(
+    seeded, test_model, tier_model
+):
+    client = _client(
+        seeded,
+        test_model,
+        policy=_role_policy(test_model, read=True),
+        select_schema=ItemWithTier,
+        joins_config=[_tier_join(test_model, tier_model)],
+    )
+
+    created = client.post(
+        "/items", json={"name": "New", "tier_id": 1, "category_id": 1}
+    )
+    deleted = client.delete("/items/db_delete/5")
+
+    assert created.status_code == 200
+    assert created.json()["tier"]["name"] == "Premium"
+    assert deleted.status_code == 200
+    assert deleted.json()["id"] == 5 and deleted.json()["tier"]["name"] == "Premium"
+
+
+async def test_create_with_auto_fields_and_joins_without_a_policy(
+    seeded, test_model, tier_model
+):
+    client = _client(
+        seeded,
+        test_model,
+        create_config=CreateConfig(auto_fields={"tier_id": _server_tier}),
+        joins_config=[_tier_join(test_model, tier_model)],
+    )
+
+    created = client.post("/items", json={"name": "New", "category_id": 1})
+
+    assert created.status_code == 200
+    assert created.json()["tier"]["name"] == "Premium"

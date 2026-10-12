@@ -7,7 +7,7 @@ from sqlalchemy import or_, true
 from sqlalchemy.exc import MultipleResultsFound, NoResultFound
 
 from fastcrud import AccessDenied, FastCRUD, JoinConfig, PolicyConfig
-from ..conftest import CategoryModel
+from ..conftest import CategoryModel, MultiPkModel
 
 pytestmark = pytest.mark.asyncio
 
@@ -504,3 +504,19 @@ async def test_select_carries_the_read_condition(async_session, crud, test_model
     rows = await async_session.execute(statement.where(test_model.id.in_([1, 3])))
 
     assert [row.id for row in rows] == [1]
+
+
+async def test_checks_match_rows_by_a_composite_primary_key(async_session):
+    async_session.add(MultiPkModel(id=1, uuid="a", name="First"))
+    await async_session.commit()
+    crud = FastCRUD(MultiPkModel).with_policy(
+        PolicyConfig(read=True, update=True, update_check=MultiPkModel.name != "Taken")
+    )
+
+    await crud.update(async_session, {"name": "Kept"}, id=1, uuid="a")
+    with pytest.raises(AccessDenied) as denied:
+        await crud.update(async_session, {"name": "Taken"}, id=1, uuid="a")
+
+    row = await FastCRUD(MultiPkModel).get(async_session, id=1, uuid="a")
+    assert denied.value.reason == "check"
+    assert row is not None and row["name"] == "Kept"

@@ -405,3 +405,53 @@ async def test_upsert_multi_refuses_a_row_inserted_after_the_lookup(
     assert denied.value.operation == "update"
     assert denied.value.reason == reason
     assert 20 not in names and names[id] != "Upserted"
+
+
+@pytest.mark.dialect("sqlite")
+async def test_upsert_multi_writes_records_without_a_primary_key_yet(
+    async_session, unrestricted, test_model
+):
+    crud = unrestricted.with_policy(
+        _policy(test_model, create_check=test_model.tier_id == 1)
+    )
+
+    result = await crud.upsert_multi(
+        async_session,
+        [ItemWithoutKey(name="Keyless", tier_id=1, category_id=1)],
+        commit=True,
+        return_columns=["id", "name"],
+    )
+
+    assert result is not None and [row["name"] for row in result["data"]] == ["Keyless"]
+    assert await unrestricted.exists(async_session, name="Keyless")
+
+
+@pytest.mark.parametrize("dialect", WITH_RETURNING)
+async def test_an_unconditional_update_keeps_the_callers_where_skipping_rows(
+    async_session, unrestricted, test_model, dialect
+):
+    crud = unrestricted.with_policy(_policy(test_model, read=True, update=True))
+
+    result = await crud.upsert_multi(
+        async_session,
+        [_item(1), _item(5)],
+        commit=True,
+        return_columns=["id"],
+        where=test_model.name != "Charlie",
+    )
+
+    names = await _names(async_session, unrestricted)
+    assert result is not None and [row["id"] for row in result["data"]] == [5]
+    assert names[1] == "Charlie" and names[5] == "Upserted"
+
+
+@pytest.mark.dialect("mysql")
+async def test_upsert_multi_on_mysql_refuses_where_and_returning_under_a_policy(
+    async_session, crud, test_model
+):
+    with pytest.raises(ValueError, match="does not support filtering"):
+        await crud.upsert_multi(
+            async_session, [_item(20)], where=test_model.name != "Charlie"
+        )
+    with pytest.raises(ValueError, match="does not support the returning clause"):
+        await crud.upsert_multi(async_session, [_item(20)], return_columns=["id"])
