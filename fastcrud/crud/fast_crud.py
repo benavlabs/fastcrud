@@ -12,6 +12,7 @@ from sqlalchemy import (
     delete,
     func,
     column,
+    false,
 )
 from sqlalchemy.exc import MultipleResultsFound, NoResultFound
 from sqlalchemy.sql import Join
@@ -78,6 +79,8 @@ from .policy_enforcement import (
     refuse_schema_requiring_hidden,
     refuse_unwritable_data,
     row_in_reach,
+    existing_keys,
+    keys_in_reach,
     without_hidden_columns,
     without_hidden_fields,
 )
@@ -968,6 +971,230 @@ class FastCRUD(
             )
         return schema_to_select(**out)
 
+    async def _upsert_under_policy(
+        self,
+        db: AsyncSession,
+        instance: Any,
+        schema_to_select: type[SelectSchemaType] | None,
+        return_as_model: bool,
+    ) -> SelectSchemaType | dict[str, Any] | None:
+        """
+        Upsert one record under the policy.
+
+        The key is looked up regardless of the policy. An existing row outside the
+        update's reach raises ``AccessDenied``, as Postgres refuses an
+        ``ON CONFLICT DO UPDATE`` whose row fails its ``USING``: treating it as
+        absent would mean inserting it, which would collide, so the refusal has
+        ``reason="row"``. Otherwise the record
+        is updated or created, with the policy's rules and checks, and the written
+        row is returned even when it's outside ``read``, without hidden columns.
+        """
+        schema = schema_to_select or type(instance)
+        self._refuse_response_schema(schema, return_as_model)
+        primary_key = self._get_pk_dict(instance)
+        key = tuple(primary_key.values())
+        if await existing_keys(db, self.model, [key]):
+            reach = self._reach("update")
+            if not await keys_in_reach(db, self.model, [key], reach):
+                raise AccessDenied("update", self.model, reason="row")
+            await self.update(db, instance, **primary_key)
+        else:
+            await self.create(db, instance)
+
+        written = await self.with_policy(None).get(
+            db, schema_to_select=schema, **primary_key
+        )
+        if written is None:
+            return None
+        visible = without_hidden_fields(self.policy, written)
+        return schema(**visible) if return_as_model else visible
+
+    async def _upsert_multi_under_policy(
+        self,
+        db: AsyncSession,
+        instances: list[Any],
+        commit: bool,
+        return_columns: list[str] | None,
+        schema_to_select: type[SelectSchemaType] | None,
+        return_as_model: bool,
+        update_override: dict[str, Any],
+        where: WhereClause,
+        **kwargs: Any,
+    ) -> UpsertMultiResponseDict | None:
+        """
+        Upsert many records under the policy, in a savepoint.
+
+        The keys are looked up first, locking the existing rows: new keys need
+        ``create`` and conflicting ones ``update``, and each instance's data is
+        checked against the column rules for its operation, before anything is
+        written. PostgreSQL and SQLite put the update's reach in
+        ``ON CONFLICT DO UPDATE ... WHERE`` (``false`` when the policy denies
+        updates) and return the written keys. Every supplied key that wasn't
+        written met a conflicting row, even one another transaction inserted after
+        the lookup: one outside the reach raises ``AccessDenied``, and one the
+        caller's own ``where=`` skipped stays skipped. MySQL has no such ``WHERE``, so the conflicting rows are checked
+        against the reach before the upsert. Created rows must then pass
+        ``create_check`` and updated ones ``update_check``; any refusal rolls the
+        savepoint back. On PostgreSQL, a row inserted concurrently after the
+        lookup gets ``create_check`` while ``ON CONFLICT ... WHERE`` still applies
+        the reach.
+        """
+        assert self.policy is not None
+        policy = self.policy
+        dialect = db.bind.dialect.name
+        self._refuse_response_schema(schema_to_select, return_as_model)
+        refuse_hidden_input(policy, self.model, filters=kwargs, where=where)
+        refuse_unwritable_data(policy, self.model, "update", update_override)
+        filters = self._filter_processor.parse_filters(where=where, **kwargs)
+        is_mysql = dialect in ["mysql", "mariadb"]
+        if is_mysql and filters:
+            raise ValueError("MySQL does not support filtering on insert operations.")
+        if is_mysql and (return_columns or schema_to_select or return_as_model):
+            raise ValueError(
+                "MySQL does not support the returning clause for insert operations."
+            )
+
+        primary_key_names = [
+            inspect(self.model).mapper.get_property_by_column(column).key
+            for column in self._primary_keys
+        ]
+        keys = [
+            tuple(getattr(instance, name, None) for name in primary_key_names)
+            for instance in instances
+        ]
+        if (
+            is_mysql
+            and policy.create_check is not None
+            and any(None in key for key in keys)
+        ):
+            raise ValueError(
+                "upsert_multi on MySQL under a policy with create_check needs every "
+                "instance's primary key, to check the created rows without RETURNING"
+            )
+
+        async with db.begin_nested():
+            conflicting = await existing_keys(db, self.model, keys)
+            is_new = [None in key or key not in conflicting for key in keys]
+            if any(is_new) and not policy.grants("create"):
+                raise AccessDenied("create", self.model)
+            if conflicting and not policy.grants("update"):
+                raise AccessDenied("update", self.model)
+            for instance, new in zip(instances, is_new):
+                operation: Literal["create", "update"] = "create" if new else "update"
+                refuse_relationship_data(
+                    policy, self.model, operation, instance.model_dump()
+                )
+                refuse_unwritable_data(
+                    policy, self.model, operation, instance.model_fields_set
+                )
+            reach = self._reach("update") if policy.grants("update") else [false()]
+            if (
+                is_mysql
+                and await keys_in_reach(db, self.model, conflicting, reach)
+                != conflicting
+            ):
+                raise AccessDenied("update", self.model, reason="row")
+
+            statement, params = await self._policy_upsert_statement(
+                dialect, instances, [*filters, *reach], update_override, policy
+            )
+            requested = return_columns or (
+                self.model_col_names if return_as_model else []
+            )
+            hidden_keys = hidden_column_keys(policy, self.model)
+            requested = [name for name in requested if name not in hidden_keys]
+            if is_mysql:
+                await db.execute(statement, params)
+                written_rows: list[dict[str, Any]] = []
+                inserted = {key for key, new in zip(keys, is_new) if new}
+                updated = conflicting
+            else:
+                key_columns = [column.key for column in self._primary_keys]
+                result = await db.execute(
+                    statement.returning(
+                        *[
+                            column(name)
+                            for name in dict.fromkeys([*key_columns, *requested])
+                        ]
+                    ),
+                    params,
+                )
+                written_rows = [dict(row) for row in result.mappings()]
+                written = {
+                    tuple(row[name] for name in key_columns) for row in written_rows
+                }
+                skipped = {key for key in keys if None not in key} - written
+                if await keys_in_reach(db, self.model, skipped, reach) != skipped:
+                    raise AccessDenied(
+                        "update",
+                        self.model,
+                        reason="row" if policy.grants("update") else "operation",
+                    )
+                inserted = written - conflicting
+                updated = written & conflicting
+            await refuse_rows_failing_check(
+                db,
+                self.model,
+                list(inserted),
+                policy.check_conditions_for("create"),
+                "create",
+            )
+            await refuse_rows_failing_check(
+                db,
+                self.model,
+                list(updated),
+                policy.check_conditions_for("update"),
+                "update",
+            )
+        if commit:
+            await db.commit()
+        if not requested:
+            return None
+        rows_data = [{name: row[name] for name in requested} for row in written_rows]
+        return {
+            "data": format_multi_response(rows_data, schema_to_select, return_as_model)
+        }
+
+    async def _policy_upsert_statement(
+        self,
+        dialect: str,
+        instances: list[Any],
+        conflict_conditions: list[Any],
+        update_override: dict[str, Any],
+        policy: PolicyConfig,
+    ) -> tuple[Any, list[dict]]:
+        """The dialect's upsert, leaving the policy's unwritable columns out."""
+        key_names = [column.name for column in self._primary_keys]
+        if dialect == "postgresql":
+            return await upsert_multi_postgresql(
+                self.model,
+                key_names,
+                instances,
+                conflict_conditions,
+                update_override,
+                left_out=policy.unwritable_columns,
+            )
+        if dialect == "sqlite":
+            return await upsert_multi_sqlite(
+                self.model,
+                key_names,
+                instances,
+                conflict_conditions,
+                update_override,
+                left_out=policy.unwritable_columns,
+            )
+        if dialect in ["mysql", "mariadb"]:
+            return await upsert_multi_mysql(
+                self.model,
+                instances,
+                update_override,
+                self.deleted_at_column,
+                left_out=policy.unwritable_columns,
+            )
+        raise NotImplementedError(  # pragma: no cover
+            f"Upsert multi is not implemented for {dialect}"
+        )
+
     def _get_pk_dict(self, instance):
         return {pk.name: getattr(instance, pk.name) for pk in self._primary_keys}
 
@@ -1035,9 +1262,8 @@ class FastCRUD(
             - When `return_as_model=False`: `Dict[str, Any]`
         """
         if self.policy is not None:
-            raise NotImplementedError(
-                "upsert doesn't support a policy yet: use get, create and update, "
-                "or an instance without a policy"
+            return await self._upsert_under_policy(
+                db, instance, schema_to_select, return_as_model
             )
         _pks = self._get_pk_dict(instance)
         schema_to_select = schema_to_select or type(instance)  # type: ignore
@@ -1171,9 +1397,16 @@ class FastCRUD(
             NotImplementedError: If the database dialect is not supported for upsert multi.
         """
         if self.policy is not None:
-            raise NotImplementedError(
-                "upsert_multi doesn't support a policy yet: use create and update, "
-                "or an instance without a policy"
+            return await self._upsert_multi_under_policy(
+                db,
+                instances,
+                commit=commit,
+                return_columns=return_columns,
+                schema_to_select=schema_to_select,
+                return_as_model=return_as_model,
+                update_override=update_override or {},
+                where=where,
+                **kwargs,
             )
         if update_override is None:
             update_override = {}

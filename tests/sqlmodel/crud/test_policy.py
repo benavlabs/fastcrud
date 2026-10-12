@@ -485,11 +485,16 @@ async def test_create_takes_a_relationship_left_empty(
     ],
     ids=["upsert", "upsert_multi"],
 )
-async def test_upserts_refuse_a_policy_for_now(async_session, crud, upsert):
+async def test_upserts_refuse_a_conflicting_row_outside_read(
+    async_session, crud, upsert
+):
     outside_read = ItemCreate(id=3, name="Taken", tier_id=1, category_id=2)
 
-    with pytest.raises(NotImplementedError, match="doesn't support a policy yet"):
+    with pytest.raises(AccessDenied) as denied:
         await upsert(crud, async_session, outside_read)
+
+    assert denied.value.operation == "update"
+    assert denied.value.reason == "row"
 
 
 async def test_select_carries_the_read_condition(async_session, crud, test_model):

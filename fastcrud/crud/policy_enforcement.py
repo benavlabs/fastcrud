@@ -388,3 +388,44 @@ def hidden_column_keys(policy: PolicyConfig | None, model: Any) -> frozenset[str
         for name in hidden_columns_of(policy)
         for column in mapper.get_property(name).columns
     )
+
+
+async def existing_keys(
+    db: AsyncSession, model: Any, keys: Iterable[tuple[Any, ...]]
+) -> set[tuple[Any, ...]]:
+    """
+    The primary keys among ``keys`` whose rows exist, regardless of any policy.
+
+    The rows are locked with ``SELECT ... FOR UPDATE`` where the database supports
+    it, so they can't change before the upsert that follows. On MySQL under
+    ``REPEATABLE READ``, the lock also blocks concurrent inserts of the missing
+    keys; under ``READ COMMITTED`` it doesn't. SQLite has a single writer and no
+    ``FOR UPDATE``.
+    """
+    wanted = [key for key in keys if None not in key]
+    if not wanted:
+        return set()
+    columns = sa_inspect(model).primary_key
+    result = await db.execute(
+        select(*columns).where(primary_key_in(model, wanted)).with_for_update()
+    )
+    return {tuple(row) for row in result}
+
+
+async def keys_in_reach(
+    db: AsyncSession,
+    model: Any,
+    keys: Iterable[tuple[Any, ...]],
+    conditions: Sequence[Condition],
+) -> set[tuple[Any, ...]]:
+    """The primary keys among ``keys`` whose rows match ``conditions``."""
+    wanted = list(keys)
+    if not wanted:
+        return set()
+    if not conditions:
+        return set(wanted)
+    statement = select(*sa_inspect(model).primary_key).where(
+        primary_key_in(model, wanted), *conditions
+    )
+    refuse_a_cartesian_product(statement)
+    return {tuple(row) for row in await db.execute(statement)}

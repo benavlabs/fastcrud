@@ -1,16 +1,17 @@
 """
 The exception a policy raises when it refuses a write or a read outright.
 
-Rows outside a policy's reach behave as if they didn't exist, so they never raise
-this: reads leave them out, and writes raise ``NoResultFound`` as for a row that
-isn't there. ``AccessDenied`` is for a denied operation, a written row that fails
-its check, and data the policy doesn't let the caller write.
+Rows outside a policy's reach behave as if they didn't exist: reads leave them
+out, and writes raise ``NoResultFound`` as for a row that isn't there.
+``AccessDenied`` is for a denied operation, a written row that fails its check,
+data the policy doesn't let the caller write, and an upsert that meets an existing
+row outside its reach, which it can't treat as absent: inserting it would collide.
 """
 
 from collections.abc import Sequence
 from typing import Any, Literal
 
-AccessDeniedReason = Literal["operation", "check", "columns"]
+AccessDeniedReason = Literal["operation", "check", "columns", "row"]
 ColumnAction = Literal["write", "filter", "return"]
 
 _PAST_PARTICIPLES = {"create": "created", "update": "updated"}
@@ -27,8 +28,10 @@ class AccessDenied(Exception):
         columns: The fields involved when ``reason`` is ``"columns"``.
         reason: Why the policy refused it: ``"operation"`` when the policy
             denies the operation itself, ``"check"`` when a written row fails
-            ``create_check`` or ``update_check``, and ``"columns"`` when the data
-            names fields the caller may not write, filter on, sort by or get back.
+            ``create_check`` or ``update_check``, ``"columns"`` when the data
+            names fields the caller may not write, filter on, sort by or get back,
+            and ``"row"`` when an upsert meets an existing row outside the
+            operation's reach, which it can neither update nor insert again.
         action: For ``reason="columns"``, what the caller tried to do with the
             columns: ``"write"`` them, ``"filter"`` or sort by them, or
             ``"return"`` them through a response schema that requires them;
@@ -68,6 +71,8 @@ class AccessDenied(Exception):
             return f"the {written} {model_name} doesn't pass {self.operation}_check"
         if self.reason == "columns":
             return self._columns_message(model_name)
+        if self.reason == "row":
+            return f"the existing {model_name} is outside {self.operation}'s reach"
         return f"{self.operation} on {model_name} is not allowed by the policy"
 
     def _columns_message(self, model_name: str) -> str:
