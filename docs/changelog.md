@@ -51,6 +51,12 @@ ___
 - **`fetch_and_merge_one_to_many` no longer takes `pk_column_name`**: each join's `join_on` now names the parent column its children are matched by, so direct callers of this `fastcrud.core` function must drop the argument
 
 #### Fixed
+- **Creating a record with nested related objects** by [@Bhavana257](https://github.com/Bhavana257) (closes [#282](https://github.com/benavlabs/fastcrud/issues/282))
+  - `create()` with a schema carrying nested related objects crashed with `AttributeError: 'dict' object has no attribute '_sa_instance_state'`, because `model_dump()` turns them into plain dicts
+  - Relationship fields are now built as their models, to any depth; a to-many relationship given something other than a list, or a to-one given a list, raises a `ValueError` naming the field, and a relationship set to `None` is treated as nothing to relate
+- **Endpoint filters on values FastAPI has already parsed** by [@avyuga](https://github.com/avyuga)
+  - A filter on a `UUID` column, among others, failed because the generated filter dependency converted a value that FastAPI had already parsed, and `UUID()` can't take a `UUID`
+  - A value that's already of the filter's type is now passed through as is, and so is one that converting would fail or mangle
 - **`upsert` of an existing record** raised `MultipleResultsFound` once the table held more than one row, because it ran the update with no filters; it now updates only that record
 - **`total_count` with `nested_limit` joins** counted the joined rows those joins fetch separately, so their filters changed the count of parents returned
 - **Aliased `nested_limit` joins** returned every child twice, from a query that read both the model and its alias
@@ -60,6 +66,9 @@ ___
 - **Auto-detected one-to-many relationships between joined-table inheritance models** were skipped, logged as `has no attribute 'c'`, so `auto_detect_relationships` left them out of the results; they're now joined through the flat alias auto-detection builds for models that share tables
 
 #### What's Changed
+* Fix the changelog by [@igorbenav](https://github.com/igorbenav) in https://github.com/benavlabs/fastcrud/pull/335
+* Support nested related object creation in `FastCRUD.create()` by [@Bhavana257](https://github.com/Bhavana257) in https://github.com/benavlabs/fastcrud/pull/336
+* Fix dynamic filter type coercion when FastAPI pre-parses query params by [@avyuga](https://github.com/avyuga) in https://github.com/benavlabs/fastcrud/pull/337
 * `where=`: SQLAlchemy conditions on every read and write by [@igorbenav](https://github.com/igorbenav) in https://github.com/benavlabs/fastcrud/pull/338
 * `JoinConfig.where` and `CountConfig.where` by [@igorbenav](https://github.com/igorbenav) in https://github.com/benavlabs/fastcrud/pull/339
 
