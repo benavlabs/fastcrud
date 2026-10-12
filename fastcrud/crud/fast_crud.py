@@ -14,7 +14,7 @@ from sqlalchemy import (
     column,
     false,
 )
-from sqlalchemy.exc import MultipleResultsFound, NoResultFound
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.sql import Join
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.engine.row import Row
@@ -641,6 +641,7 @@ class FastCRUD(
         commit: bool = True,
         schema_to_select: type[_OverrideSchemaType],
         return_as_model: Literal[True],
+        server_data: dict[str, Any] | None = None,
     ) -> _OverrideSchemaType: ...
 
     @overload
@@ -652,6 +653,7 @@ class FastCRUD(
         commit: bool = True,
         schema_to_select: None = None,
         return_as_model: Literal[False] = False,
+        server_data: dict[str, Any] | None = None,
     ) -> None: ...
 
     @overload
@@ -663,6 +665,7 @@ class FastCRUD(
         commit: bool = True,
         schema_to_select: type[SelectSchemaType],
         return_as_model: Literal[False] = False,
+        server_data: dict[str, Any] | None = None,
     ) -> dict[str, Any]: ...
 
     @overload
@@ -674,6 +677,7 @@ class FastCRUD(
         commit: bool = True,
         schema_to_select: type[SelectSchemaType] | None = None,
         return_as_model: bool = False,
+        server_data: dict[str, Any] | None = None,
     ) -> None | SelectSchemaType | dict[str, Any]: ...
 
     async def create(  # type: ignore[misc]
@@ -683,6 +687,8 @@ class FastCRUD(
         commit: bool = True,
         schema_to_select: type[SelectSchemaType] | None = None,
         return_as_model: bool = False,
+        *,
+        server_data: dict[str, Any] | None = None,
     ) -> None | SelectSchemaType | dict[str, Any]:
         """
         Create a new record in the database.
@@ -693,6 +699,9 @@ class FastCRUD(
             commit: If `True`, commits the transaction immediately. Default is `True`.
             schema_to_select: Pydantic schema for selecting specific columns.
             return_as_model: If `True`, returns data as an instance of `schema_to_select`.
+            server_data: Column values server code writes, such as an owner set from the request's
+                user. They win over the caller's values for the same field and are exempt from the
+                policy's column rules, but they're part of the row its checks see.
 
         Returns:
             The created database record or None:
@@ -710,6 +719,7 @@ class FastCRUD(
         if self.policy is not None and not self.policy.grants("create"):
             raise AccessDenied("create", self.model)
         refuse_relationship_data(self.policy, self.model, "create", object_data)
+        server_columns = self._server_columns(server_data)
         refuse_unwritable_data(
             self.policy, self.model, "create", object.model_fields_set
         )
@@ -720,6 +730,7 @@ class FastCRUD(
                 if field in object.model_fields_set
                 or field not in self.policy.unwritable_columns
             }
+        object_data = {**object_data, **server_columns}
         object_dict = instantiate_related_objects(object_data, self.model)
         db_object: ModelType = self.model(**object_dict)
 
@@ -3286,6 +3297,7 @@ class FastCRUD(
         return_as_model: Literal[True],
         one_or_none: bool = False,
         where: WhereClause = None,
+        server_data: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> SelectSchemaType | None: ...
 
@@ -3302,6 +3314,7 @@ class FastCRUD(
         return_as_model: Literal[False] = False,
         one_or_none: bool = False,
         where: WhereClause = None,
+        server_data: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> dict[str, Any] | None: ...
 
@@ -3318,6 +3331,7 @@ class FastCRUD(
         return_as_model: Literal[False] = False,
         one_or_none: bool = False,
         where: WhereClause = None,
+        server_data: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> dict[str, Any] | None: ...
 
@@ -3334,6 +3348,7 @@ class FastCRUD(
         return_as_model: bool = False,
         one_or_none: bool = False,
         where: WhereClause = None,
+        server_data: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> dict[str, Any] | SelectSchemaType | None: ...
 
@@ -3348,6 +3363,7 @@ class FastCRUD(
         return_as_model: bool = False,
         one_or_none: bool = False,
         where: WhereClause = None,
+        server_data: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> dict | SelectSchemaType | None:
         """
@@ -3364,6 +3380,9 @@ class FastCRUD(
             schema_to_select: Pydantic schema for selecting specific columns from the updated record(s). Required if `return_as_model` is `True`.
             return_as_model: If `True`, returns the updated record(s) as Pydantic model instances based on `schema_to_select`. Default is False.
             one_or_none: If `True`, returns a single record if only one record matches the filters. Default is `False`.
+            server_data: Column values server code writes, such as an owner set from the request's
+                user. They win over the caller's values for the same field and are exempt from the
+                policy's column rules, but they're part of the row its checks see.
             where: SQLAlchemy conditions, AND-ed with the keyword filters: one condition
                 or a list of them. Use it for what keyword filters can't express, such as
                 `(Post.author == me) | (Post.region == "EU")`, column-to-column comparisons
@@ -3441,6 +3460,7 @@ class FastCRUD(
 
         reach = self._reach("update")
         written_data = self._written_data(object)
+        server_columns = self._server_columns(server_data)
         refuse_relationship_data(self.policy, self.model, "update", written_data)
         refuse_unwritable_data(self.policy, self.model, "update", written_data)
         refuse_hidden_input(self.policy, self.model, filters=kwargs, where=where)
@@ -3461,6 +3481,11 @@ class FastCRUD(
         update_data = prepare_update_data(
             object, self.model_col_names, self.updated_at_column, self.model
         )
+        mapper = inspect(self.model).mapper
+        update_data |= {
+            mapper.get_property(field).columns[0].key: value
+            for field, value in server_columns.items()
+        }
         stmt = update(self.model).filter(*filters_in_reach).values(update_data)
 
         if return_as_model:
@@ -3506,6 +3531,25 @@ class FastCRUD(
         if commit:
             await db.commit()
         return response
+
+    def _server_columns(self, server_data: dict[str, Any] | None) -> dict[str, Any]:
+        """
+        Validate that ``server_data`` holds column values only.
+
+        Raises:
+            ValueError: Naming the fields that aren't columns of the model, such
+                as relationships.
+        """
+        if not server_data:
+            return {}
+        columns = set(inspect(self.model).mapper.column_attrs.keys())
+        not_columns = sorted(set(server_data) - columns)
+        if not_columns:
+            raise ValueError(
+                f"server_data takes column values of {self.model.__name__}, "
+                f"got {', '.join(not_columns)}"
+            )
+        return dict(server_data)
 
     def _written_data(self, object: Any) -> dict[str, Any]:
         """The fields a create or update writes, as a dict."""
@@ -3617,18 +3661,14 @@ class FastCRUD(
         parsed_filters = [*parsed_filters, *reach]
         refuse_a_cartesian_product(select(self.model).where(*parsed_filters))
 
-        if (
-            not allow_multiple
-            and (
-                total_count := await self._count_in_reach(
-                    db, reach, where=where, **combined_filters
-                )
-            )
-            > 1
-        ):
-            raise MultipleResultsFound(
-                f"Expected exactly one record to delete, found {total_count}."
-            )
+        await validate_update_delete_operation(
+            partial(self._count_in_reach, reach=reach),
+            db,
+            allow_multiple,
+            "delete",
+            where=where,
+            **combined_filters,
+        )
         stmt = delete(self.model).filter(*parsed_filters)
         await db.execute(stmt)
         if commit:

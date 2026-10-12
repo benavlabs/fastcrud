@@ -532,3 +532,73 @@ async def test_any_works_under_hidden_columns(async_session):
 
     assert [author["id"] for author in result["data"]] == [2]
     assert "name" not in result["data"][0]
+
+
+class ItemNamedCreate(BaseModel):
+    id: int
+    name: str
+    category_id: int
+
+
+async def test_server_data_writes_read_only_columns_and_wins_over_the_caller(
+    async_session, unrestricted
+):
+    crud = unrestricted.with_policy(
+        _columns_policy(hidden_columns=frozenset(), read_only_columns={"tier_id"})
+    )
+
+    await crud.create(
+        async_session,
+        ItemNamedCreate(id=20, name="Caller", category_id=1),
+        server_data={"name": "Server", "tier_id": 2},
+    )
+    await crud.update(
+        async_session, {"category_id": 2}, server_data={"tier_id": 1}, id=20
+    )
+
+    row = await unrestricted.get(async_session, id=20)
+    assert row is not None
+    assert (row["name"], row["tier_id"], row["category_id"]) == ("Server", 1, 2)
+
+
+async def test_server_data_is_part_of_the_row_the_checks_see(
+    async_session, unrestricted, test_model
+):
+    crud = unrestricted.with_policy(
+        _columns_policy(
+            hidden_columns=frozenset(),
+            read_only_columns={"tier_id"},
+            create_check=test_model.tier_id == 1,
+        )
+    )
+
+    with pytest.raises(AccessDenied) as denied:
+        await crud.create(
+            async_session,
+            ItemNamedCreate(id=20, name="New", category_id=1),
+            server_data={"tier_id": 2},
+        )
+
+    assert denied.value.reason == "check"
+    assert not await unrestricted.exists(async_session, id=20)
+
+
+@pytest.mark.parametrize(
+    "write",
+    [
+        lambda crud, db: crud.create(
+            db,
+            ItemNamedCreate(id=20, name="New", category_id=1),
+            server_data={"tier": 1},
+        ),
+        lambda crud, db: crud.update(
+            db, {"name": "New"}, server_data={"tier": 1}, id=1
+        ),
+    ],
+    ids=["create", "update"],
+)
+async def test_server_data_takes_column_values_only(async_session, unrestricted, write):
+    with pytest.raises(
+        ValueError, match="server_data takes column values of ModelTest"
+    ):
+        await write(unrestricted, async_session)

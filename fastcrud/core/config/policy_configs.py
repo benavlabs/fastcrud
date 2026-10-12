@@ -63,8 +63,8 @@ class PolicyConfig(BaseModel):
         read_only_columns: Attribute names of columns the caller may see but not
             write: a create or update that sets one raises ``AccessDenied``. A
             field the caller leaves unset isn't written, so the database default
-            applies. Server code that sets one, such as ``owner_id``, writes
-            through ``with_policy(None)`` or a policy without this rule.
+            applies. Server code that sets one, such as ``owner_id``, passes it as
+            ``server_data`` to ``create`` or ``update``.
 
     Column rules restrict the caller's input only: the columns FastCRUD writes
     itself, such as ``updated_at`` and the soft delete columns, are written as

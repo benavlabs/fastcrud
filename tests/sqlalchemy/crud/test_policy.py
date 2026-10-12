@@ -389,7 +389,8 @@ async def test_delete_of_a_loaded_row_checks_it_against_delete(
 
 
 async def test_db_delete_reaches_only_rows_in_reach(async_session, crud, unrestricted):
-    await crud.db_delete(async_session, id=1)
+    with pytest.raises(NoResultFound):
+        await crud.db_delete(async_session, id=1)
     with pytest.raises(MultipleResultsFound, match="found 3"):
         await crud.db_delete(async_session, where=true())
     await crud.db_delete(async_session, id=2)
