@@ -1015,7 +1015,7 @@ class FastCRUD(
         written = await self.with_policy(None).get(
             db, schema_to_select=schema, **primary_key
         )
-        if written is None:
+        if written is None:  # pragma: no cover
             return None
         visible = without_hidden_fields(self.policy, written)
         return schema(**visible) if return_as_model else visible
@@ -1066,8 +1066,8 @@ class FastCRUD(
             )
 
         primary_key_names = [
-            inspect(self.model).mapper.get_property_by_column(column).key
-            for column in self._primary_keys
+            inspect(self.model).mapper.get_property_by_column(primary_key_column).key
+            for primary_key_column in self._primary_keys
         ]
         keys = [
             tuple(getattr(instance, name, None) for name in primary_key_names)
@@ -1120,7 +1120,9 @@ class FastCRUD(
                 inserted = {key for key, new in zip(keys, is_new) if new}
                 updated = conflicting
             else:
-                key_columns = [column.key for column in self._primary_keys]
+                key_columns = [
+                    primary_key_column.key for primary_key_column in self._primary_keys
+                ]
                 result = await db.execute(
                     statement.returning(
                         *[
